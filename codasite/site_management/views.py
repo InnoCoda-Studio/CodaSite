@@ -260,11 +260,14 @@ def invite_staff(request):
         email = request.POST.get('email')
         role = request.POST.get('role')
         site_id = request.POST.get('site_id')
+
+        # 1. Get the site or show 404 (Safely)
         site = get_object_or_404(SiteLocation, id=site_id)
 
-        # 1. Create the invitation in the DB
+        # 2. Create the invitation in the DB
         token = uuid.uuid4()
-        invite_link = Invitation.objects.create(
+        # We rename this variable to 'invitation_obj' so it doesn't clash with the string link later
+        invitation_obj = Invitation.objects.create(
             email=email,
             site=site,
             role_assigned=role,
@@ -272,12 +275,12 @@ def invite_staff(request):
             token=token
         )
 
-        # 2. Build the Invitation Link
-        # Replace 'innocoda.com' with your actual domain when live
-        # Add 'account/' before 'register/'
-        invite_link = f"http://127.0.0.1:8000/account/register/?token={token}"
+        # 3. Build the REAL Invitation Link (The Banana Island Move)
+        # This uses your actual Render URL
+        domain = "https://codasite.onrender.com"
+        invite_link = f"{domain}/account/register/?token={token}"
 
-        # 3. Send the Email
+        # 4. Send the Email
         subject = f"Invitation to join {site.name} on CodaSite"
         message = f"""
         Hello,
@@ -305,10 +308,9 @@ def invite_staff(request):
             messages.success(
                 request, f"Invitation sent successfully to {email}!")
         except Exception as e:
-            messages.error(
-                request, f"Email failed to send. Check your settings. Error: {e}")
+            messages.error(request, f"Email failed to send. Error: {e}")
 
-        return redirect('profile')
+        return redirect('index')  # Or wherever your dashboard is
 
 # Restock
 
