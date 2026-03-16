@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     # Tailwind down 👇🏻
     # 'tailwind',
     'theme',
-    'django_browser_reload',
+    # 'django_browser_reload',
     # tailwin up ☝🏻
     "account",
     "site_management",
