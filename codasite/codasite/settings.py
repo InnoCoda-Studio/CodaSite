@@ -10,37 +10,46 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os  # Make sure this is at the top of settings.py
 from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+# Cloudinary
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+load_dotenv(os.path.join(BASE_DIR, '.env'))  # 👈 Add this
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-jcaw#5j(@vep&pds%gp27k)lkms(f$bfwh^a#fi^8b3w%v!der'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    # Cloudinary
+    'cloudinary_storage',
+    'django.contrib.staticfiles',
+    'cloudinary',
+    # Cloudinary
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
     # Tailwind down 👇🏻
     'tailwind',
     'theme',
@@ -50,8 +59,12 @@ INSTALLED_APPS = [
     "site_management",
 ]
 
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,18 +133,70 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# // Static files (CSS, JavaScript, Images)
+# // https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+# /////////////////////// --- STATIC FILES (CSS, JavaScript, Images) ---
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Custom acout
+# ////////////////////////////////////////////////////////////////
+# ///🚀 Use WhiteNoise for efficient static file serving
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# ////////////////////////////////////////////////////////////////////
+# //--- MEDIA FILES (Uploaded Photos & Videos) ---
+# ///This is where Django will save the cement photos
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# // Custom acout
 AUTH_USER_MODEL = 'account.User'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Tailwind 👇🏻
+# // password reset email
+# // settings.py - INNOCODA EMAIL CONFIGURATION
+
+# // --- InnoCoda Email Settings ---
+
+# settings.py
+
+# //////////////////////
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+# /// Use the variables from .env
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+
+# /////////////////////////////////////////////////
+
+
+# //////////////////////////
+# // Tailwind 👇🏻
 TAILWIND_APP_NAME = 'theme'
 
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
-# Tailwind ☝🏻
+# /// Tailwind ☝🏻
+# //////////////////////////
+
+
+# ////////// Cloudinary Config using .env
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET')
+}
+# /// Cound
+
+# /// Tell Django where your custom login page is
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'index'
+LOGOUT_REDIRECT_URL = 'login'

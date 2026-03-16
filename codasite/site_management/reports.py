@@ -1,0 +1,146 @@
+# site_management/reports.py
+
+from datetime import timedelta
+from django.utils import timezone
+from django.template.loader import get_template
+from io import BytesIO
+from xhtml2pdf import pisa
+from django.db.models import Sum
+
+from .models import (
+    MaterialDeduction,
+    StaffAttendance,
+    CompanyProfile,
+    SiteLocation,
+    Invitation,
+    MaterialStock,
+    SkilledWorker,
+    CategoryPay,
+)
+
+
+def generate_pdf_report(data, template_name):
+    """Converts a specific HTML template into a PDF binary."""
+    template = get_template(template_name)
+    html = template.render(data)
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+    return result.getvalue() if not pdf.err else None
+
+
+def get_daily_summary(site_id):
+    """Gathers data for the daily report."""
+    today = timezone.now().date()
+    site = SiteLocation.objects.get(id=site_id)
+    stocks = MaterialStock.objects.filter(site=site)
+    company = CompanyProfile.objects.filter(contractor=site.contractor).first()
+
+    deductions = MaterialDeduction.objects.filter(
+        stock_item__site=site, timestamp__date=today)
+    attendance = StaffAttendance.objects.filter(site=site, time_in__date=today)
+
+    recipients = [site.contractor.email] if site.contractor.email else []
+    staff_emails = Invitation.objects.filter(
+        site=site, is_used=True).values_list('email', flat=True)
+    recipients.extend(list(staff_emails))
+    clean_recipients = list(set([e for e in recipients if e and e.strip()])) or [
+        'innocoda.support@gmail.com']
+
+    return {
+        'site': site, 'today': today, 'company': company, 'stocks': stocks,
+        'deductions': deductions, 'attendance': attendance,
+        'recipients': clean_recipients, 'total_workers': attendance.count()
+    }
+
+
+def get_aggregated_report(site_id, start_date, end_date):
+    """The 'Restart' Engine: Calculates money/attendance for any range."""
+    site = SiteLocation.objects.get(id=site_id)
+    company = CompanyProfile.objects.filter(contractor=site.contractor).first()
+    stocks = MaterialStock.objects.filter(site=site)
+
+    attendance_records = StaffAttendance.objects.filter(
+        site=site, time_in__date__range=[start_date, end_date]
+    )
+
+    staff_summary = []
+    total_payroll = 0
+    worker_ids = attendance_records.values_list('worker', flat=True).distinct()
+
+    for w_id in worker_ids:
+        if not w_id:
+            continue
+        worker = SkilledWorker.objects.get(id=w_id)
+        worker_logs = attendance_records.filter(worker=worker)
+        days_present = worker_logs.values('time_in__date').distinct().count()
+
+        # 💰 MONEY LOGIC: Daily vs Weekly pay
+        if worker.pay_frequency == 'DAILY':
+            earnings = days_present * worker.daily_rate
+        else:
+            earnings = worker.pay_rate if days_present > 0 else 0
+
+        total_payroll += earnings
+        staff_summary.append({
+            'name': worker.name,
+            'category': worker.get_category_display(),
+            'days_present': days_present,
+            'total_pay': earnings,
+            'daily_rate': worker.daily_rate if worker.pay_frequency == 'DAILY' else worker.pay_rate
+        })
+
+    return {
+        'site': site, 'company': company, 'stocks': stocks,
+        'start_date': start_date, 'end_date': end_date,
+        'staff_summary': staff_summary, 'total_payroll': total_payroll,
+        'total_workers': len(staff_summary),
+        'recipients': [site.contractor.email] or ['innocoda.support@gmail.com']
+    }
+
+
+def get_weekly_summary(site_id):
+    today = timezone.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    return get_aggregated_report(site_id, start_of_week, today)
+
+
+def get_monthly_summary(site_id):
+    today = timezone.now().date()
+    start_of_month = today.replace(day=1)
+    return get_aggregated_report(site_id, start_of_month, today)
+
+
+def get_live_site_spend(site_id):
+    site = SiteLocation.objects.get(id=site_id)
+    attendance = StaffAttendance.objects.filter(site=site)
+
+    total_spent_so_far = 0
+    worker_pay_details = []
+
+    # Get all workers who have clocked in at least once
+    workers = SkilledWorker.objects.filter(
+        staffattendance__site=site).distinct()
+
+    for worker in workers:
+        # 1. Find the rate for this worker's category at this site
+        cat_pay = CategoryPay.objects.filter(
+            site=site, category=worker.category).first()
+        rate = cat_pay.default_daily_rate if cat_pay else worker.daily_rate
+
+        # 2. Count days worked
+        days = attendance.filter(worker=worker).values(
+            'time_in__date').distinct().count()
+
+        amount_due = days * rate
+        total_spent_so_far += amount_due
+
+        worker_pay_details.append({
+            'name': worker.name,
+            'days': days,
+            'amount': amount_due
+        })
+
+    return {
+        'total_spent': total_spent_so_far,
+        'worker_details': worker_pay_details
+    }

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}{{ site.name }} | Warehouse Ledger{% endblock %}
+
+{% block content %}
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<div x-data="{ imgModal: false, imgUrl: '', isVideo: false }" class="min-h-screen pb-20">
+    <div class="container mx-auto p-4 md:p-8 space-y-8">
+        
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'site_dashboard' site.id %}" class="glass p-3 rounded-2xl text-white/50 hover:text-innocoda-teal transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                </a>
+                <div>
+                    <h1 class="text-4xl font-black text-white uppercase tracking-tighter">Warehouse Ledger</h1>
+                    <p class="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em]">{{ site.name }} Inventory Audit</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="window.print()" class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-white/60 border border-white/10 hover:bg-white/10 transition-all">
+                    Print PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="glass p-4 md:p-10 rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/10">
+                            <th class="pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest pl-4">Material Details</th>
+                            <th class="pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Current Balance</th>
+                            <th class="pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Evidence Proof</th>
+                            <th class="pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Health Status</th>
+                            <th class="pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right pr-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        {% for item in stocks %}
+                        <tr class="group hover:bg-white/[0.02] transition-all">
+                            <td class="py-8 pl-4">
+                                <p class="text-xl font-black text-white uppercase group-hover:text-innocoda-teal transition-colors">{{ item.item_name }}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">
+                                    Last supply: {{ item.last_updated|date:"D, d M Y" }}
+                                </p>
+                            </td>
+
+                            <td class="py-8 text-center">
+                                <div class="inline-block text-left">
+                                    <span class="text-3xl font-black text-white leading-none">{{ item.current_balance|floatformat:1 }}</span>
+                                    <span class="text-[10px] text-gray-500 uppercase font-black ml-1">{{ item.unit }}</span>
+                                </div>
+                            </td>
+
+                            <td class="py-8">
+                                <div class="flex gap-3">
+                                    {% if item.evidence_image %}
+                                        <div class="relative group/img">
+                                            <img src="{{ item.evidence_image.url }}" 
+                                                 @click="imgModal = true; imgUrl = '{{ item.evidence_image.url }}'; isVideo = false" 
+                                                 class="w-20 h-14 rounded-xl object-cover border border-white/10 cursor-zoom-in group-hover/img:scale-105 transition-transform shadow-lg">
+                                            <span class="absolute -top-2 -right-2 bg-emerald-500 text-[8px] font-black text-white px-1.5 py-0.5 rounded shadow-lg">IMG</span>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if item.evidence_video %}
+                                        <div @click="imgModal = true; imgUrl = '{{ item.evidence_video.url }}'; isVideo = true" 
+                                             class="w-20 h-14 rounded-xl bg-innocoda-teal/10 border border-innocoda-teal/30 flex items-center justify-center cursor-pointer hover:bg-innocoda-teal/20 transition-all shadow-lg">
+                                            <svg class="w-6 h-6 text-innocoda-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if not item.evidence_image and not item.evidence_video %}
+                                        <p class="text-[9px] text-gray-600 italic uppercase">No media uploaded</p>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <td class="py-8">
+                                {% if item.current_balance < 10 %}
+                                    <div class="flex items-center text-red-400">
+                                        <span class="w-2 h-2 bg-red-500 rounded-full mr-2 animate-ping"></span>
+                                        <span class="text-[9px] font-black uppercase tracking-widest">Low Stock Alert</span>
+                                    </div>
+                                {% else %}
+                                    <div class="flex items-center text-emerald-400">
+                                        <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+                                        <span class="text-[9px] font-black uppercase tracking-widest">Inventory Healthy</span>
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <td class="py-8 text-right pr-4">
+                                <a href="#" class="glass px-5 py-3 rounded-2xl text-[10px] font-black uppercase text-white/60 border border-white/5 hover:border-innocoda-teal hover:text-innocoda-teal transition-all">
+                                    Usage Logs
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-20 text-center">
+                                <p class="text-gray-500 font-bold uppercase tracking-widest text-xs">No materials registered in the site warehouse.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div x-show="imgModal" x-cloak class="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+            <button @click="imgModal = false" class="absolute top-8 right-8 text-white glass p-5 rounded-full z-[310] hover:bg-white/10 transition-all">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="w-full max-w-6xl flex items-center justify-center">
+                <template x-if="isVideo">
+                    <video :src="imgUrl" controls autoplay class="max-w-full max-h-[85vh] rounded-[2rem] shadow-2xl border border-white/10"></video>
+                </template>
+                <template x-if="!isVideo">
+                    <img :src="imgUrl" class="max-w-full max-h-[85vh] rounded-[2rem] shadow-2xl border border-white/10 object-contain">
+                </template>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+    
+    @media print {
+        .glass { background: white !important; color: black !important; border: 1px solid #eee !important; }
+        .bg-black, body { background: white !important; }
+        button, a { display: none !important; }
+    }
+</style>
+{% endblock %}

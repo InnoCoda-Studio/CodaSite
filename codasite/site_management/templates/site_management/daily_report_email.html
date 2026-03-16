@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; border-radius: 0 !important; }
+            .stat-card { width: 100% !important; display: block !important; margin-bottom: 10px !important; }
+            .hide-mobile { display: none !important; }
+        }
+    </style>
+</head>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#050505">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <table class="container" width="650" border="0" cellspacing="0" cellpadding="0" style="background: #0f0f0f; border-radius: 20px; border: 1px solid #222; overflow: hidden;">
+                    
+                    <tr>
+                        <td bgcolor="#1a1a1a" style="padding: 30px; border-bottom: 2px solid #00ffcc;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td>
+                                        <h1 style="margin: 0; color: #00ffcc; text-transform: uppercase; font-size: 22px; letter-spacing: 2px; font-weight: 900;">InnoCoda Audit</h1>
+                                        <p style="margin: 5px 0 0; color: #666; font-size: 11px; text-transform: uppercase;">{{ site.name }} | {{ today|date:"d M Y" }}</p>
+                                    </td>
+                                    <td align="right">
+                                        <div style="background: #00ffcc1a; color: #00ffcc; padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: bold;">OFFICIAL LOG</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <td style="padding: 30px;">
+
+                        <h3 style="color: #00ffcc; font-size: 12px; text-transform: uppercase; border-left: 3px solid #00ffcc; padding-left: 10px; margin-bottom: 15px;">Store Inventory Statement</h3>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 30px; background: #161616; border-radius: 12px; border: 1px solid #222;">
+                            <thead>
+                                <tr style="text-align: left; font-size: 9px; color: #444; text-transform: uppercase; letter-spacing: 1px;">
+                                    <th style="padding: 15px;">Material</th>
+                                    <th style="padding: 15px; text-align: center;" class="hide-mobile">Opening</th>
+                                    <th style="padding: 15px; text-align: center;">Issued</th>
+                                    <th style="padding: 15px; text-align: right;">Final Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stock in stocks %}
+                                <tr>
+                                    <td style="padding: 15px; border-top: 1px solid #222; color: #fff; font-size: 13px; font-weight: bold;">{{ stock.item_name }}</td>
+                                    <td style="padding: 15px; border-top: 1px solid #222; color: #888; text-align: center; font-size: 13px;" class="hide-mobile">
+                                        {{ stock.current_balance|add:stock.get_total_deductions_today }}
+                                    </td>
+                                    <td style="padding: 15px; border-top: 1px solid #222; color: #ff4444; text-align: center; font-size: 13px;">
+                                        -{{ stock.get_total_deductions_today }}
+                                    </td>
+                                    <td style="padding: 15px; border-top: 1px solid #222; color: #00ffcc; font-weight: bold; text-align: right; font-size: 15px;">
+                                        {{ stock.current_balance }} <span style="font-size: 9px; color: #444;">{{ stock.unit }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <h3 style="color: #888; font-size: 12px; text-transform: uppercase; border-left: 3px solid #444; padding-left: 10px; margin-bottom: 15px;">Detailed Transaction Log</h3>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 30px;">
+                            <tbody>
+                                {% for item in deductions %}
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #1a1a1a;">
+                                        <div style="color: #fff; font-size: 13px;">{{ item.stock_item.item_name }}</div>
+                                        <div style="color: #555; font-size: 10px;">By: {{ item.worker.name }}</div>
+                                    </td>
+                                    <td style="padding: 12px 0; text-align: right; border-bottom: 1px solid #1a1a1a;">
+                                        <div style="color: #ff4444; font-weight: bold; font-size: 13px;">-{{ item.quantity_taken }}</div>
+                                        <div style="color: #444; font-size: 10px;">{{ item.timestamp|date:"H:i" }}</div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td class="stat-card" width="50%" style="padding-right: 10px;">
+                                    <div style="background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; text-align: center;">
+                                        <p style="margin: 0; color: #444; font-size: 9px; text-transform: uppercase;">Active Personnel</p>
+                                        <p style="margin: 5px 0 0; color: #fff; font-size: 22px; font-weight: bold;">{{ total_workers }}</p>
+                                    </div>
+                                </td>
+                                <td class="stat-card" width="50%">
+                                    <div style="background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; text-align: center;">
+                                        <p style="margin: 0; color: #444; font-size: 9px; text-transform: uppercase;">Total Issued Logs</p>
+                                        <p style="margin: 5px 0 0; color: #fff; font-size: 22px; font-weight: bold;">{{ deductions.count }}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+
+                    <tr>
+                        <td style="padding: 30px; text-align: center; background: #0a0a0a; border-top: 1px solid #222;">
+                            <p style="font-size: 10px; color: #333; text-transform: uppercase; letter-spacing: 2px;">InnoCoda Management Systems &copy; 2026</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+    <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl bg-gradient-to-br from-white/5 to-transparent">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em]">Monthly Spend (Labor)</p>
+            <div class="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+            </div>
+        </div>
+        <h3 class="text-4xl font-black text-white tracking-tighter">₦{{ total_spent|floatformat:2 }}</h3>
+        <p class="text-[9px] text-white/30 font-bold uppercase mt-2">Projected Monthly Total</p>
+    </div>
+
+    <div class="glass p-8 rounded-[3rem] border border-innocoda-teal/20 shadow-2xl bg-gradient-to-br from-innocoda-teal/5 to-transparent">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.3em]">Saturday Settlement</p>
+            <div class="w-8 h-8 rounded-full bg-innocoda-teal/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+        </div>
+        <h3 class="text-4xl font-black text-white tracking-tighter">₦{{ weekly_total|floatformat:2 }}</h3>
+        <p class="text-[9px] text-white/30 font-bold uppercase mt-2">Owed to {{ total_workers }} personnel this week</p>
+    </div>
+</div> {% endcomment %}
