@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     # Tailwind down 👇🏻
-    'tailwind',
+    # 'tailwind',
     'theme',
     'django_browser_reload',
     # tailwin up ☝🏻
