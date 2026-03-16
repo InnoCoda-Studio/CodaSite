@@ -4,8 +4,13 @@ from datetime import timedelta
 from django.utils import timezone
 from django.template.loader import get_template
 from io import BytesIO
-from xhtml2pdf import pisa
 from django.db.models import Sum
+
+# 🛡️ SAFE IMPORT: This prevents the ModuleNotFoundError on Render
+try:
+    from xhtml2pdf import pisa
+except ImportError:
+    pisa = None
 
 from .models import (
     MaterialDeduction,
@@ -21,6 +26,11 @@ from .models import (
 
 def generate_pdf_report(data, template_name):
     """Converts a specific HTML template into a PDF binary."""
+    # 🛡️ CHECK: If pisa isn't installed, return None instead of crashing
+    if pisa is None:
+        print("PDF Generation skipped: xhtml2pdf is not installed.")
+        return None
+
     template = get_template(template_name)
     html = template.render(data)
     result = BytesIO()
