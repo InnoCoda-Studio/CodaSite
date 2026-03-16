@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: codasite
+    env: python
+    plan: free
+    runtime: python
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0 # 👈 This version is more stable for these packages
