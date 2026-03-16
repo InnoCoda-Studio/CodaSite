@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page { size: A4; margin: 0cm; }
+        body { font-family: 'Helvetica', sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0; }
+        
+        /* Executive Header: Deep Navy & Gold/Teal Mashup */
+        .brand-header {
+            background-color: #011627; 
+            color: #ffffff;
+            padding: 50px 40px;
+            border-bottom: 8px solid #00ffcc; 
+        }
+        .company-name {
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #00ffcc;
+            margin-bottom: 5px;
+        }
+        .report-title {
+            font-size: 30px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            color: #ffffff;
+            margin: 0;
+        }
+        .week-range {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* WEEKLY SUMMARY CARDS */
+        .summary-bar {
+            background-color: #f0fdfa;
+            padding: 20px 40px;
+            border-bottom: 1px solid #e0f2f1;
+        }
+        .stat-box {
+            display: inline-block;
+            width: 30%;
+            vertical-align: top;
+        }
+        .stat-label { font-size: 9px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+        .stat-value { color: #011627; font-weight: bold; font-size: 16px; }
+
+        .content { padding: 30px 40px; }
+
+        h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #011627;
+            border-left: 5px solid #00ffcc;
+            padding-left: 12px;
+            margin-top: 35px;
+            margin-bottom: 15px;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            font-size: 8px;
+            color: #888;
+            text-transform: uppercase;
+            background-color: #fafafa;
+            border-bottom: 1px solid #eee;
+        }
+        td {
+            padding: 15px 10px;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 11px;
+            color: #333;
+        }
+        tr:nth-child(even) { background-color: #fcfcfc; }
+
+        .badge-total { 
+            color: #011627; 
+            background: #00ffcc; 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 25px;
+            width: 100%;
+            text-align: center;
+            font-size: 8px;
+            color: #bbb;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="brand-header">
+        <table width="100%">
+            <tr>
+                <td>
+                    <div class="company-name">
+                        {{ company.business_name|default:site.contractor.username|upper }}
+                    </div>
+                    <h1 class="report-title">Weekly Executive Summary</h1>
+                    <p class="week-range">Project: {{ site.name }} • Period: {{ start_date|date:"d M" }} - {{ end_date|date:"d M Y" }}</p>
+                </td>
+                <td align="right" valign="bottom">
+                    <div style="font-size: 10px; font-weight: bold; color: #00ffcc;">WEEKLY AUDIT VERIFIED</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="summary-bar">
+        <div class="stat-box">
+            <div class="stat-label">Unique Workers</div>
+            <div class="stat-value">{{ total_workers }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Total Site Logs</div>
+            <div class="stat-value">{{ deductions.count|add:attendance.count }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Week Status</div>
+            <div class="stat-value" style="color: #27ae60;">COMPLETED</div>
+        </div>
+    </div>
+
+    <div class="content">
+        
+        <h3>1. Weekly Material Consumption</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th width="50%">Material Item</th>
+                    <th width="25%" align="center">Total Units Used</th>
+                    <th width="25%" align="right">Store Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stocks %}
+                <tr>
+                    <td><strong>{{ s.item_name }}</strong></td>
+                    <td align="center">
+                        <span class="badge-total">{{ s.get_weekly_total }}</span>
+                    </td>
+                    <td align="right" style="font-weight: bold;">{{ s.current_balance }} {{ s.unit }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h3>2. Staff Performance (Weekly Hours)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>Category</th>
+                    <th align="center">Days Active</th>
+                    <th align="right">Cumulative Hours</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in staff_summary %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td style="color: #777;">{{ item.category }}</td>
+                    <td align="center">{{ item.days_present }}/6</td>
+                    <td align="right" style="font-weight: bold; color: #011627;">{{ item.total_hours }}h</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        WEEKLY SECURITY ID: WK-{{ site.id }}-{{ end_date|date:"YW" }} <br>
+        SYSTEM POWERED BY <strong>INNCODA STUDIO</strong> <br>
+        <div style="font-size: 7px; color: #999; text-transform: uppercase; margin-top: 10px;">
+            Lead Developer: Paul Innocent Ojochenemi
+        </div>
+    </div>
+</body>
+</html>

@@ -1,19 +1,45 @@
-{% load static tailwind_tags %}
-<!DOCTYPE html>
+{% load static tailwind_tags %}<!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Django Tailwind</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    {% tailwind_css %}
-</head>
+    <title>{% block title %}InnoCoda Studio{% endblock %}</title>
 
-<body class="bg-gray-50 text-black font-serif leading-normal tracking-normal">
-<div class="container mx-auto">
-    <section class="flex items-center justify-center h-screen">
-        <h1 class="text-5xl">Django + Tailwind = ❤️</h1>
-    </section>
-</div>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                innocoda: {
+                  navy: '#001F3F',     
+                  teal: '#00D2D2',     
+                  slate: '#F8FAFC',    
+                }
+              },
+              fontFamily: {
+                sans: ['Inter', 'sans-serif'],
+              }
+            }
+          }
+        }
+    </script>
+
+    <style>
+        /* Smooth fade-in for pages */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-innocoda-navy font-sans text-innocoda-slate min-h-screen">
+
+    <main class="fade-in">
+        {% block content %}
+        {% endblock %}
+    </main>
+
 </body>
 </html>

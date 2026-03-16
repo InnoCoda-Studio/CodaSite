@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Restock History | {{ site.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6 pb-32">
+    <div class="mb-8">
+        <h1 class="text-4xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
+        <p class="text-innocoda-teal font-bold uppercase text-[10px] tracking-[0.3em]">Material Delivery & Proof Log</p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6">
+        {% for item in stocks %}
+        <div class="glass p-6 rounded-[2.5rem] border border-white/10 flex flex-col md:flex-row gap-8 items-center">
+            
+            <div class="w-full md:w-48 h-48 rounded-[2rem] overflow-hidden bg-white/5 border border-white/10 relative group">
+                {% if item.evidence_image %}
+                    <img src="{{ item.evidence_image.url }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                {% elif item.evidence_video %}
+                    <video src="{{ item.evidence_video.url }}" class="w-full h-full object-cover"></video>
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                    </div>
+                {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-gray-600 italic text-[10px] uppercase font-black text-center p-4">
+                        No Media Uploaded
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="flex-1 space-y-4 text-center md:text-left">
+                <div>
+                    <h2 class="text-2xl font-black text-white uppercase">{{ item.item_name }}</h2>
+                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Last Delivery: {{ item.last_updated|date:"d M Y @ h:i A" }}</p>
+                </div>
+
+                <div class="flex flex-wrap gap-4 justify-center md:justify-start">
+                    <div class="bg-white/5 border border-white/10 px-6 py-3 rounded-2xl">
+                        <p class="text-[8px] text-gray-500 uppercase font-black">Current Balance</p>
+                        <p class="text-xl font-black text-innocoda-teal">{{ item.current_balance }} <span class="text-xs">{{ item.unit }}</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full md:w-auto">
+                <a href="{{ item.evidence_image.url|default:'#' }}" target="_blank" class="block text-center px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase text-white transition-all">
+                    Open Full Resolution Proof
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="glass p-20 rounded-[3rem] text-center border border-white/10">
+            <p class="text-gray-500 italic uppercase font-black text-xs tracking-widest">No materials in stock yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            size: A4;
+            margin: 0cm;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            background-color: #ffffff;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* HEADER: InnoCoda Navy & Teal Mashup */
+        .brand-header {
+            background-color: #011627; 
+            color: #ffffff;
+            padding: 45px 40px;
+            border-bottom: 6px solid #00ffcc; 
+        }
+        .company-name {
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #00ffcc;
+            margin-bottom: 5px;
+        }
+        .project-title {
+            font-size: 32px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1.5px;
+            color: #ffffff;
+            margin: 0;
+        }
+        .report-meta {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        .summary-bar {
+            background-color: #f0fdfa;
+            padding: 15px 40px;
+            border-bottom: 1px solid #e0f2f1;
+        }
+        .stat-item {
+            display: inline-block;
+            margin-right: 30px;
+            font-size: 10px;
+            color: #555;
+            text-transform: uppercase;
+        }
+        .stat-value {
+            color: #011627;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .content { padding: 30px 40px; }
+
+        h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #011627;
+            border-left: 4px solid #00ffcc;
+            padding-left: 12px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            font-size: 8px;
+            color: #888;
+            text-transform: uppercase;
+            background-color: #fafafa;
+            border-bottom: 1px solid #eee;
+        }
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 10.5px;
+            color: #333;
+        }
+        tr:nth-child(even) { background-color: #fcfcfc; }
+
+        .neg-qty { color: #e74c3c; font-weight: bold; }
+        .pos-balance { color: #011627; font-weight: bold; }
+        .phone-link { color: #011627; font-family: monospace; font-weight: bold; }
+        
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 8px;
+            color: #bbb;
+            line-height: 1.6;
+        }
+        .dev-credit {
+            font-size: 7px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="brand-header">
+        <table width="100%">
+            <tr>
+                <td>
+                   <div class="company-name">
+                        {% if company.business_name %}
+                            {{ company.business_name|upper }}
+                        {% else %}
+                            {{ site.contractor.username|upper }}
+                        {% endif %}
+                    </div>
+                    <h1 class="project-title">{{ site.name }}</h1>
+                    <p class="report-meta">Daily Operational Audit • {{ today|date:"l, d F Y" }}</p>
+                </td>
+                <td align="right" valign="bottom">
+                    <div style="font-size: 10px; font-weight: bold; color: #00ffcc;">OFFICIAL REPORT</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="summary-bar">
+        <div class="stat-item">Personnel: <span class="stat-value">{{ total_workers }}</span></div>
+        <div class="stat-item">Materials Issued: <span class="stat-value">{{ deductions.count }}</span></div>
+        <div class="stat-item">Audit Status: <span class="stat-value" style="color: #27ae60;">VERIFIED</span></div>
+    </div>
+
+    <div class="content">
+        
+        <h3>1. Inventory Reconciliation</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th width="40%">Item Description</th>
+                    <th width="20%" align="center">Morning</th>
+                    <th width="20%" align="center">Issued Today</th>
+                    <th width="20%" align="right">Final Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stocks %}
+                <tr>
+                    <td><strong>{{ s.item_name }}</strong></td>
+                    <td align="center">{{ s.current_balance|add:s.get_total_deductions_today }}</td>
+                    <td align="center" class="neg-qty">-{{ s.get_total_deductions_today }}</td>
+                    <td align="right" class="pos-balance">{{ s.current_balance }} <span style="font-size: 8px; color: #999;">{{ s.unit }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h3>2. Personnel Attendance Log</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>Contact</th> <th align="center">In</th>
+                    <th align="center">Out</th>
+                    <th align="right">Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in attendance %}
+                <tr>
+                    <td>
+                        <strong>{{ a.worker.name }}</strong><br>
+                        <span style="font-size: 8px; color: #888;">{{ a.worker.get_category_display }}</span>
+                    </td>
+                    <td class="phone-link">{{ a.worker.phone|default:"No Number" }}</td>
+                    <td align="center">{{ a.time_in|time:"H:i" }}</td>
+                    <td align="center">
+                        {% if a.time_out %}
+                            {{ a.time_out|time:"H:i" }}
+                        {% else %}
+                            <span style="color: #27ae60;">Present</span>
+                        {% endif %}
+                    </td>
+                    <td align="right">
+                        {{ a.get_duration }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" align="center">No personnel logged today.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        SECURITY TOKEN: INNO-{{ site.id|stringformat:"04d" }}-{{ today|date:"Ymd" }} <br>
+        SYSTEM POWERED BY <strong>INNCODA STUDIO</strong> <br>
+        <div class="dev-credit">Lead Developer: Paul Innocent Ojochenemi</div>
+    </div>
+</body>
+</html>
