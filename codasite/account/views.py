@@ -1,3 +1,4 @@
+from django.conf import settings
 from site_management.models import Invitation, CompanyProfile  # Import your new models
 from django.shortcuts import render, redirect, get_object_or_404
 from django.shortcuts import render, redirect
