@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-10 px-4">
+    <div class="glass p-8 rounded-2xl border border-white/10 shadow-2xl">
+        <h1 class="text-2xl font-black text-innocoda-teal mb-6 uppercase tracking-tighter">Terms of Service</h1>
+        
+        <div class="space-y-6 text-gray-300 text-sm leading-relaxed">
+            <p class="italic text-xs text-gray-500">Last Updated: March 17, 2026</p>
+
+            <section>
+                <h2 class="text-white font-bold mb-2 uppercase text-xs tracking-widest text-innocoda-teal">1. Service Description</h2>
+                <p>CodaSite is a proprietary management portal provided by InnoCoda Tech Solutions. It is designed for material tracking and labor audit. The service is provided "as is."</p>
+            </section>
+
+            <section>
+                <h2 class="text-white font-bold mb-2 uppercase text-xs tracking-widest text-innocoda-teal">2. User Responsibility</h2>
+                <p>All data entered into the system (cement counts, worker roll calls, material purpose) is the sole responsibility of the user. InnoCoda is not liable for financial losses caused by incorrect manual data entry by site staff.</p>
+            </section>
+
+            <section>
+                <h2 class="text-white font-bold mb-2 uppercase text-xs tracking-widest text-innocoda-teal">3. Data Security</h2>
+                <p>We use industry-standard encryption to protect your project data. However, users are responsible for keeping their login credentials secure. Do not share your password with unauthorized personnel.</p>
+            </section>
+
+            <section>
+                <h2 class="text-white font-bold mb-2 uppercase text-xs tracking-widest text-innocoda-teal">4. System Availability</h2>
+                <p>While we strive for 99.9% uptime, InnoCoda Tech Solutions is not responsible for downtime caused by third-party hosting providers (like Render) or local internet connectivity issues at construction sites.</p>
+            </section>
+
+            <section>
+                <h2 class="text-white font-bold mb-2 uppercase text-xs tracking-widest text-innocoda-teal">5. Termination</h2>
+                <p>InnoCoda Tech Solutions reserves the right to suspend access if these terms are violated or if licensing fees remain unpaid.</p>
+            </section>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-white/5">
+            <a href="{% url 'index' %}" class="inline-block bg-innocoda-teal text-innocoda-navy font-black px-6 py-3 rounded-xl uppercase text-xs tracking-widest hover:opacity-90 transition-all">Accept & Close</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

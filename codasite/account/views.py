@@ -107,3 +107,11 @@ def login_view(request):
             return redirect('login')
 
     return render(request, 'account/login.html')
+
+
+def licensing_terms(request):
+    return render(request, 'licensing.html')
+
+
+def terms_of_service(request):
+    return render(request, 'terms.html')
