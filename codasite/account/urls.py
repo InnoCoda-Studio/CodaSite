@@ -31,4 +31,9 @@ urlpatterns = [
     path('password-reset-complete/', auth_views.PasswordResetCompleteView.as_view(
         template_name='account/password_reset_complete.html'),
         name='password_reset_complete'),
+
+    # ///          licensing_terms
+    path('licensing/', views.licensing_terms, name='licensing'),
+    # //                terms_of_service
+    path('terms/', views.terms_of_service, name='terms'),
 ]

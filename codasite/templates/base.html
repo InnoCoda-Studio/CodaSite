@@ -1,6 +1,7 @@
 {% load static tailwind_tags %}
 <!DOCTYPE html>
 <html lang="en">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <head>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -19,9 +20,18 @@
             }
         }
     </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
+    
+        
+        <style>
+            body { font-family: 'Inter', sans-serif; }
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        /* Professional touches for mobile */
+        input, select { font-size: 16px !important; } /* Stops iOS from zooming in on inputs */
+    
     </style>
 </head>
 <body class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24"> {% block nav %}{% endblock %}
@@ -76,10 +86,32 @@
 
     </nav>
     {% endif %}
-    <footer class="py-8 border-t border-white/10 text-center">
-        <p class="text-gray-500 text-xs">&copy; 2026 InnoCoda Studio.</p>
-    </footer>
+    <footer class="py-12 border-t border-white/10 text-center px-4 bg-black/20">
+    <div class="max-w-md mx-auto">
+        <p class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em] mb-2">
+            InnoCoda Tech Solutions
+        </p>
+        <p class="text-gray-400 text-[10px] leading-relaxed mb-4">
+            &copy; 2026 Paul Innocent Ojochenemi. All Rights Reserved.<br>
+            CodaSite Proprietary Construction Management Engine v1.0
+        </p>
+        
+        <div class="inline-block px-4 py-2 border border-red-500/30 rounded-lg bg-red-500/5">
+            <p class="text-red-400 text-[9px] uppercase font-bold tracking-wider">
+                Legal Notice: IP Protected
+            </p>
+            <p class="text-gray-500 text-[8px] mt-1 italic">
+                Unauthorized reproduction, distribution, or reverse-engineering of this interface and backend logic is strictly prohibited under Nigerian Intellectual Property Law.
+            </p>
+        </div>
 
+        <div class="mt-6 flex justify-center space-x-4">
+            <a href="{% url 'terms' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Privacy Policy</a>
+            <span class="text-gray-800">|</span>
+            <a href="{% url 'licensing' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Terms of Licensing</a>
+        </div>
+    </div>
+</footer>
     {% block extra_script %}{% endblock %}
 </body>
 </html>
