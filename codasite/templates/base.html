@@ -1,117 +1,233 @@
 {% load static tailwind_tags %}
+
 <!DOCTYPE html>
+
 <html lang="en">
+
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <head>
+
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
     <script>
+
         tailwind.config = {
+
             theme: {
+
                 extend: {
+
                     colors: {
+
                         innocoda: {
+
                             navy: '#001F3F',
+
                             teal: '#00D2D2',
+
                             slate: '#F8FAFC',
+
                         }
+
                     }
+
                 }
+
             }
+
         }
+
     </script>
-    
-        
+
+   
+
+       
+
         <style>
+
             body { font-family: 'Inter', sans-serif; }
+
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
 
+
+
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
         body { font-family: 'Inter', sans-serif; }
+
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+
         /* Professional touches for mobile */
+
         input, select { font-size: 16px !important; } /* Stops iOS from zooming in on inputs */
-    
+
+   
+
     </style>
+
 </head>
+
 <body class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24"> {% block nav %}{% endblock %}
 
+
+
     <main>
+
         {% if messages %}
+
             <div class="fixed top-4 right-4 z-50">
+
                 {% for message in messages %}
+
                     <div class="p-4 rounded-lg shadow-lg {% if message.tags == 'success' %}bg-green-500{% else %}bg-red-500{% endif %} text-white mb-2">
+
                         {{ message }}
+
                     </div>
+
                 {% endfor %}
+
             </div>
+
         {% endif %}
+
+
 
         {% block content %}
+
         {% endblock %}
+
     </main>
 
+
+
    {% if user.is_authenticated %}
+
     <nav class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl">
-        
+
+       
+
         <a href="{% url 'index' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'index' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+
             <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
+
         </a>
+
+
 
         {% if site.id or site_id %}
+
         <a href="{% if site %}{% url 'site_dashboard' site.id %}{% else %}#{% endif %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
             <div class="relative">
+
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+
                 {% if request.resolver_match.url_name == 'site_dashboard' %}
+
                 <span class="absolute -top-1 -right-1 flex h-2 w-2">
+
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal"></span>
+
                 </span>
+
                 {% endif %}
+
             </div>
+
             <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+
         </a>
+
         {% endif %}
 
+
+
         <a href="{% url 'all_workers' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+
             <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
+
         </a>
+
+
 
         <a href="{% url 'profile' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'profile' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+
             <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
+
         </a>
 
+
+
     </nav>
+
     {% endif %}
+
     <footer class="py-12 border-t border-white/10 text-center px-4 bg-black/20">
+
     <div class="max-w-md mx-auto">
+
         <p class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em] mb-2">
+
             InnoCoda Tech Solutions
+
         </p>
+
         <p class="text-gray-400 text-[10px] leading-relaxed mb-4">
+
             &copy; 2026 Paul Innocent Ojochenemi. All Rights Reserved.<br>
+
             CodaSite Proprietary Construction Management Engine v1.0
+
         </p>
-        
+
+       
+
         <div class="inline-block px-4 py-2 border border-red-500/30 rounded-lg bg-red-500/5">
+
             <p class="text-red-400 text-[9px] uppercase font-bold tracking-wider">
+
                 Legal Notice: IP Protected
+
             </p>
+
             <p class="text-gray-500 text-[8px] mt-1 italic">
+
                 Unauthorized reproduction, distribution, or reverse-engineering of this interface and backend logic is strictly prohibited under Nigerian Intellectual Property Law.
+
             </p>
+
         </div>
 
+
+
         <div class="mt-6 flex justify-center space-x-4">
+
             <a href="{% url 'terms' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Privacy Policy</a>
+
             <span class="text-gray-800">|</span>
+
             <a href="{% url 'licensing' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Terms of Licensing</a>
+
         </div>
+
     </div>
+
 </footer>
+
     {% block extra_script %}{% endblock %}
+
 </body>
+
 </html>

@@ -93,7 +93,7 @@ def get_aggregated_report(site_id, start_date, end_date):
         total_payroll += earnings
         staff_summary.append({
             'name': worker.name,
-            'category': worker.get_category_display(),
+            'category': worker.category,
             'days_present': days_present,
             'total_pay': earnings,
             'daily_rate': worker.daily_rate if worker.pay_frequency == 'DAILY' else worker.pay_rate

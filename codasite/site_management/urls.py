@@ -35,4 +35,7 @@ urlpatterns = [
 
     path('site/<int:site_id>/operations/',
          views.site_operations, name='site_operations'),
+
+    path('attendance/<int:attendance_id>/pay/',
+         views.mark_as_paid, name='mark_as_paid'),
 ]

@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -43,43 +44,63 @@ class Invitation(models.Model):
 
 
 class SkilledWorker(models.Model):
-    WORKER_TYPES = [
-        ('LABORER', 'General Laborer'),
-        ('PLUMBER', 'Plumber'),
-        ('ELECTRICIAN', 'Electrician'),
-        ('CARPENTER', 'Carpenter'),
-        ('IRON_BENDER', 'Iron Bender'),
-        ('MASON', 'Mason/Bricklayer'),
-    ]
 
-    PAY_CHOICES = [
-        ('DAILY', 'Daily Paid'),
-        ('WEEKLY', 'Weekly Paid'),
-    ]
-
+    # IDENTITY
     name = models.CharField(max_length=255)
-    category = models.CharField(max_length=50, choices=WORKER_TYPES)
+    slug = models.SlugField(unique=True, blank=True, null=True, max_length=100)
+    id_number = models.CharField(
+        max_length=50, unique=True, null=True, blank=True)
+    category = models.CharField(
+        max_length=100, help_text="e.g. Mason, Plumber, Supervisor")
     phone = models.CharField(max_length=20, blank=True)
-    is_sub_contractor = models.BooleanField(default=False)
+    emergency_contact = models.CharField(max_length=255, null=True, blank=True)
 
-    # 💰 PAYROLL FIELDS
-    # Use daily_rate for most, and pay_rate for contract jobs
+    # 💰 PAYROLL & STATUS
     daily_rate = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
     pay_rate = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
-    pay_frequency = models.CharField(
-        max_length=10, choices=PAY_CHOICES, default='DAILY')
 
+    pay_frequency = models.CharField(
+        max_length=50,
+        default='Daily',
+        help_text="e.g. Daily, Weekly, Per Slab, or Monthly"
+    )
+    is_sub_contractor = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    date_joined = models.DateField(auto_now_add=True)
+
+    # RELATIONSHIPS
     lead_worker = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='crew')
     site = models.ForeignKey('SiteLocation', on_delete=models.CASCADE,
                              related_name='workers', null=True, blank=True)
     contractor = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True)
-    slug = models.SlugField(unique=True, blank=True, null=True, max_length=100)
+    profile_picture = models.ImageField(
+        upload_to='worker_photos/', null=True, blank=True)
+    bank_name = models.CharField(
+        max_length=100, null=True, blank=True, help_text="e.g. GTBank, Zenith, OPay")
+    account_number = models.CharField(max_length=10, null=True, blank=True)
+    account_name = models.CharField(max_length=255, null=True, blank=True)
 
-    # ... keep your @property and save() method exactly as they were ...
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name)
+            # We add a short random code (4 characters) to the end
+            random_id = str(uuid.uuid4())[:4]
+
+            if self.phone:
+                # Name + Phone Suffix + Random Code
+                self.slug = f"{base_slug}-{self.phone[-4:]}-{random_id}"
+            else:
+                # Name + Random Code
+                self.slug = f"{base_slug}-{random_id}"
+
+        super().save(*args, **kwargs)
+
+        def __str__(self):
+            return f"{self.name} ({self.get_category_display()})"
 
 
 # 4. Daily Site Operations
@@ -121,6 +142,9 @@ class StaffAttendance(models.Model):
     time_in = models.DateTimeField(auto_now_add=True)  # Captured on Clock In
     time_out = models.DateTimeField(
         null=True, blank=True)  # Captured on Clock Out
+    is_paid = models.BooleanField(default=False)
+    payment_date = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "Staff Attendance"
@@ -229,10 +253,22 @@ class CompanyProfile(models.Model):
 
 class CategoryPay(models.Model):
     site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
+
+    # NEW: Removed choices so it matches the flexible SkilledWorker category
     category = models.CharField(
-        max_length=50, choices=SkilledWorker.WORKER_TYPES)
+        max_length=100,
+        help_text="e.g. Mason, Laborer, Iron Bender"
+    )
+
     default_daily_rate = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0.00)
+        max_digits=10,
+        decimal_places=2,
+        default=0.00
+    )
 
     class Meta:
+        # This ensures you don't have two different prices for "Mason" on the same site
         unique_together = ('site', 'category')
+
+    def __str__(self):
+        return f"{self.site.name} - {self.category}: ₦{self.default_daily_rate}"

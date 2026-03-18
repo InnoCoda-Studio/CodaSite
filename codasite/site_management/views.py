@@ -15,7 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from .models import SiteLocation, MaterialStock, CompanyProfile, MaterialDeduction, Invitation, StaffAttendance, SkilledWorker
 from django.db.models import Sum
-from .reports import get_daily_summary  # 👈 Import your new file
+# 👈 Import your new file
 from django.core.mail import send_mail
 from .reports import get_daily_summary, generate_pdf_report
 from django.core.mail import EmailMessage
@@ -201,6 +201,7 @@ def daily_report(request, site_id):
 
     context = {
         'site': site,
+        'site_id': site_id,
         'materials': materials,
         'attendance': attendance,
         'workers': workers,
@@ -225,16 +226,53 @@ def add_site(request):
 @login_required
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
-    if request.method == "POST":
-        SkilledWorker.objects.create(
-            name=request.POST.get('name'),
-            category=request.POST.get('category'),
-            phone=request.POST.get('phone'),
-            site=site,
-            contractor=request.user
-        )
-    return redirect('site_dashboard', site_id=site_id)
 
+    if request.method == "POST":
+        id_num = request.POST.get('id_number')
+
+        # 🛡️ THE SECURITY CHECK: Check if ID already exists
+        if id_num and SkilledWorker.objects.filter(id_number=id_num).exists():
+            messages.error(
+                request, f"Access Denied: ID {id_num} is already registered to another worker.")
+            return redirect('site_dashboard', site_id=site_id)
+
+        # If it's unique, go ahead and create
+        try:
+            SkilledWorker.objects.create(
+                name=request.POST.get('name'),
+                category=request.POST.get('category'),
+                phone=request.POST.get('phone'),
+                id_number=id_num,
+                pay_frequency=request.POST.get('pay_frequency'),
+                bank_name=request.POST.get('bank_name'),
+                account_number=request.POST.get('account_number'),
+                account_name=request.POST.get('account_name'),
+                profile_picture=request.FILES.get('profile_picture'),
+                site=site,
+                contractor=request.user
+            )
+            messages.success(
+                request, "Personnel successfully enrolled in registry.")
+        except Exception as e:
+            messages.error(request, "Registry Error: Please check all fields.")
+
+    return redirect('site_dashboard', site_id=site_id)
+# @login_required
+# def all_workers(request):
+#     query = request.GET.get('search', '')
+#     workers = SkilledWorker.objects.filter(contractor=request.user)
+#     if query:
+#         workers = workers.filter(name__icontains=query)
+#     return render(request, 'site_management/all_workers.html', {'workers': workers, 'search_query': query})
+
+
+# @login_required
+# def worker_profile(request, slug):
+#     worker = get_object_or_404(
+#         SkilledWorker, slug=slug, contractor=request.user)
+#     history = StaffAttendance.objects.filter(
+#         worker=worker).order_by('-time_in')
+#     return render(request, 'site_management/worker_profile.html', {'worker': worker, 'history': history})
 
 @login_required
 def all_workers(request):
@@ -249,9 +287,58 @@ def all_workers(request):
 def worker_profile(request, slug):
     worker = get_object_or_404(
         SkilledWorker, slug=slug, contractor=request.user)
+
+    # All activity
     history = StaffAttendance.objects.filter(
         worker=worker).order_by('-time_in')
-    return render(request, 'site_management/worker_profile.html', {'worker': worker, 'history': history})
+
+    # 🧾 NEW: Payment History (Only the ones marked as PAID)
+    payment_history = history.filter(is_paid=True).order_by('-payment_date')
+    site = worker.site
+    # 💰 Totals
+    total_days = history.count()
+    unpaid_logs = history.filter(is_paid=False)
+    total_debt = unpaid_logs.count() * worker.daily_rate
+
+    return render(request, 'site_management/worker_profile.html', {
+        'worker': worker,
+        'site': site,
+        'history': history,
+        'payment_history': payment_history,
+        'total_days': total_days,
+        'unpaid_days': unpaid_logs.count(),
+        'total_debt': total_debt,
+    })
+#  mark as paid
+
+
+@login_required
+def mark_as_paid(request, attendance_id):
+    # 1. Secure the log: Only the contractor who owns the site can authorize pay
+    log = get_object_or_404(
+        StaffAttendance,
+        id=attendance_id,
+        site__contractor=request.user
+    )
+
+    # 2. Logic Check: Only process if it hasn't been paid yet
+    if not log.is_paid:
+        log.is_paid = True
+        log.payment_date = timezone.now()
+        # Generate the digital receipt reference
+        log.payment_reference = f"PAY-{log.id}-{timezone.now().strftime('%y%m%d')}"
+        log.save()
+
+        # 3. Success Feedback
+        messages.success(
+            request,
+            f"Payment for {log.worker.name} on {log.time_in.date()} finalized: {log.payment_reference}"
+        )
+    else:
+        messages.info(request, "This shift has already been settled.")
+
+    # 4. Single Redirect (The logic "bridge" back to the profile)
+    return redirect('worker_profile', slug=log.worker.slug)
 
 
 @login_required
