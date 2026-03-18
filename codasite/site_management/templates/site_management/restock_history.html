@@ -13,7 +13,7 @@
         {% for item in stocks %}
         <div class="glass p-6 rounded-[2.5rem] border border-white/10 flex flex-col md:flex-row gap-8 items-center">
             
-            <div class="w-full md:w-48 h-48 rounded-[2rem] overflow-hidden bg-white/5 border border-white/10 relative group">
+            <div class="w-full md:w-48 h-48 rounded-4xl overflow-hidden bg-white/5 border border-white/10 relative group">
                 {% if item.evidence_image %}
                     <img src="{{ item.evidence_image.url }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                 {% elif item.evidence_video %}
