@@ -7,6 +7,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <head>
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -148,7 +149,10 @@
 
         {% endif %}
 
-
+        {% comment %} <a href="{% url 'global_registry' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'global_registry' %}text-innocoda-teal{% else %}text-gray-500{% endif %}">
+            <svg class="w-6 h-6" ...></svg>
+            <span class="text-[8px] uppercase font-black mt-1">Workforce</span>
+        </a> {% endcomment %}
 
         <a href="{% url 'all_workers' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
 

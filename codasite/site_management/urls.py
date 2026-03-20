@@ -38,4 +38,14 @@ urlpatterns = [
 
     path('attendance/<int:attendance_id>/pay/',
          views.mark_as_paid, name='mark_as_paid'),
+
+    #
+    path('site/<int:site_id>/deploy/', views.deploy_worker, name='deploy_worker'),
+    # Restock histry
+    path('site/<int:site_id>/restock-history/',
+         views.restock_history, name='restock_history'),
+    #
+    path('site/<int:site_id>/material-report/',
+         views.material_usage_report, name='material_usage_report')
+
 ]

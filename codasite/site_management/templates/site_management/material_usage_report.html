@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-6 pb-32">
+    <div class="mb-10">
+        <h1 class="text-4xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
+        <p class="text-innocoda-teal font-bold uppercase text-[10px] tracking-[0.4em]">Resource Consumption Audit</p>
+    </div>
+
+    <div class="space-y-4">
+        {% for log in usage_logs %}
+        <div class="glass p-6 rounded-[2.5rem] border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-innocoda-teal/30 transition-all">
+            
+            <div class="flex items-center space-x-5 w-full md:w-1/3">
+                <div class="w-14 h-14 rounded-2xl bg-innocoda-navy border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {% if log.worker.profile_picture %}
+                        <img src="{{ log.worker.profile_picture.url }}" class="w-full h-full object-cover">
+                    {% else %}
+                        <span class="text-xl font-black text-innocoda-teal opacity-30">{{ log.worker.name|slice:":1" }}</span>
+                    {% endif %}
+                </div>
+                <div class="overflow-hidden">
+                    <h3 class="text-lg font-black text-white truncate uppercase tracking-tight">{{ log.worker.name }}</h3>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">{{ log.worker.category }}</span>
+                        <span class="w-1 h-1 rounded-full bg-white/10"></span>
+                        <p class="text-[9px] text-gray-500 font-bold">{{ log.worker.phone }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 flex items-center justify-center space-x-4 w-full">
+                <div class="px-6 py-3 bg-white/5 border border-white/5 rounded-2xl text-center min-w-[140px]">
+                    <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Material Taken</p>
+                    <p class="text-sm font-black text-white uppercase">{{ log.stock_item.item_name }}</p>
+                </div>
+                <div class="px-6 py-3 bg-orange-400/5 border border-orange-400/10 rounded-2xl text-center min-w-[100px]">
+                    <p class="text-[8px] text-orange-400 uppercase font-black mb-1">Quantity</p>
+                    <p class="text-sm font-black text-white">{{ log.quantity_taken }} <span class="text-[10px] text-gray-500">{{ log.stock_item.unit }}</span></p>
+                </div>
+            </div>
+
+            <div class="text-right w-full md:w-auto">
+                <p class="text-[10px] text-white font-bold">{{ log.timestamp|date:"d M Y" }}</p>
+                <p class="text-[8px] text-gray-600 font-black uppercase tracking-tighter">{{ log.timestamp|time:"H:i A" }}</p>
+                <div class="mt-2 text-[7px] text-gray-500 italic uppercase">Auth by: {{ log.authorized_by.username|default:"System" }}</div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="glass p-20 rounded-[3rem] text-center border border-dashed border-white/10">
+            <p class="text-gray-600 uppercase font-black text-xs tracking-widest">No material deductions logged yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

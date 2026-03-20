@@ -100,8 +100,8 @@ class SkilledWorker(models.Model):
 
         super().save(*args, **kwargs)
 
-        def __str__(self):
-            return f"{self.name} ({self.get_category_display()})"
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
 
 
 # 4. Daily Site Operations
@@ -146,9 +146,16 @@ class StaffAttendance(models.Model):
     is_paid = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
     payment_reference = models.CharField(max_length=100, null=True, blank=True)
+    daily_rate_at_time = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00)
 
     class Meta:
         verbose_name_plural = "Staff Attendance"
+
+    def save(self, *args, **kwargs):
+        if not self.pk and self.worker:  # On first save
+            self.daily_rate_at_time = self.worker.daily_rate
+        super().save(*args, **kwargs)
 
     def __str__(self):
         name = self.worker.name if self.worker else self.user.username

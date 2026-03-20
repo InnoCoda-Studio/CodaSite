@@ -58,6 +58,8 @@
                 <a href="{% url 'daily_report' site.id %}" class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-white/40 border border-white/5 hover:border-white/20 transition-all">
                     View Daily Report
                 </a>
+
+                
             </div>
         </div>
 
@@ -139,36 +141,66 @@
             </div>
 
             <div class="lg:col-span-5">
-                <div class="glass p-8 rounded-[3rem] border border-white/10">
-                    <h3 class="text-white font-black uppercase text-sm mb-6 tracking-widest flex items-center">Warehouse Balance</h3>
-                    <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                <div class="glass p-8 rounded-[3rem] border border-white/10 h-full flex flex-col">
+                    
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-white font-black uppercase text-sm tracking-widest flex items-center">
+                            Warehouse Balance
+                        </h3>
+                        <a href="{% url 'restock_history' site.id %}" class="text-[9px] font-black text-innocoda-teal uppercase hover:underline tracking-widest">
+                            View Proof Logs →
+                        </a>
+                        <a href="{% url 'material_usage_report' site.id %}" class="text-[9px] font-black text-innocoda-teal uppercase hover:underline tracking-widest">
+                            Usage Audit →
+                        </a>
+                    </div>
+
+                    <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar flex-1">
                         {% for item in stocks %}
                         <div class="p-5 bg-white/5 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all">
                             <div class="flex items-center">
                                 <div class="relative">
                                     {% if item.evidence_image %}
-                                        <img src="{{ item.evidence_image.url }}" @click="imgModal = true; imgUrl = '{{ item.evidence_image.url }}'; isVideo = false" class="w-12 h-12 rounded-xl object-cover border border-white/10 cursor-zoom-in hover:scale-105 transition-transform">
+                                        <img src="{{ item.evidence_image.url }}" 
+                                            @click="imgModal = true; imgUrl = '{{ item.evidence_image.url }}'; isVideo = false" 
+                                            class="w-12 h-12 rounded-xl object-cover border border-white/10 cursor-zoom-in hover:scale-105 transition-transform">
                                     {% else %}
                                         <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">
-                                            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                            </svg>
                                         </div>
                                     {% endif %}
+
                                     {% if item.evidence_video %}
-                                        <button @click="imgModal = true; imgUrl = '{{ item.evidence_video.url }}'; isVideo = true" class="absolute -bottom-1 -right-1 w-6 h-6 bg-innocoda-teal text-innocoda-navy rounded-full flex items-center justify-center shadow-lg border-2 border-innocoda-navy"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                                        <button @click="imgModal = true; imgUrl = '{{ item.evidence_video.url }}'; isVideo = true" 
+                                                class="absolute -bottom-1 -right-1 w-6 h-6 bg-innocoda-teal text-innocoda-navy rounded-full flex items-center justify-center shadow-lg border-2 border-innocoda-navy">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                        </button>
                                     {% endif %}
                                 </div>
+
                                 <div class="ml-4">
-                                    <p class="text-white font-bold">{{ item.item_name }}</p>
-                                    <div class="flex gap-2">
+                                    <p class="text-white font-bold tracking-tight">{{ item.item_name }}</p>
+                                    <div class="flex items-center gap-2">
                                         <p class="text-[9px] text-gray-500 uppercase font-black">{{ item.unit }}</p>
-                                        {% if item.evidence_image or item.evidence_video %}<span class="text-[7px] text-innocoda-teal uppercase font-black tracking-widest bg-innocoda-teal/10 px-1 rounded">Verified</span>{% endif %}
+                                        {% if item.evidence_image or item.evidence_video %}
+                                            <span class="text-[7px] text-innocoda-teal uppercase font-black tracking-widest bg-innocoda-teal/10 px-1.5 py-0.5 rounded">Verified Proof</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
-                            <div class="text-right"><p class="text-2xl font-black text-white leading-none">{{ item.current_balance|floatformat:0 }}</p></div>
+
+                            <div class="text-right">
+                                <p class="text-2xl font-black text-white leading-none tracking-tighter">
+                                    {{ item.current_balance|floatformat:0 }}
+                                </p>
+                            </div>
                         </div>
                         {% empty %}
-                        <div class="text-center py-10"><p class="text-gray-500 text-xs italic uppercase tracking-widest">Store is empty</p></div>
+                        <div class="text-center py-20 bg-white/2 rounded-3xl border border-dashed border-white/5">
+                            <p class="text-gray-500 text-[10px] italic uppercase tracking-[0.2em]">Warehouse Empty</p>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -222,84 +254,104 @@
             </form>
         </div>
     </div>
+{% comment %}  {% endcomment %}
+       <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+    <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select' }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+        
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Personnel Management</h2>
+            <button @click="workerModal = false" class="text-gray-500 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
 
-        <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-            <div @click.away="workerModal = false" class="glass w-full max-w-md p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-                
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-black text-white uppercase tracking-tighter">Digital Personnel File</h2>
-                    <button @click="workerModal = false" class="text-gray-500 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+        <div class="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
+            <button @click="enrollmentMode = 'select'" :class="enrollmentMode === 'select' ? 'bg-innocoda-teal text-innocoda-navy shadow-lg' : 'text-gray-400 hover:text-white'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">
+                Select Existing
+            </button>
+            <button @click="enrollmentMode = 'new'" :class="enrollmentMode === 'new' ? 'bg-orange-400 text-white shadow-lg' : 'text-gray-400 hover:text-white'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">
+                Register New
+            </button>
+        </div>
+
+        <div x-show="enrollmentMode === 'select'" x-transition>
+            <p class="text-[9px] text-innocoda-teal font-black uppercase tracking-widest ml-2 mb-4">Deploy from Master Registry</p>
+            <form action="{% url 'deploy_worker' site.id %}" method="POST" class="space-y-6">
+                {% csrf_token %}
+                <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
+                    <option value="" disabled selected>Search Available Workers...</option>
+                    {% for reg_worker in global_workers_pool %}
+                        <option value="{{ reg_worker.id }}">{{ reg_worker.name }} | {{ reg_worker.category }}</option>
+                    {% endfor %}
+                </select>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <p class="text-[8px] text-gray-500 uppercase font-black ml-2">Update Skill for Site</p>
+                        <input type="text" name="update_category" placeholder="e.g. Lead Mason" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none focus:border-innocoda-teal">
+                    </div>
+                    <div class="space-y-2">
+                        <p class="text-[8px] text-gray-500 uppercase font-black ml-2">Agreed Daily Rate (₦)</p>
+                        <input type="number" name="update_rate" placeholder="New Rate" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none focus:border-innocoda-teal">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl transition-all">
+                    Recall & Deploy to Site
+                </button>
+            </form>
+        </div>
+
+        <div x-show="enrollmentMode === 'new'" x-transition>
+            <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
+
+                <div class="space-y-2">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
+                    <label class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed border-white/20 rounded-[2rem] cursor-pointer hover:border-innocoda-teal transition-all group">
+                        <div class="w-12 h-12 bg-innocoda-teal/10 rounded-full flex items-center justify-center mb-2 group-hover:bg-innocoda-teal/20 transition-all">
+                            <svg class="w-6 h-6 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                        </div>
+                        <span class="text-[10px] text-gray-400 uppercase font-black">Snap Worker Photo</span>
+                        <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
+                    </label>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                    <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="text" name="id_number" placeholder="Staff ID / NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Contact Details</p>
+                    <input type="text" name="phone" required placeholder="Phone Number (080...)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="bank_name" placeholder="Bank (e.g. OPay)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="text" name="pay_frequency" placeholder="Cycle (Daily/Weekly)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="text" name="account_name" placeholder="Account Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <button type="submit" @click="loading = true" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] shadow-xl transition-all flex items-center justify-center">
+                        <svg x-show="loading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span x-text="loading ? 'Validating Registry...' : 'Authenticate & Enroll'"></span>
                     </button>
                 </div>
-
-                <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6">
-                    {% csrf_token %}
-
-                    <div class="space-y-2">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
-                        <label class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed border-white/20 rounded-[2rem] cursor-pointer hover:border-innocoda-teal transition-all group">
-                            <div class="w-12 h-12 bg-innocoda-teal/10 rounded-full flex items-center justify-center mb-2 group-hover:bg-innocoda-teal/20 transition-all">
-                                <svg class="w-6 h-6 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                </svg>
-                            </div>
-                            <span class="text-[10px] text-gray-400 uppercase font-black">Snap Worker Photo</span>
-                            <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
-                        </label>
-                    </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
-                        <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal">
-                        
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="id_number" placeholder="Staff ID / NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Contact Details</p>
-                        <input type="text" name="phone" required placeholder="Phone Number (080...)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <input type="text" name="emergency_contact" placeholder="Emergency Contact Name/Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="bank_name" placeholder="Bank (e.g. OPay)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="pay_frequency" placeholder="Cycle (Daily/Weekly)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="account_name" placeholder="Account Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                    </div>
-
-                    <div class="mt-6">
-                        <button type="submit" 
-                                @click="loading = true"
-                                :class="loading ? 'opacity-70 cursor-wait' : 'hover:scale-[1.02]'"
-                                class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] shadow-xl transition-all flex items-center justify-center">
-                            
-                            <svg x-show="loading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-innocoda-navy" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-
-                            <span x-text="loading ? 'Uploading Biometrics...' : 'Authenticate & Enroll'"></span>
-                        </button>
-                        
-                        <p x-show="loading" class="text-[8px] text-gray-500 uppercase text-center mt-3 animate-pulse">
-                            Encrypting data. Do not close this window.
-                        </p>
-                    </div>
-                    </form>
-                </div>
-            </div>
-
+            </form>
+        </div>
+    </div>
+</div>
+{% comment %}  {% endcomment %}
         <div x-show="imgModal" x-cloak class="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
             <button @click="imgModal = false" class="absolute top-8 right-8 text-white glass p-4 rounded-full z-[310]"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             <div class="w-full max-w-5xl flex items-center justify-center">

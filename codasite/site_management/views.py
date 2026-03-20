@@ -1,3 +1,4 @@
+from .models import SiteLocation, StaffAttendance, MaterialDeduction
 from django.conf import settings
 # Ensure these are at the top
 from .reports import get_weekly_summary, get_monthly_summary
@@ -22,6 +23,7 @@ from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
 from django.db.models import F
+from django.db.models import Q
 
 
 @login_required
@@ -65,15 +67,43 @@ def site_dashboard(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
     today = timezone.now().date()
 
-    # 🟢 CRITICAL: Define 'workers' at the top so POST can see it
+    # 🟢 CRITICAL: Define workers & pool at the top
     workers = SkilledWorker.objects.filter(site=site)
     stocks = MaterialStock.objects.filter(site=site)
+    global_workers_pool = SkilledWorker.objects.filter(
+        contractor=request.user
+    ).exclude(site=site)
 
-    # --- 1. HANDLE BUTTON CLICKS (POST) ---
+    # Check user role for permission-based buttons
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site).last()
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+    # --- HANDLE ACTIONS (POST) ---
     if request.method == "POST":
 
-        # QUICK CLOCK-IN
-        if 'quick_clock_in' in request.POST:
+        # 1. OPTION A: RECALL / DEPLOY FROM REGISTRY
+        if 'deploy_worker' in request.POST:
+            worker_id = request.POST.get('worker_id')
+            worker = get_object_or_404(
+                SkilledWorker, id=worker_id, contractor=request.user)
+
+            worker.site = site  # Move to this site
+
+            # Update skill or rate specifically for this site if provided
+            new_cat = request.POST.get('update_category')
+            new_rate = request.POST.get('update_rate')
+            if new_cat:
+                worker.category = new_cat
+            if new_rate:
+                worker.daily_rate = Decimal(new_rate)
+
+            worker.save()
+            messages.success(
+                request, f"{worker.name} successfully recalled and deployed to {site.name}.")
+
+        # 2. QUICK CLOCK-IN/OUT (Existing Logic)
+        elif 'quick_clock_in' in request.POST:
             worker = get_object_or_404(
                 SkilledWorker, id=request.POST.get('worker_id'))
             StaffAttendance.objects.get_or_create(
@@ -83,7 +113,6 @@ def site_dashboard(request, site_id):
             )
             messages.success(request, f"{worker.name} clocked in.")
 
-        # QUICK CLOCK-OUT
         elif 'quick_clock_out' in request.POST:
             attendance = StaffAttendance.objects.filter(
                 worker_id=request.POST.get('worker_id'),
@@ -95,14 +124,8 @@ def site_dashboard(request, site_id):
                 messages.success(
                     request, f"{attendance.worker.name} clocked out.")
 
-        # ₦ NEW: UPDATE ALL PAY RATES
-       # Inside your site_dashboard POST logic
+        # 3. UPDATE ALL PAY RATES (Existing Logic)
         elif 'update_all_rates' in request.POST:
-            # 🛡️ SECURITY CHECK: Only Contractor or PM
-            invitation = Invitation.objects.filter(
-                email=request.user.email, site=site).last()
-            user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
             if request.user == site.contractor or user_role == 'PROJECT_MANAGER':
                 for worker in workers:
                     new_rate = request.POST.get(f'rate_{worker.id}')
@@ -114,8 +137,7 @@ def site_dashboard(request, site_id):
                 messages.error(
                     request, "Access Denied: Only PMs can set prices.")
 
-            return redirect('site_dashboard', site_id=site.id)
-        # RECEIVE STOCK
+        # 4. RECEIVE STOCK (Existing Logic)
         elif 'add_stock' in request.POST:
             name = request.POST.get('item_name', '').strip().upper()
             unit = request.POST.get('unit', '').strip()
@@ -134,7 +156,7 @@ def site_dashboard(request, site_id):
             except (InvalidOperation, ValueError):
                 messages.error(request, "Invalid quantity.")
 
-        # ISSUE MATERIAL
+        # 5. ISSUE MATERIAL (Existing Logic)
         elif 'issue_material' in request.POST:
             try:
                 stock_item = get_object_or_404(
@@ -149,24 +171,15 @@ def site_dashboard(request, site_id):
                 )
                 messages.success(
                     request, f"Deduction authorized for {worker.name}")
-            except ValidationError as e:
+            except Exception as e:
                 messages.error(request, str(e))
 
         return redirect('site_dashboard', site_id=site.id)
 
-    # --- GATHER DATA FOR THE PAGE ---
-    site = get_object_or_404(SiteLocation, id=site_id)
-
-    invitation = Invitation.objects.filter(
-        email=request.user.email, site=site).last()
-    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
-    # --- 2. GATHER DATA FOR THE PAGE (GET) ---
-    # 💰 Call the report logic for the Financial Cards
+    # --- GATHER DATA FOR THE PAGE (GET) ---
     weekly_data = get_weekly_summary(site.id)
     monthly_data = get_monthly_summary(site.id)
 
-    # Track daily attendance
     attendance_today = StaffAttendance.objects.filter(
         site=site, time_in__date=today)
     present_worker_ids = attendance_today.values_list('worker_id', flat=True)
@@ -177,9 +190,8 @@ def site_dashboard(request, site_id):
         'stocks': stocks,
         'attendance_today': attendance_today,
         'present_worker_ids': present_worker_ids,
+        'global_workers_pool': global_workers_pool,
         'user_role': user_role,
-
-        # 💵 The "Money" Variables
         'total_spent': monthly_data['total_payroll'],
         'weekly_total': weekly_data['total_payroll'],
         'total_workers': weekly_data['total_workers'],
@@ -228,91 +240,177 @@ def add_site(request):
     return redirect('index')
 
 
+# @login_required
+# @transaction.atomic
+# def add_worker(request, site_id):
+#     site = get_object_or_404(SiteLocation, id=site_id)
+#     if request.method == "POST":
+#         id_num = request.POST.get('id_number', '').strip()
+#         phone_num = request.POST.get('phone', '').strip()
+
+#         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
+#             messages.error(
+#                 request, "Access Denied: Personnel already exists in Global Registry.")
+#             return redirect('site_dashboard', site_id=site_id)
+
+#         try:
+#             # 🟢 UPDATED: Capturing full details here too
+#             SkilledWorker.objects.create(
+#                 contractor=request.user,
+#                 site=site,
+#                 name=request.POST.get('name'),
+#                 category=request.POST.get('category'),
+#                 id_number=id_num,
+#                 phone=phone_num,
+#                 emergency_contact=request.POST.get(
+#                     'emergency_contact'),  # 👈 ADD THIS
+#                 bank_name=request.POST.get(
+#                     'bank_name'),                 # 👈 ADD THIS
+#                 account_number=request.POST.get(
+#                     'account_number'),           # 👈 ADD THIS
+#                 account_name=request.POST.get(
+#                     'account_name'),             # 👈 ADD THIS
+#                 pay_frequency=request.POST.get('pay_frequency'),
+#                 profile_picture=request.FILES.get('profile_picture')
+#             )
+#             messages.success(request, "New Personnel enrolled and deployed.")
+#         except Exception as e:
+#             messages.error(
+#                 request, "Registry Error: Please check bank and ID fields.")
+
+#     return redirect('site_dashboard', site_id=site_id)
 @login_required
+@transaction.atomic
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
-
     if request.method == "POST":
-        id_num = request.POST.get('id_number')
+        id_num = request.POST.get('id_number', '').strip()
+        phone_num = request.POST.get('phone', '').strip()
 
-        # 🛡️ THE SECURITY CHECK: Check if ID already exists
-        if id_num and SkilledWorker.objects.filter(id_number=id_num).exists():
+        # Gatekeeper Check
+        if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
-                request, f"Access Denied: ID {id_num} is already registered to another worker.")
+                request, "Access Denied: Personnel already exists in Global Registry.")
             return redirect('site_dashboard', site_id=site_id)
 
-        # If it's unique, go ahead and create
         try:
+            # 🟢 UPDATED: Capturing the high-end data fields
             SkilledWorker.objects.create(
+                contractor=request.user,
+                site=site,
                 name=request.POST.get('name'),
                 category=request.POST.get('category'),
-                phone=request.POST.get('phone'),
                 id_number=id_num,
-                pay_frequency=request.POST.get('pay_frequency'),
+                phone=phone_num,
+                emergency_contact=request.POST.get('emergency_contact'),
                 bank_name=request.POST.get('bank_name'),
                 account_number=request.POST.get('account_number'),
                 account_name=request.POST.get('account_name'),
-                profile_picture=request.FILES.get('profile_picture'),
-                site=site,
-                contractor=request.user
+                pay_frequency=request.POST.get('pay_frequency'),
+                profile_picture=request.FILES.get('profile_picture')
             )
-            messages.success(
-                request, "Personnel successfully enrolled in registry.")
+            messages.success(request, "New Personnel enrolled and deployed.")
         except Exception as e:
-            messages.error(request, "Registry Error: Please check all fields.")
+            messages.error(
+                request, "Registry Error: Please verify all fields.")
 
     return redirect('site_dashboard', site_id=site_id)
-# @login_required
-# def all_workers(request):
-#     query = request.GET.get('search', '')
-#     workers = SkilledWorker.objects.filter(contractor=request.user)
-#     if query:
-#         workers = workers.filter(name__icontains=query)
-#     return render(request, 'site_management/all_workers.html', {'workers': workers, 'search_query': query})
 
 
-# @login_required
-# def worker_profile(request, slug):
-#     worker = get_object_or_404(
-#         SkilledWorker, slug=slug, contractor=request.user)
-#     history = StaffAttendance.objects.filter(
-#         worker=worker).order_by('-time_in')
-#     return render(request, 'site_management/worker_profile.html', {'worker': worker, 'history': history})
+@login_required
+def deploy_worker(request, site_id):
+    """The 'Recall' Move: Transfer an existing worker to this site."""
+    site = get_object_or_404(SiteLocation, id=site_id, contractor=request.user)
+
+    if request.method == "POST":
+        worker_id = request.POST.get('worker_id')
+        worker = get_object_or_404(
+            SkilledWorker, id=worker_id, contractor=request.user)
+
+        # Update their site to the current site
+        worker.site = site
+
+        # If the Architect wants to update the rate for this specific project
+        new_rate = request.POST.get('update_rate')
+        if new_rate:
+            worker.daily_rate = new_rate
+
+        worker.save()
+
+        messages.success(
+            request, f"{worker.name} successfully deployed to {site.name}")
+
+    return redirect('site_dashboard', site_id=site.id)
+
 
 @login_required
 def all_workers(request):
-    query = request.GET.get('search', '')
-    workers = SkilledWorker.objects.filter(contractor=request.user)
+    # --- HANDLE NEW MASTER REGISTRATION ---
+    if request.method == "POST" and 'register_worker' in request.POST:
+        try:
+            SkilledWorker.objects.create(
+                contractor=request.user,
+                name=request.POST.get('name'),
+                category=request.POST.get('category'),
+                id_number=request.POST.get('id_number'),
+                phone=request.POST.get('phone'),
+                # 🟢 CRITICAL: Adding the missing fields
+                emergency_contact=request.POST.get('emergency_contact'),
+                bank_name=request.POST.get('bank_name'),
+                account_number=request.POST.get('account_number'),
+                account_name=request.POST.get('account_name'),
+                # -----------------------------------
+                daily_rate=request.POST.get('daily_rate') or 0,
+                pay_frequency=request.POST.get('pay_frequency', 'DAILY'),
+                profile_picture=request.FILES.get('profile_picture')
+            )
+            messages.success(
+                request, "Personnel enrolled with full financial records.")
+        except Exception as e:
+            messages.error(request, f"Registry Error: {e}")
+        return redirect('all_workers')
+
+    # Search & Display logic
+    query = request.GET.get('search', '').strip()
+    workers = SkilledWorker.objects.filter(
+        contractor=request.user).select_related('site').order_by('name')
+
     if query:
-        workers = workers.filter(name__icontains=query)
-    return render(request, 'site_management/all_workers.html', {'workers': workers, 'search_query': query})
+        workers = workers.filter(Q(name__icontains=query) | Q(
+            category__icontains=query)).distinct()
+
+    return render(request, 'site_management/all_workers.html', {
+        'workers': workers,
+        'search_query': query
+    })
+# Global registry
 
 
 @login_required
 def worker_profile(request, slug):
+    # Fetch the specific worker by slug
     worker = get_object_or_404(
         SkilledWorker, slug=slug, contractor=request.user)
 
-    # All activity
+    # Fetch their attendance history
     history = StaffAttendance.objects.filter(
         worker=worker).order_by('-time_in')
 
-    # 🧾 NEW: Payment History (Only the ones marked as PAID)
-    payment_history = history.filter(is_paid=True).order_by('-payment_date')
-    site = worker.site
-    # 💰 Totals
+    # Calculate stats for the cards
     total_days = history.count()
     unpaid_logs = history.filter(is_paid=False)
-    total_debt = unpaid_logs.count() * worker.daily_rate
+    payment_history = StaffAttendance.objects.filter(
+        worker=worker, is_paid=True).order_by('-time_in')
+    total_debt = sum(
+        log.worker.daily_rate for log in unpaid_logs if log.worker.daily_rate)
 
     return render(request, 'site_management/worker_profile.html', {
         'worker': worker,
-        'site': site,
-        'history': history,
         'payment_history': payment_history,
+        'history': history,
         'total_days': total_days,
-        'unpaid_days': unpaid_logs.count(),
         'total_debt': total_debt,
+        'unpaid_days': unpaid_logs.count(),
     })
 #  mark as paid
 
@@ -409,22 +507,41 @@ def invite_staff(request):
 
 @login_required
 def restock_history(request, site_id):
+    """View the full visual proof log for all materials on a specific site."""
     site = get_object_or_404(SiteLocation, id=site_id)
 
-    # Security check
+    # Check permissions (Only contractor or staff)
     if site.contractor != request.user and not request.user.is_superuser:
-        raise PermissionDenied()
+        invitation = Invitation.objects.filter(
+            email=request.user.email, site=site).exists()
+        if not invitation:
+            raise PermissionDenied()
 
-    # Get all stock items for this site
+    # Pull all stock items for this site
     stocks = MaterialStock.objects.filter(site=site).order_by('-last_updated')
 
     return render(request, 'site_management/restock_history.html', {
         'site': site,
-        'stocks': stocks,
+        'stocks': stocks
     })
 
 
+@login_required
+def material_usage_report(request, site_id):
+    site = get_object_or_404(SiteLocation, id=site_id)
+
+    # Fetch all deductions for this site, including worker details
+    usage_logs = MaterialDeduction.objects.filter(
+        stock_item__site=site
+    ).select_related('worker', 'stock_item').order_by('-timestamp')
+
+    return render(request, 'site_management/material_usage_report.html', {
+        'site': site,
+        'usage_logs': usage_logs,
+    })
+
 # Profiles
+
 
 @login_required
 def profile_view(request):
@@ -642,3 +759,43 @@ def site_operations(request, site_id):
         'total_workers': weekly_data['total_workers'],
     }
     return render(request, 'site_management/operations.html', context)
+
+
+# from django.db.models import Sum # 👈 This is our "Calculator" tool
+# from .models import SiteLocation, StaffAttendance, MaterialDeduction
+
+
+@login_required
+def financial_dashboard(request):
+    sites = SiteLocation.objects.filter(contractor=request.user)
+    site_data = []
+
+    for site in sites:
+        # 🟢 LABOR MATH: Grouping by category but summing the SNAPSHOTTED rate
+        # We use 'worker__category' to group them, but 'daily_rate_at_time' for the money.
+        labor_totals = StaffAttendance.objects.filter(site=site).values(
+            'worker__category'
+        ).annotate(
+            # 👈 Using your smart snapshot field
+            total_spent=Sum('daily_rate_at_time')
+        )
+
+        # 🟢 MATERIAL MATH: Grouping by item name
+        material_totals = MaterialDeduction.objects.filter(stock_item__site=site).values(
+            'stock_item__item_name'
+        ).annotate(
+            total_used=Sum('quantity_taken')
+        )
+
+        # Calculate the site total from our grouped labor data
+        site_cash_total = sum(item['total_spent']
+                              or 0 for item in labor_totals)
+
+        site_data.append({
+            'site': site,
+            'labor': labor_totals,
+            'materials': material_totals,
+            'grand_total': site_cash_total
+        })
+
+    return render(request, 'site_management/financial_dashboard.html', {'site_data': site_data})
