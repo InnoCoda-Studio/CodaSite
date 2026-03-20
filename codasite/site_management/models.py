@@ -17,7 +17,7 @@ class SiteLocation(models.Model):
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    minimum_required = models.IntegerField(default=10)
+    minimum_required = models.IntegerField(default=10, null=True, blank=True)
 
     def __str__(self):
         return self.name
