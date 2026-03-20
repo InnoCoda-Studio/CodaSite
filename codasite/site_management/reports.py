@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.template.loader import get_template
 from io import BytesIO
 from django.db.models import Sum
+from django.db.models import Count
 
 # 🛡️ SAFE IMPORT: This prevents the ModuleNotFoundError on Render
 try:
@@ -64,7 +65,6 @@ def get_daily_summary(site_id):
 
 
 def get_aggregated_report(site_id, start_date, end_date):
-    """The 'Restart' Engine: Calculates money/attendance for any range."""
     site = SiteLocation.objects.get(id=site_id)
     company = CompanyProfile.objects.filter(contractor=site.contractor).first()
     stocks = MaterialStock.objects.filter(site=site)
@@ -75,22 +75,39 @@ def get_aggregated_report(site_id, start_date, end_date):
 
     staff_summary = []
     total_payroll = 0
-    worker_ids = attendance_records.values_list('worker', flat=True).distinct()
 
-    for w_id in worker_ids:
+    # ✅ Step 1: aggregate ONCE
+    attendance_summary = attendance_records.values('worker').annotate(
+        days_present=Count('time_in__date', distinct=True)
+    )
+
+    # ✅ Step 2: fetch workers in one query
+    worker_ids = [item['worker']
+                  for item in attendance_summary if item['worker']]
+    workers = SkilledWorker.objects.filter(id__in=worker_ids)
+
+    # ✅ Step 3: map workers
+    worker_map = {w.id: w for w in workers}
+
+    # ✅ Step 4: loop safely
+    for item in attendance_summary:
+        w_id = item['worker']
         if not w_id:
             continue
-        worker = SkilledWorker.objects.get(id=w_id)
-        worker_logs = attendance_records.filter(worker=worker)
-        days_present = worker_logs.values('time_in__date').distinct().count()
 
-        # 💰 MONEY LOGIC: Daily vs Weekly pay
+        worker = worker_map.get(w_id)
+        if not worker:
+            continue  # safety check
+
+        days_present = item['days_present']
+
         if worker.pay_frequency == 'DAILY':
             earnings = days_present * worker.daily_rate
         else:
             earnings = worker.pay_rate if days_present > 0 else 0
 
         total_payroll += earnings
+
         staff_summary.append({
             'name': worker.name,
             'category': worker.category,
@@ -99,10 +116,15 @@ def get_aggregated_report(site_id, start_date, end_date):
             'daily_rate': worker.daily_rate if worker.pay_frequency == 'DAILY' else worker.pay_rate
         })
 
+    # ✅ return OUTSIDE the loop
     return {
-        'site': site, 'company': company, 'stocks': stocks,
-        'start_date': start_date, 'end_date': end_date,
-        'staff_summary': staff_summary, 'total_payroll': total_payroll,
+        'site': site,
+        'company': company,
+        'stocks': stocks,
+        'start_date': start_date,
+        'end_date': end_date,
+        'staff_summary': staff_summary,
+        'total_payroll': total_payroll,
         'total_workers': len(staff_summary),
         'recipients': [site.contractor.email] or ['innocoda.support@gmail.com']
     }

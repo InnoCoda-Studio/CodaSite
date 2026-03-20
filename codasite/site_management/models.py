@@ -17,6 +17,7 @@ class SiteLocation(models.Model):
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    minimum_required = models.IntegerField(default=10)
 
     def __str__(self):
         return self.name
@@ -172,6 +173,11 @@ class MaterialStock(models.Model):
     item_name = models.CharField(max_length=255, db_index=True)
     current_balance = models.DecimalField(
         max_digits=12, decimal_places=2, default=0)
+    minimum_required = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=10
+    )
     unit = models.CharField(max_length=50)
     evidence_image = models.ImageField(
         upload_to='material_evidence/%Y/%m/%d/', null=True, blank=True)

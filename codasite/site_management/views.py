@@ -21,26 +21,31 @@ from .reports import get_daily_summary, generate_pdf_report
 from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
+from django.db.models import F
 
 
 @login_required
 def index(request):
-    sites = SiteLocation.objects.filter(contractor=request.user)
     today = timezone.now().date()
 
-    # 🚨 LOW STOCK: Anything less than 10
+    # Sites ordered newest first
+    sites = SiteLocation.objects.filter(
+        contractor=request.user
+    ).order_by("-created_at")
+
+    # Low stock items
     low_stock_items = MaterialStock.objects.filter(
         site__contractor=request.user,
-        current_balance__lt=10
-    ).select_related('site')
+        current_balance__lt=F('minimum_required')
+    ).select_related('site').order_by('current_balance')
 
-    # 🚚 NEW ARRIVALS: Anything added today
-    # Assuming 'last_updated' is a field in your MaterialStock model
+    # Recent arrivals
     recent_arrivals = MaterialStock.objects.filter(
         site__contractor=request.user,
         last_updated__date=today
-    ).select_related('site')
+    ).select_related('site').order_by('-last_updated')
 
+    # Total cement
     total_cement = MaterialStock.objects.filter(
         site__contractor=request.user,
         item_name__icontains='cement'
@@ -50,7 +55,7 @@ def index(request):
         'sites': sites,
         'total_cement': total_cement,
         'low_stock_items': low_stock_items,
-        'recent_arrivals': recent_arrivals,  # 👈 Pass this
+        'recent_arrivals': recent_arrivals,
     })
 
 
