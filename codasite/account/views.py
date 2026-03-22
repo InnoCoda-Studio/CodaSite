@@ -1,7 +1,6 @@
 from django.conf import settings
 from site_management.models import Invitation, CompanyProfile  # Import your new models
 from django.shortcuts import render, redirect, get_object_or_404
-from django.shortcuts import render, redirect
 from django.contrib import messages
 # This is the line you need to fix the "not defined" error:
 from django.contrib.auth import authenticate, login, logout
@@ -9,9 +8,6 @@ from django.contrib.auth import get_user_model
 from .models import Company
 
 User = get_user_model()  # This now points to your custom User with 'is_verified'
-
-
-User = get_user_model()
 
 
 def register_view(request):

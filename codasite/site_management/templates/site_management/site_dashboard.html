@@ -192,7 +192,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
+        {% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
             <div class="space-y-4">
                 <h4 class="text-white/40 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Weekly Executive Audit</h4>
                 <form method="POST" action="{% url 'send_weekly_report' site.id %}">
@@ -207,6 +207,27 @@
                     <button type="submit" class="w-full py-6 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-black rounded-[2.5rem] uppercase text-[12px] tracking-[0.3em] transition-all">Finalize & Send PDF</button>
                 </form>
             </div>
+        </div> {% endcomment %}
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
+            <div class="space-y-4">
+                <h4 class="text-white/40 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Operations</h4>
+                <a href="{% url 'daily_report' site.id %}" class="block text-center w-full py-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-black rounded-[2rem] uppercase text-[10px] tracking-[0.3em] transition-all">Open Full Daily Log</a>
+            </div>
+            <div class="space-y-4">
+                <h4 class="text-red-400/60 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Closeout</h4>
+                <form action="{% url 'close_site_day' site.id %}" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-black rounded-[2rem] uppercase text-[10px] tracking-[0.3em] transition-all">Finalize & Send PDF</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="p-8 glass rounded-[3rem] border border-innocoda-teal/20 shadow-2xl">
+            <h4 class="text-innocoda-teal font-black uppercase text-[9px] mb-4 ml-2 tracking-[0.3em]">Weekly Executive Audit</h4>
+            <form method="POST" action="{% url 'send_weekly_report' site.id %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full py-6 bg-innocoda-teal hover:bg-emerald-400 text-innocoda-navy font-black rounded-[2.5rem] uppercase text-[12px] tracking-[0.4em] transition-all">Generate & Dispatch Weekly Summary</button>
+            </form>
         </div>
     </div>
 
