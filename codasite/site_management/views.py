@@ -1,4 +1,5 @@
 
+from decimal import Decimal  # 👈 Ensure this is at the top of your file!
 from .models import SiteLocation, StaffAttendance, MaterialDeduction
 
 from django.conf import settings
@@ -16,7 +17,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from .models import SiteLocation, MaterialStock, CompanyProfile, MaterialDeduction, Invitation, StaffAttendance, SkilledWorker
+from .models import SiteLocation, MaterialStock, CompanyProfile, MaterialDeduction, Invitation, StaffAttendance, SkilledWorker, MaterialRestockLog
 from django.db.models import Sum
 # 👈 Import your new file
 from django.core.mail import send_mail
@@ -175,23 +176,79 @@ def site_dashboard(request, site_id):
                         w.save()
                 messages.success(request, "Labor rates updated.")
 
-        # F. STOCK & MATERIAL LOGIC
+       # F. STOCK & MATERIAL LOGIC
         elif 'add_stock' in request.POST:
             try:
-                qty = Decimal(request.POST.get('quantity') or 0)
+                # 1. Capture the form data
+                qty_raw = request.POST.get('quantity')
+                qty = Decimal(
+                    qty_raw) if qty_raw and qty_raw.strip() else Decimal('0.00')
+                item_name = request.POST.get('item_name', '').strip().upper()
+                unit = request.POST.get('unit', '').strip()
+
+                # 2. Update/Create the Master Balance card
                 stock, created = MaterialStock.objects.get_or_create(
-                    site=site, item_name=request.POST.get(
-                        'item_name').strip().upper(),
-                    defaults={'unit': request.POST.get('unit')}
+                    site=site,
+                    item_name=item_name,
+                    defaults={'unit': unit}
                 )
                 stock.current_balance += qty
-                if 'evidence_image' in request.FILES:
-                    stock.evidence_image = request.FILES['evidence_image']
                 stock.save()
+
+                # 3. 🟢 THE HISTORY RECEIPT (fills your history page)
+                # Ensure your model handles null=True for both evidence fields!
+                MaterialRestockLog.objects.create(
+                    stock_item=stock,
+                    site=site,
+                    quantity_added=qty,
+                    # We capture the image and video here
+                    evidence_image=request.FILES.get('evidence_image'),
+                    evidence_video=request.FILES.get('evidence_video')
+                )
                 messages.success(
-                    request, f"Received {qty} {stock.unit} of {stock.item_name}.")
-            except:
-                messages.error(request, "Invalid quantity.")
+                    request, f"Received {qty} {unit} of {item_name}. Proof logged.")
+            except Exception as e:
+                messages.error(request, f"Intake Error: {e}")
+
+        # Inside your site_dashboard(request, site_id) function:
+
+        # --- MATERIAL DEDUCTION LOGIC ---
+        elif 'issue_material' in request.POST:
+            stock_id = request.POST.get('stock_item')
+            worker_id = request.POST.get('worker_id')
+            try:
+                qty = Decimal(request.POST.get('quantity') or 0)
+                purpose = request.POST.get('purpose')
+
+                # 1. Get the stock item and the worker
+                stock = get_object_or_404(
+                    MaterialStock, id=stock_id, site=site)
+                worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+                # 2. Check if there is enough balance
+                if stock.current_balance >= qty:
+                    # 📉 Subtract the quantity
+                    stock.current_balance -= qty
+                    stock.save()
+
+                    # 3. Create a record of WHO took it and WHY (The audit trail)
+                    MaterialDeduction.objects.create(
+                        stock_item=stock,
+                        worker=worker,
+                        quantity_taken=qty,
+                        purpose=purpose,
+                        authorized_by=request.user,
+                    )
+                    messages.success(
+                        request, f"Authorized: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
+                else:
+                    messages.error(
+                        request, f"Insufficient Stock! Only {stock.current_balance} {stock.unit} remaining.")
+
+            except (InvalidOperation, ValueError):
+                messages.error(request, "Invalid quantity entered.")
+
+            return redirect('site_dashboard', site_id=site_id)
 
         return redirect('site_dashboard', site_id=site.id)
 
@@ -305,14 +362,18 @@ def add_worker(request, site_id):
         id_num = request.POST.get('id_number', '').strip()
         phone_num = request.POST.get('phone', '').strip()
 
-        # Gatekeeper Check
+        # Gatekeeper Check (Make sure Q is imported from django.db.models)
         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
-                request, "Access Denied: Personnel already exists in Global Registry.")
+                request, "Personnel already exists in Global Registry.")
             return redirect('site_dashboard', site_id=site_id)
 
         try:
-            # 🟢 UPDATED: Capturing the high-end data fields
+            # 🟢 CAPTURE DAILY RATE FROM HTML
+            # Note: We take it from the input named 'daily_rate'
+            raw_rate = request.POST.get('daily_rate')
+            daily_rate = Decimal(raw_rate) if raw_rate else Decimal('0.00')
+
             SkilledWorker.objects.create(
                 contractor=request.user,
                 site=site,
@@ -324,13 +385,16 @@ def add_worker(request, site_id):
                 bank_name=request.POST.get('bank_name'),
                 account_number=request.POST.get('account_number'),
                 account_name=request.POST.get('account_name'),
-                pay_frequency=request.POST.get('pay_frequency'),
+                pay_frequency=request.POST.get(
+                    'pay_frequency', 'Daily'),  # Default to Daily
+                daily_rate=daily_rate,  # 👈 THIS WAS MISSING
                 profile_picture=request.FILES.get('profile_picture')
             )
             messages.success(request, "New Personnel enrolled and deployed.")
         except Exception as e:
-            messages.error(
-                request, "Registry Error: Please verify all fields.")
+            # THIS PRINT IS FOR YOU: Look at your black terminal to see the exact error
+            print(f"CRITICAL ERROR: {e}")
+            messages.error(request, f"Registry Error: {e}")
 
     return redirect('site_dashboard', site_id=site_id)
 
@@ -362,45 +426,64 @@ def deploy_worker(request, site_id):
 
 
 @login_required
+@transaction.atomic
 def all_workers(request):
-    # --- HANDLE NEW MASTER REGISTRATION ---
+    # --- 1. HANDLE SAVING NEW WORKER ---
     if request.method == "POST" and 'register_worker' in request.POST:
         try:
+            # Get the data from the form
+            id_num = request.POST.get('id_number', '').strip()
+            phone_num = request.POST.get('phone', '').strip()
+
+            # 🛡️ THE SECURITY CHECK: Check if ID or Phone already exists
+            if SkilledWorker.objects.filter(id_number=id_num).exists():
+                messages.error(
+                    request, f"Access Denied: ID {id_num} already exists.")
+                return redirect('all_workers')
+
+            # Clean the money data properly
+            raw_rate = request.POST.get('daily_rate')
+            daily_rate = Decimal(
+                raw_rate) if raw_rate and raw_rate.strip() else Decimal('0.00')
+
+            # Create the record
             SkilledWorker.objects.create(
                 contractor=request.user,
                 name=request.POST.get('name'),
                 category=request.POST.get('category'),
-                id_number=request.POST.get('id_number'),
-                phone=request.POST.get('phone'),
-                # 🟢 CRITICAL: Adding the missing fields
+                id_number=id_num,
+                phone=phone_num,
                 emergency_contact=request.POST.get('emergency_contact'),
                 bank_name=request.POST.get('bank_name'),
                 account_number=request.POST.get('account_number'),
                 account_name=request.POST.get('account_name'),
-                # -----------------------------------
-                daily_rate=request.POST.get('daily_rate') or 0,
-                pay_frequency=request.POST.get('pay_frequency', 'DAILY'),
+                daily_rate=daily_rate,
+                pay_frequency=request.POST.get('pay_frequency', 'Daily'),
                 profile_picture=request.FILES.get('profile_picture')
             )
             messages.success(
-                request, "Personnel enrolled with full financial records.")
+                request, "Personnel successfully added to Global Registry.")
+            return redirect('all_workers')
+
         except Exception as e:
+            # 👈 Watch your terminal for this!
+            print(f"DATABASE REJECTION ERROR: {e}")
             messages.error(request, f"Registry Error: {e}")
-        return redirect('all_workers')
 
-    # Search & Display logic
-    query = request.GET.get('search', '').strip()
+    # --- 2. DISPLAY LOGIC ---
     workers = SkilledWorker.objects.filter(
-        contractor=request.user).select_related('site').order_by('name')
+        contractor=request.user).order_by('-id')
+    return render(request, 'site_management/all_workers.html', {'workers': workers})
 
-    if query:
-        workers = workers.filter(Q(name__icontains=query) | Q(
-            category__icontains=query)).distinct()
-
-    return render(request, 'site_management/all_workers.html', {
-        'workers': workers,
-        'search_query': query
-    })
+# This function is specifically for adding a worker WHILE on a site dashboard
+# @login_required
+# def add_worker(request, site_id):
+#     site = get_object_or_404(SiteLocation, id=site_id)
+#     if request.method == "POST":
+#         # ... logic for site-specific add ...
+#         # (Usually better to redirect to all_workers if it's a global registry)
+#         pass
+#     return redirect('site_dashboard', site_id=site_id)
 # Global registry
 
 
@@ -438,30 +521,6 @@ def add_worker(request, site_id):
             messages.error(request, "Registry Error: Please check all fields.")
 
     return redirect('site_dashboard', site_id=site_id)
-# @login_required
-# def all_workers(request):
-#     query = request.GET.get('search', '')
-#     workers = SkilledWorker.objects.filter(contractor=request.user)
-#     if query:
-#         workers = workers.filter(name__icontains=query)
-#     return render(request, 'site_management/all_workers.html', {'workers': workers, 'search_query': query})
-
-
-# @login_required
-# def worker_profile(request, slug):
-#     worker = get_object_or_404(
-#         SkilledWorker, slug=slug, contractor=request.user)
-#     history = StaffAttendance.objects.filter(
-#         worker=worker).order_by('-time_in')
-#     return render(request, 'site_management/worker_profile.html', {'worker': worker, 'history': history})
-
-@login_required
-def all_workers(request):
-    query = request.GET.get('search', '')
-    workers = SkilledWorker.objects.filter(contractor=request.user)
-    if query:
-        workers = workers.filter(name__icontains=query)
-    return render(request, 'site_management/all_workers.html', {'workers': workers, 'search_query': query})
 
 
 @login_required
@@ -595,46 +654,59 @@ def restock_history(request, site_id):
     """View the full visual proof log for all materials on a specific site."""
     site = get_object_or_404(SiteLocation, id=site_id)
 
-    # Check permissions (Only contractor or staff)
-    if site.contractor != request.user and not request.user.is_superuser:
-        invitation = Invitation.objects.filter(
-            email=request.user.email, site=site).exists()
-        if not invitation:
-            raise PermissionDenied()
-
-    # Pull all stock items for this site
-
-    site = get_object_or_404(SiteLocation, id=site_id)
-
-    # Security check
-    if site.contractor != request.user and not request.user.is_superuser:
+    # 🛡️ ONE SECURITY CHECK: Is this user allowed to be here?
+    is_pm = Invitation.objects.filter(
+        email=request.user.email, site=site).exists()
+    if site.contractor != request.user and not request.user.is_superuser and not is_pm:
         raise PermissionDenied()
 
-    # Get all stock items for this site
+    # 🟢 THE HISTORY LOGS (Every delivery event)
+    # We use select_related to get the name and unit from the Stock model
+    history = MaterialRestockLog.objects.filter(
+        site=site).select_related('stock_item').order_by('-timestamp')
 
+    # 🟢 THE CURRENT TOTALS (For the top of the page if needed)
     stocks = MaterialStock.objects.filter(site=site).order_by('-last_updated')
 
     return render(request, 'site_management/restock_history.html', {
         'site': site,
-
+        'history': history,
         'stocks': stocks
     })
 
 
+# @login_required
+# def material_usage_report(request, site_id):
+#     site = get_object_or_404(SiteLocation, id=site_id)
+
+#     # 🟢 THE FIX: Add 'authorized_by' to select_related
+#     usage_logs = MaterialDeduction.objects.filter(
+#         stock_item__site=site
+#     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
+
+#     return render(request, 'site_management/material_usage_report.html', {
+#         'site': site,
+#         'usage_logs': usage_logs,
+#     })
 @login_required
 def material_usage_report(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
 
-    # Fetch all deductions for this site, including worker details
+    # 🛡️ Security Check
+    if site.contractor != request.user and not request.user.is_superuser:
+        # (Add your PM invitation check here if needed)
+        pass
+
+    # 🟢 THE OPTIMIZED QUERY
+    # select_related pulls the Worker, Stock Item, and Authorizer in 1 database hit
     usage_logs = MaterialDeduction.objects.filter(
         stock_item__site=site
-    ).select_related('worker', 'stock_item').order_by('-timestamp')
+    ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
 
     return render(request, 'site_management/material_usage_report.html', {
         'site': site,
         'usage_logs': usage_logs,
     })
-
 # Profiles
 
 

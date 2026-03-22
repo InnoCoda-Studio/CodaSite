@@ -102,32 +102,40 @@
             <form method="POST" enctype="multipart/form-data" class="space-y-6">
                 {% csrf_token %}
                 <input type="hidden" name="register_worker" value="true">
-                
-                <div class="space-y-3">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity Details</p>
-                    <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="category" required placeholder="Skill (e.g. Mason)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <input type="text" name="phone" required placeholder="Phone Number" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-                </div>
-
-                <div class="space-y-3">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Settlement Details</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="number" name="daily_rate" required placeholder="Daily Rate (₦)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <input type="text" name="bank_name" placeholder="Bank Name" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-                    <input type="text" name="account_number" maxlength="10" placeholder="10-Digit Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                </div>
-
-                <div class="space-y-2">
+                {% comment %} Images  {% endcomment %}
+                 <div class="space-y-2">
                     <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
                     <label class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed border-white/20 rounded-[2rem] cursor-pointer hover:border-innocoda-teal transition-all group">
                         <span class="text-[10px] text-gray-400 uppercase font-black group-hover:text-white">Capture Identity Photo</span>
                         <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
                     </label>
                 </div>
+                {% comment %} Name / phone /  {% endcomment %}
+                <div class="space-y-3">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                    <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                    </div>
+                    <input type="text" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                    <input type="text" name="emergency_contact" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="bank_name" placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="number" name="daily_rate" placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+                    <input type="hidden" name="pay_frequency" value="Daily">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="text" name="account_name" placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+                </div>
+
+               
 
                 <button type="submit" @click="loading = true" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center">
                     <span x-text="loading ? 'Enrolling...' : 'Finalize Registry Entry'"></span>

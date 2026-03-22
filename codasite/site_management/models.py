@@ -86,6 +86,10 @@ class SkilledWorker(models.Model):
     account_number = models.CharField(max_length=10, null=True, blank=True)
     account_name = models.CharField(max_length=255, null=True, blank=True)
 
+    class Meta:
+        # '-' means descending order (Newest/Latest ID first)
+        ordering = ['-id']
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.name)
