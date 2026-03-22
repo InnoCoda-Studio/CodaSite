@@ -17,6 +17,7 @@ class SiteLocation(models.Model):
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
     minimum_required = models.IntegerField(default=10, null=True, blank=True)
 
     def __str__(self):
@@ -101,7 +102,8 @@ class SkilledWorker(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name} ({self.get_category_display()})"
+        # Remove get_category_display() because category is a CharField, not a ChoiceField
+        return f"{self.name} ({self.category})"
 
 
 # 4. Daily Site Operations
@@ -146,6 +148,7 @@ class StaffAttendance(models.Model):
     is_paid = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
     payment_reference = models.CharField(max_length=100, null=True, blank=True)
+
     daily_rate_at_time = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
 
@@ -180,11 +183,13 @@ class MaterialStock(models.Model):
     item_name = models.CharField(max_length=255, db_index=True)
     current_balance = models.DecimalField(
         max_digits=12, decimal_places=2, default=0)
+
     minimum_required = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=10
     )
+
     unit = models.CharField(max_length=50)
     evidence_image = models.ImageField(
         upload_to='material_evidence/%Y/%m/%d/', null=True, blank=True)
@@ -226,6 +231,28 @@ class MaterialStock(models.Model):
 
     def __str__(self):
         return f"{self.item_name} ({self.current_balance} {self.unit})"
+
+
+class MaterialRestockLog(models.Model):
+    """Permanent ledger of every material delivery to a site."""
+    stock_item = models.ForeignKey(
+        MaterialStock, on_delete=models.CASCADE, related_name='delivery_logs')
+    site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
+
+    quantity_added = models.DecimalField(max_digits=12, decimal_places=2)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # 📸 The 'Proof' for this specific delivery event
+    evidence_image = models.ImageField(
+        upload_to='restock_proofs/%Y/%m/%d/', null=True, blank=True)
+    evidence_video = models.FileField(
+        upload_to='restock_proofs_vids/%Y/%m/%d/', null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.stock_item.item_name} +{self.quantity_added} - {self.timestamp.strftime('%d %b')}"
 
 
 class MaterialDeduction(models.Model):

@@ -1,34 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mx-auto p-4 max-w-xl pb-32 pt-12">
-    <div class="relative mb-8 pt-12"> <div class="glass p-8 pt-20 rounded-[3rem] border border-white/10 shadow-2xl relative text-center">
-        
-        <div class="absolute right-0 top-0 w-40 h-40 bg-innocoda-teal/10 rounded-full blur-3xl pointer-events-none"></div>
-        
-        <div class="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
-            <div class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden bg-innocoda-navy flex items-center justify-center">
+<div class="container mx-auto p-4 max-w-xl pb-32">
+    <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden mb-6">
+        <div class="flex flex-col items-center">
+            <div class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 overflow-hidden mb-4 bg-innocoda-navy flex items-center justify-center shadow-2xl">
                 {% if worker.profile_picture %}
                     <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover">
                 {% else %}
                     <span class="text-5xl font-black text-innocoda-teal opacity-40">{{ worker.name|slice:":1" }}</span>
                 {% endif %}
             </div>
-            <div class="absolute bottom-2 right-2 w-4 h-4 bg-emerald-500 rounded-full border-4 border-[#0a0f1a] {% if worker.is_active %}animate-pulse{% endif %}"></div>
-        </div>
 
-        <h1 class="text-3xl font-black text-white uppercase tracking-tighter">{{ worker.name }}</h1>
-        <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em] mb-4">{{ worker.category }}</p>
-        
-        <div class="flex items-center justify-center space-x-2 bg-white/5 px-4 py-1 rounded-full border border-white/10 inline-flex">
-            <span class="w-2 h-2 rounded-full {% if worker.is_active %}bg-emerald-500 animate-pulse{% else %}bg-gray-500{% endif %}"></span>
-            <span class="text-[9px] font-black uppercase text-gray-300">
-                {% if worker.is_active %}Verified Personnel{% else %}Inactive{% endif %}
-            </span>
+            <h1 class="text-3xl font-black text-white uppercase tracking-tighter">{{ worker.name }}</h1>
+            <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em] mb-4">{{ worker.category }}</p>
+            
+            <div class="flex items-center space-x-2 bg-white/5 px-4 py-1 rounded-full border border-white/10">
+                <span class="w-2 h-2 rounded-full {% if worker.is_active %}bg-emerald-500 animate-pulse{% else %}bg-gray-500{% endif %}"></span>
+                <span class="text-[9px] font-black uppercase text-gray-300">
+                    {% if worker.is_active %}Verified Personnel{% else %}Inactive{% endif %}
+                </span>
+            </div>
         </div>
     </div>
-</div>
-
 
     <div class="grid grid-cols-2 gap-4 mb-8">
         <div class="glass p-6 rounded-[2.5rem] border border-white/5 text-center">
@@ -68,7 +62,7 @@
                     </div>
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Emergency Contact</p>
-                        <p class="text-white font-bold text-xs text-red-400">{{ worker.emergency_contact|default:"NOT PROVIDED" }}</p>
+                        <p class="text-white font-bold text-xs text-red-400">{{ worker.id_number|default:"NOT PROVIDED" }}</p>
                     </div>
                 </div>
             </div>
@@ -134,43 +128,46 @@
                 {% endfor %}
             </div>
         </div>
+    </div>
 
-        <div class="mt-12">
-            <h2 class="text-emerald-400 font-black uppercase text-xs mb-4 px-2 tracking-widest">Financial Audit Trail</h2>
-            <div class="space-y-4">
-                {% for payment in payment_history %}
-                <div class="glass p-6 rounded-[2rem] border border-emerald-500/10 bg-emerald-500/5 relative overflow-hidden">
-                    <div class="absolute -right-4 -top-2 opacity-10 rotate-12">
-                        <p class="text-4xl font-black text-emerald-500">PAID</p>
-                    </div>
-                    <div class="flex justify-between items-start relative z-10">
-                        <div>
-                            <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Reference Code</p>
-                            <p class="text-white font-mono text-xs">{{ payment.payment_reference }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Amount Settled</p>
-                            <p class="text-lg font-black text-emerald-400">₦{{ worker.daily_rate }}</p>
-                        </div>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
-                        <div>
-                            <p class="text-[8px] text-gray-500 uppercase font-black">Work Date</p>
-                            <p class="text-white text-[10px] font-bold">{{ payment.time_in|date:"d M Y" }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[8px] text-gray-500 uppercase font-black">Processed On</p>
-                            <p class="text-white text-[10px] font-bold">{{ payment.payment_date|date:"d M Y, H:i" }}</p>
-                        </div>
-                    </div>
+    <div class="mt-12">
+    <h2 class="text-emerald-400 font-black uppercase text-xs mb-4 px-2 tracking-widest">Financial Audit Trail</h2>
+    
+    <div class="space-y-4">
+        {% for payment in payment_history %}
+        <div class="glass p-6 rounded-[2rem] border border-emerald-500/10 bg-emerald-500/5 relative overflow-hidden">
+            <div class="absolute -right-4 -top-2 opacity-10 rotate-12">
+                <p class="text-4xl font-black text-emerald-500">PAID</p>
+            </div>
+
+            <div class="flex justify-between items-start relative z-10">
+                <div>
+                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Reference Code</p>
+                    <p class="text-white font-mono text-xs">{{ payment.payment_reference }}</p>
                 </div>
-                {% empty %}
-                <div class="p-8 text-center border border-dashed border-white/10 rounded-[2rem]">
-                    <p class="text-[10px] text-gray-600 font-black uppercase tracking-widest">No finalized payments found</p>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Amount Settled</p>
+                    <p class="text-lg font-black text-emerald-400">₦{{ worker.daily_rate }}</p>
                 </div>
-                {% endfor %}
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                <div>
+                    <p class="text-[8px] text-gray-500 uppercase font-black">Work Date</p>
+                    <p class="text-white text-[10px] font-bold">{{ payment.time_in|date:"d M Y" }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[8px] text-gray-500 uppercase font-black">Processed On</p>
+                    <p class="text-white text-[10px] font-bold">{{ payment.payment_date|date:"d M Y, H:i" }}</p>
+                </div>
             </div>
         </div>
+        {% empty %}
+        <div class="p-8 text-center border border-dashed border-white/10 rounded-[2rem]">
+            <p class="text-[10px] text-gray-600 font-black uppercase tracking-widest">No finalized payments found</p>
+        </div>
+        {% endfor %}
     </div>
+</div>
 </div>
 {% endblock %}

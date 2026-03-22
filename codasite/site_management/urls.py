@@ -46,6 +46,5 @@ urlpatterns = [
          views.restock_history, name='restock_history'),
     #
     path('site/<int:site_id>/material-report/',
-         views.material_usage_report, name='material_usage_report')
-
+         views.material_usage_report, name='material_usage_report'),
 ]
