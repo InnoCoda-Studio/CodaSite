@@ -92,16 +92,22 @@ class SkilledWorker(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.name)
-            # We add a short random code (4 characters) to the end
-            random_id = str(uuid.uuid4())[:4]
+            # 1. Create the base (e.g., "victor-paul")
+            base = slugify(self.name)
 
+            # 2. Generate a unique short code
+            short_id = str(uuid.uuid4())[:4]
+
+            # 3. Handle the phone suffix safely
             if self.phone:
-                # Name + Phone Suffix + Random Code
-                self.slug = f"{base_slug}-{self.phone[-4:]}-{random_id}"
+                # Clean the phone number (remove spaces/dashes) before taking last 4
+                clean_phone = "".join(filter(str.isdigit, self.phone))
+                phone_suffix = clean_phone[-4:] if len(
+                    clean_phone) >= 4 else clean_phone
+                # Combine and run through slugify ONE LAST TIME to be 100% safe
+                self.slug = slugify(f"{base}-{phone_suffix}-{short_id}")
             else:
-                # Name + Random Code
-                self.slug = f"{base_slug}-{random_id}"
+                self.slug = slugify(f"{base}-{short_id}")
 
         super().save(*args, **kwargs)
 

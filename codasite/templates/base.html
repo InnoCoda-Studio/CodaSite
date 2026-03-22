@@ -3,35 +3,44 @@
 <!DOCTYPE html>
 
 <html lang="en">
-
+    <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CodaSite | Smart Construction Site Management & Audit Ledger</title>
+        <meta name="description" content="Digitally manage construction site materials, workforce attendance, and daily project logs with CodaSite. The ultimate audit tool for modern engineers.">
+        <meta name="keywords" content="construction management software, site ledger, material intake tracker, site attendance, civil engineering audit tool, CodaSite">
 
-<head>
+        <meta property="og:title" content="CodaSite: Professional Site Management">
+        <meta property="og:description" content="Stop losing track of materials. Start auditing your construction site like a pro.">
+        <meta property="og:type" content="website">
+        <meta property="og:image" content="{% static 'images/CodaSite_logo.jpeg' %}">
+   
 
-    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+        <script src="https://unpkg.com/htmx.org@2.0.0"></script>
 
 
-    <script src="https://cdn.tailwindcss.com"></script>
+        {% tailwind_css %}
 
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+        <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
-    <script>
+        <script>
 
-        tailwind.config = {
+            tailwind.config = {
 
-            theme: {
+                theme: {
 
-                extend: {
+                    extend: {
 
-                    colors: {
+                        colors: {
 
-                        innocoda: {
+                            innocoda: {
 
-                            navy: '#001F3F',
+                                navy: '#001F3F',
 
-                            teal: '#00D2D2',
+                                teal: '#00D2D2',
 
-                            slate: '#F8FAFC',
+                                slate: '#F8FAFC',
+
+                            }
 
                         }
 
@@ -41,69 +50,67 @@
 
             }
 
-        }
+        </script>
 
-    </script>
+    
 
-   
+        
 
-       
+            <style>
 
-        <style>
+                body { font-family: 'Inter', sans-serif; }
+
+            .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+
+
+
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
             body { font-family: 'Inter', sans-serif; }
 
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+            .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+
+            /* Professional touches for mobile */
+
+            input, select { font-size: 16px !important; } /* Stops iOS from zooming in on inputs */
+
+    
+
+        </style>
+
+    </head>
+
+    <body class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24"> {% block nav %}{% endblock %}
 
 
 
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        <main>
 
-        body { font-family: 'Inter', sans-serif; }
+            {% if messages %}
 
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+                <div class="fixed top-4 right-4 z-50">
 
-        /* Professional touches for mobile */
+                    {% for message in messages %}
 
-        input, select { font-size: 16px !important; } /* Stops iOS from zooming in on inputs */
+                        <div class="p-4 rounded-lg shadow-lg {% if message.tags == 'success' %}bg-green-500{% else %}bg-red-500{% endif %} text-white mb-2">
 
-   
+                            {{ message }}
 
-    </style>
+                        </div>
 
-</head>
+                    {% endfor %}
 
-<body class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24"> {% block nav %}{% endblock %}
+                </div>
 
-
-
-    <main>
-
-        {% if messages %}
-
-            <div class="fixed top-4 right-4 z-50">
-
-                {% for message in messages %}
-
-                    <div class="p-4 rounded-lg shadow-lg {% if message.tags == 'success' %}bg-green-500{% else %}bg-red-500{% endif %} text-white mb-2">
-
-                        {{ message }}
-
-                    </div>
-
-                {% endfor %}
-
-            </div>
-
-        {% endif %}
+            {% endif %}
 
 
 
-        {% block content %}
+            {% block content %}
 
-        {% endblock %}
+            {% endblock %}
 
-    </main>
+        </main>
 
 
 

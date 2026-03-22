@@ -85,65 +85,89 @@
     </div>
 
     <div x-show="regModal" x-cloak 
-         class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl px-4 py-6"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100">
+     class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl px-4 py-6"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 scale-95"
+     x-transition:enter-end="opacity-100 scale-100">
+    
+    <div @click.away="regModal = false" 
+         class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative"
+         x-data="{ photoPreview: null }">
         
-        <div @click.away="regModal = false" class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative">
-            
-            <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+        <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
 
-            <div class="mb-10">
-                <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
-                <p class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest mt-1">Biometric & Bank Verification</p>
+        <div class="mb-10">
+            <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
+            <p class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest mt-1">Biometric & Bank Verification</p>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-8">
+            {% csrf_token %}
+            <input type="hidden" name="register_worker" value="true">
+            
+            <div class="space-y-3">
+                <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
+                <label class="group relative flex flex-col items-center justify-center h-48 bg-white/5 border-2 border-dashed border-white/10 rounded-[2.5rem] cursor-pointer hover:border-innocoda-teal hover:bg-innocoda-teal/5 transition-all overflow-hidden">
+                    
+                    <template x-if="!photoPreview">
+                        <div class="flex flex-col items-center">
+                            <div class="w-12 h-12 rounded-full bg-innocoda-teal/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                <svg class="w-6 h-6 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 012 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                            <span class="text-[10px] text-white uppercase font-black tracking-[0.2em]">Capture Identity Photo</span>
+                        </div>
+                    </template>
+
+                    <template x-if="photoPreview">
+                        <img :src="photoPreview" class="absolute inset-0 w-full h-full object-cover">
+                    </template>
+
+                    <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden"
+                           @change="const file = $event.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => { photoPreview = e.target.result }; reader.readAsDataURL(file) }">
+                </label>
             </div>
 
-            <form method="POST" enctype="multipart/form-data" class="space-y-8">
-                {% csrf_token %}
-                <input type="hidden" name="register_worker" value="true">
+            <div class="space-y-4">
+                <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Personal Data</p>
+                <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
                 
-                <div class="space-y-3">
-                    <label class="group relative flex flex-col items-center justify-center p-10 bg-white/5 border-2 border-dashed border-white/10 rounded-[2.5rem] cursor-pointer hover:border-innocoda-teal hover:bg-innocoda-teal/5 transition-all">
-                        <div class="w-16 h-16 rounded-full bg-innocoda-teal/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <svg class="w-8 h-8 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 012 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        </div>
-                        <span class="text-[10px] text-white uppercase font-black tracking-[0.2em]">Capture Identity Photo</span>
-                        <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
-                    </label>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" name="category" required placeholder="ROLE (MASON, ETC)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
+                    <input type="text" name="id_number" required placeholder="STAFF ID / NIN" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
                 </div>
 
-                <div class="space-y-4">
-                    <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Personal Data</p>
-                    <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="category" required placeholder="ROLE (MASON, ETC)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                        <input type="text" name="id_number" required placeholder="STAFF ID / NIN" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="phone" required placeholder="PRIMARY PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
+                    <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT & PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
                 </div>
+            </div>
 
-                <div class="space-y-4">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Settlement Details</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="bank_name" placeholder="BANK NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                        <input type="number" name="daily_rate" placeholder="DAILY RATE (₦)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                    </div>
+            <div class="space-y-4">
+                <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" name="bank_name" placeholder="BANK (OPAY, UBA...)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                    <input type="number" name="daily_rate" placeholder="DAILY RATE (₦)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" name="account_number" maxlength="10" placeholder="ACCOUNT NUMBER" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                    <input type="text" name="account_name" placeholder="ACCOUNT HOLDER NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
                 </div>
+                <input type="hidden" name="pay_frequency" value="Daily">
+            </div>
 
-                <button type="submit" @click="loading = true" class="w-full bg-white text-innocoda-navy py-6 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center">
-                    <span x-show="!loading">Finalize Enrollment</span>
-                    <span x-show="loading" class="flex items-center gap-3">
-                        <svg class="animate-spin h-5 w-5 text-innocoda-navy" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Enrolling...
-                    </span>
-                </button>
-            </form>
-        </div>
+            <button type="submit" @click="loading = true" class="w-full bg-white text-innocoda-navy py-6 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center active:scale-95">
+                <span x-show="!loading">Finalize Enrollment</span>
+                <span x-show="loading" class="flex items-center gap-3">
+                    <svg class="animate-spin h-5 w-5 text-innocoda-navy" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Enrolling Personnel...
+                </span>
+            </button>
+        </form>
     </div>
+</div>
 </div>
 
 <style>
