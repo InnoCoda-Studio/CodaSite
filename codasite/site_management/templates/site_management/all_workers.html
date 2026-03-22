@@ -3,59 +3,61 @@
 {% block title %}Workforce | Global Registry{% endblock %}
 
 {% block content %}
-<div x-data="{ regModal: false, loading: false, search: '' }" class="container mx-auto p-6 pb-32">
+<div x-data="{ regModal: false, loading: false, search: '' }" class="container mx-auto p-4 md:p-6 pb-32">
 
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div>
-            <h1 class="text-4xl font-black text-white uppercase tracking-tighter">Workforce</h1>
-            <p class="text-innocoda-teal font-bold uppercase text-[10px] tracking-[0.4em]">Global Personnel Registry</p>
-
-            <div class="text-right">
-            <p class="text-[10px] text-gray-500 font-black uppercase">Total Headcount</p>
-            <p class="text-2xl font-black text-white">{{ workers.count }}</p>
-        </div>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12 px-2">
+        <div class="w-full md:w-auto">
+            <h1 class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none">Workforce</h1>
+            <div class="flex items-center gap-2 mt-2">
+                <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse"></span>
+                <p class="text-innocoda-teal font-black uppercase text-[9px] tracking-[0.4em]">Global Personnel Registry</p>
+            </div>
         </div>
         
-        <div class="flex flex-wrap gap-4 w-full md:w-auto">
-            <div class="relative flex-1 md:flex-none">
-                <input type="text" x-model="search" placeholder="Filter by name or skill..." 
-                       class="glass w-full md:w-72 bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white text-sm focus:border-innocoda-teal outline-none transition-all shadow-2xl">
-                <svg class="w-5 h-5 text-gray-500 absolute left-4 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+            <div class="bg-white/5 border border-white/10 px-6 py-3 rounded-2xl text-center min-w-[120px] w-full sm:w-auto">
+                <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest">Total Headcount</p>
+                <p class="text-2xl font-black text-white leading-none mt-1">{{ workers.count }}</p>
             </div>
-
-            <button @click="regModal = true" class="bg-innocoda-teal text-innocoda-navy px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-lg shadow-innocoda-teal/20">
+            <button @click="regModal = true" class="w-full sm:w-auto bg-white text-innocoda-navy px-8 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-innocoda-teal transition-all shadow-xl active:scale-95">
                 + Register Personnel
             </button>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="relative mb-12">
+        <input type="text" x-model="search" placeholder="Filter by name, role, or skill..." 
+               class="glass w-full bg-white/5 border border-white/10 rounded-[2rem] p-6 pl-14 text-white text-sm focus:border-innocoda-teal outline-none transition-all shadow-inner">
+        <svg class="w-6 h-6 text-gray-600 absolute left-6 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {% for worker in workers %}
         <div x-show="search === '' || '{{ worker.name|lower }}'.includes(search.toLowerCase()) || '{{ worker.category|lower }}'.includes(search.toLowerCase())"
              class="glass p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group hover:border-innocoda-teal/40 transition-all duration-500">
             
-            <div class="absolute -right-4 -top-4 w-32 h-32 bg-innocoda-teal/5 rounded-full blur-3xl group-hover:bg-innocoda-teal/15 transition-all"></div>
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-innocoda-teal/5 rounded-full blur-3xl group-hover:bg-innocoda-teal/10 transition-all"></div>
             
-            <div class="flex items-center space-x-4 mb-8">
-                <div class="w-16 h-16 rounded-2xl bg-innocoda-navy border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+            <div class="flex items-center space-x-5 mb-8 relative z-10">
+                <div class="w-20 h-20 rounded-[1.5rem] bg-innocoda-navy border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
                     {% if worker.profile_picture %}
                         <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover">
                     {% else %}
-                        <span class="text-2xl font-black text-innocoda-teal opacity-50 italic">{{ worker.name|slice:":1" }}</span>
+                        <span class="text-3xl font-black text-innocoda-teal opacity-30 italic">{{ worker.name|slice:":1" }}</span>
                     {% endif %}
                 </div>
                 
                 <div class="overflow-hidden">
-                    <h3 class="text-xl font-black text-white truncate tracking-tight">{{ worker.name }}</h3>
-                    <div class="flex items-center space-x-2">
+                    <h3 class="text-xl font-black text-white truncate uppercase tracking-tight">{{ worker.name }}</h3>
+                    <div class="flex items-center space-x-2 mt-1">
                         <span class="w-1.5 h-1.5 rounded-full {% if worker.site %}bg-emerald-500{% else %}bg-orange-500{% endif %}"></span>
-                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">{{ worker.category }}</p>
+                        <p class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">{{ worker.category }}</p>
                     </div>
                 </div>
             </div>
 
-            <div class="space-y-6">
-                <div class="grid grid-cols-2 gap-4 border-y border-white/5 py-4">
+            <div class="space-y-6 relative z-10">
+                <div class="grid grid-cols-2 gap-4 border-y border-white/5 py-5">
                     <div>
                         <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Current Site</p>
                         <p class="text-white text-[10px] font-bold truncate">
@@ -63,87 +65,90 @@
                         </p>
                     </div>
                     <div class="border-l border-white/5 pl-4">
-                        <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Settlement Rate</p>
+                        <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Daily Rate</p>
                         <p class="text-white text-[10px] font-bold">₦{{ worker.daily_rate|floatformat:0 }}</p>
                     </div>
                 </div>
 
-                {% if worker.slug %}
-                <a href="{% url 'worker_profile' worker.slug %}" 
-                   class="flex items-center justify-center w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white hover:bg-white/10 group-hover:border-innocoda-teal transition-all">
-                    <span>Review Digital File</span>
-                    <svg class="w-3 h-3 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                <a href="{% if worker.slug %}{% url 'worker_profile' worker.slug %}{% else %}#{% endif %}" 
+                   class="flex items-center justify-center w-full py-5 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white hover:bg-innocoda-teal hover:text-innocoda-navy group-hover:border-innocoda-teal transition-all">
+                    Review Digital File
+                    <svg class="w-3 h-3 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </a>
-                {% else %}
-                <div class="text-center py-4 bg-white/2 border border-white/5 rounded-2xl text-[8px] font-black text-gray-600 uppercase tracking-widest">
-                    Profile Data Incomplete
-                </div>
-                {% endif %}
             </div>
         </div>
         {% empty %}
-        <div class="col-span-full py-32 text-center glass rounded-[3rem] border border-dashed border-white/10">
-            <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            </div>
-            <p class="text-gray-500 font-bold uppercase text-xs tracking-widest">Registry Empty</p>
+        <div class="col-span-full py-32 text-center glass rounded-[4rem] border border-dashed border-white/10">
+            <p class="text-gray-600 italic uppercase font-black text-xs tracking-[0.4em]">Registry Empty</p>
         </div>
         {% endfor %}
     </div>
 
-    <div x-show="regModal" x-cloak class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
-        <div @click.away="regModal = false" class="glass w-full max-w-lg p-8 rounded-[3rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+    <div x-show="regModal" x-cloak 
+         class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl px-4 py-6"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100">
+        
+        <div @click.away="regModal = false" class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative">
             
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
-                <button @click="regModal = false" class="text-gray-500 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="mb-10">
+                <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
+                <p class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest mt-1">Biometric & Bank Verification</p>
             </div>
 
-            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <form method="POST" enctype="multipart/form-data" class="space-y-8">
                 {% csrf_token %}
                 <input type="hidden" name="register_worker" value="true">
-                {% comment %} Images  {% endcomment %}
-                 <div class="space-y-2">
-                    <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
-                    <label class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed border-white/20 rounded-[2rem] cursor-pointer hover:border-innocoda-teal transition-all group">
-                        <span class="text-[10px] text-gray-400 uppercase font-black group-hover:text-white">Capture Identity Photo</span>
+                
+                <div class="space-y-3">
+                    <label class="group relative flex flex-col items-center justify-center p-10 bg-white/5 border-2 border-dashed border-white/10 rounded-[2.5rem] cursor-pointer hover:border-innocoda-teal hover:bg-innocoda-teal/5 transition-all">
+                        <div class="w-16 h-16 rounded-full bg-innocoda-teal/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <svg class="w-8 h-8 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 012 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <span class="text-[10px] text-white uppercase font-black tracking-[0.2em]">Capture Identity Photo</span>
                         <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
                     </label>
                 </div>
-                {% comment %} Name / phone /  {% endcomment %}
-                <div class="space-y-3">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
-                    <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                    </div>
-                    <input type="text" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                    <input type="text" name="emergency_contact" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                </div>
 
-                <div class="space-y-3">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="bank_name" placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <input type="number" name="daily_rate" placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-                    <input type="hidden" name="pay_frequency" value="Daily">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <input type="text" name="account_name" placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                <div class="space-y-4">
+                    <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Personal Data</p>
+                    <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="category" required placeholder="ROLE (MASON, ETC)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
+                        <input type="text" name="id_number" required placeholder="STAFF ID / NIN" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
                     </div>
                 </div>
 
-               
+                <div class="space-y-4">
+                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Settlement Details</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="bank_name" placeholder="BANK NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                        <input type="number" name="daily_rate" placeholder="DAILY RATE (₦)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                    </div>
+                    <input type="text" name="account_number" maxlength="10" placeholder="ACCOUNT NUMBER" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
+                </div>
 
-                <button type="submit" @click="loading = true" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center">
-                    <span x-text="loading ? 'Enrolling...' : 'Finalize Registry Entry'"></span>
+                <button type="submit" @click="loading = true" class="w-full bg-white text-innocoda-navy py-6 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center">
+                    <span x-show="!loading">Finalize Enrollment</span>
+                    <span x-show="loading" class="flex items-center gap-3">
+                        <svg class="animate-spin h-5 w-5 text-innocoda-navy" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Enrolling...
+                    </span>
                 </button>
             </form>
         </div>
     </div>
 </div>
 
-<style> [x-cloak] { display: none !important; } </style>
+<style>
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+</style>
 {% endblock %}
