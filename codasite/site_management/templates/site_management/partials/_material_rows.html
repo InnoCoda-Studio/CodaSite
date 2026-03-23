@@ -1,0 +1,19 @@
+{% for item in materials %}
+<tr class="hover:bg-white/[0.03] transition-colors">
+    <td class="p-6 font-black text-white uppercase">{{ item.stock_item.item_name }}</td>
+    <td class="p-6">
+        <span class="bg-innocoda-teal/10 text-innocoda-teal px-4 py-1.5 rounded-xl text-[10px] font-black border border-innocoda-teal/20">
+            {{ item.quantity_taken }} {{ item.stock_item.unit }}
+        </span>
+    </td>
+    <td class="p-6 text-gray-300 text-xs">
+        {{ item.purpose }} <br>
+        <span class="text-[8px] text-gray-500 uppercase font-black">Taken by: {{ item.worker.name }}</span>
+    </td>
+    <td class="p-6 text-right">
+        <p class="text-white font-black text-xs">{{ item.timestamp|date:"h:i A" }}</p>
+    </td>
+</tr>
+{% empty %}
+<tr><td colspan="4" class="p-12 text-center text-gray-500">No materials moved today.</td></tr>
+{% endfor %}

@@ -336,7 +336,11 @@ def daily_report(request, site_id):
         'workers': workers,
         'today': today_date,  # For the "Log Date" display
         'now': now,          # For the "Live Time" display
-    }
+    },
+    # 🟢 HTMX MAGIC CHECK
+    # if request.headers.get('HX-Request'):
+    #     return render(request, 'site_management/partials/_material_rows.html', context)
+
     return render(request, 'site_management/daily_report.html', context)
 
 # --- WORKER & SITE MANAGEMENT ---

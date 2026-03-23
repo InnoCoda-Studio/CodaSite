@@ -154,19 +154,17 @@ USE_TZ = True
 # // https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 # /////////////////////// --- STATIC FILES (CSS, JavaScript, Images) ---
+# Static Files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# ////////////////////////////////////////////////////////////////
-# ///🚀 Use WhiteNoise for efficient static file serving
+# WhiteNoise for efficient static file serving on Render
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# ////////////////////////////////////////////////////////////////////
-# //--- MEDIA FILES (Uploaded Photos & Videos) ---
-# ///This is where Django will save the cement photos
+# Media Files (Uploaded Photos & Videos)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # // Custom acout
 AUTH_USER_MODEL = 'account.User'
