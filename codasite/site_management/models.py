@@ -174,6 +174,16 @@ class StaffAttendance(models.Model):
         name = self.worker.name if self.worker else self.user.username
         return f"{name} - {self.time_in.strftime('%d %b, %H:%M')}"
 
+    @property
+    def duration(self):
+        if self.time_in and self.time_out:
+            diff = self.time_out - self.time_in
+            total_seconds = int(diff.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            return f"{hours:02d}h {minutes:02d}m"
+        return None
+
     def get_duration(self):
         """Calculates exact hours and minutes worked."""
         if self.time_in and self.time_out:

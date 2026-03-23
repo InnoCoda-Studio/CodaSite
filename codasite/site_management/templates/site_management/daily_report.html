@@ -4,6 +4,19 @@
 {% block title %}Daily Audit | {{ today|date:"d M Y" }} | CodaSite{% endblock %}
 
 {% block content %}
+<style>
+    /* 🟢 Millionaire Touch: Clean Scrollbar for the table */
+    .custom-scrollbar::-webkit-scrollbar {
+        height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #00D2D2;
+        border-radius: 10px;
+    }
+</style>
 <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
 <div x-data="{ imgModal: false, imgUrl: '', isVideo: false, search: '' }" class="min-h-screen pb-32">
@@ -36,58 +49,70 @@
             </div>
         </div>
 
-        <section class="glass rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl">
-            <div class="bg-white/5 p-6 border-b border-white/10">
-                <h2 class="text-lg font-black uppercase tracking-tight flex items-center text-white">
-                    <span class="w-2 h-6 bg-innocoda-teal rounded-full mr-3"></span> Material Movement
-                </h2>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="text-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-white/5 bg-white/[0.02]">
-                        <tr>
-                            <th class="p-6">Material</th>
-                            <th class="p-6">Quantity</th>
-                            <th class="p-6">Purpose</th>
-                            <th class="p-6 text-right">Timestamp</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        {% for item in materials %}
-                        <tr class="hover:bg-white/[0.03] transition-colors">
-                            <td class="p-6 font-black text-white uppercase">
-                                {{ item.stock_item.item_name }}
-                            </td>
-                            
-                            <td class="p-6">
-                                <span class="bg-innocoda-teal/10 text-innocoda-teal px-4 py-1.5 rounded-xl text-[10px] font-black border border-innocoda-teal/20">
-                                    {{ item.quantity_taken }} {{ item.stock_item.unit }}
+<section class="glass rounded-[2rem] md:rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl">
+    <div class="bg-white/5 p-6 border-b border-white/10 flex justify-between items-center">
+        <h2 class="text-lg font-black uppercase tracking-tight flex items-center text-white">
+            <span class="w-2 h-6 bg-innocoda-teal rounded-full mr-3"></span> Material Movement
+        </h2>
+        <span class="md:hidden text-[7px] font-black uppercase text-innocoda-teal animate-pulse">Swipe to view →</span>
+    </div>
+    
+    <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse">
+            <thead class="text-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-white/5 bg-white/[0.02]">
+                <tr>
+                    <th class="p-6 whitespace-nowrap">Material</th>
+                    <th class="p-6 whitespace-nowrap">Quantity</th>
+                    <th class="p-6 whitespace-nowrap">Purpose & Personnel</th>
+                    <th class="p-6 text-right whitespace-nowrap">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for item in materials %}
+                <tr class="hover:bg-white/[0.03] transition-colors">
+                    <td class="p-6 font-black text-white uppercase whitespace-nowrap">
+                        {{ item.stock_item.item_name }}
+                    </td>
+                    
+                    <td class="p-6 whitespace-nowrap">
+                        <span class="bg-innocoda-teal/10 text-innocoda-teal px-4 py-1.5 rounded-xl text-[10px] font-black border border-innocoda-teal/20">
+                            {{ item.quantity_taken }} {{ item.stock_item.unit }}
+                        </span>
+                    </td>
+                    
+                    <td class="p-6 text-gray-300 text-xs min-w-[200px]">
+                        {{ item.purpose }} 
+                        <br>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[8px] text-gray-500 uppercase font-black">
+                                Taken by: {{ item.worker.name }}
+                            </span>
+                            {% if item.worker.phone %}
+                                <span class="text-[7px] bg-white/5 text-innocoda-teal px-1.5 py-0.5 rounded border border-white/5 font-bold">
+                                    {{ item.worker.phone }}
                                 </span>
-                            </td>
-                            
-                            <td class="p-6 text-gray-300 text-xs">
-                                {{ item.purpose }} 
-                                <br>
-                                <span class="text-[8px] text-gray-500 uppercase font-black">Taken by: {{ item.worker.name }}</span>
-                            </td>
+                            {% endif %}
+                        </div>
+                    </td>
 
-                            <td class="p-6 text-right">
-                                <p class="text-white font-black text-xs">{{ item.timestamp|date:"h:i:s A" }}</p>
-                                <p class="text-[9px] text-gray-600 font-bold uppercase">{{ item.timestamp|date:"d M Y" }}</p>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="4" class="p-12 text-center text-gray-500 italic text-sm">
-                                No materials were moved today.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                    <td class="p-6 text-right whitespace-nowrap">
+                        <p class="text-white font-black text-xs">{{ item.timestamp|date:"h:i A" }}</p>
+                        <p class="text-[9px] text-gray-600 font-bold uppercase">{{ item.timestamp|date:"d M Y" }}</p>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="p-12 text-center text-gray-500 italic text-sm">
+                        No materials were moved today.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+
 
                 
         <section>
@@ -153,7 +178,7 @@
                     <div class="mt-4 bg-white/5 rounded-xl p-2 text-center border border-white/5">
                         <p class="text-[7px] text-gray-500 uppercase font-black">Total Shift Duration</p>
                         <p class="text-[10px] font-black text-innocoda-teal">
-                            {{ person.time_out|timesince:person.time_in }}
+                            {{ person.duration }}
                         </p>
                     </div>
                     {% endif %}

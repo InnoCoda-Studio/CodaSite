@@ -1,4 +1,5 @@
 
+from datetime import timedelta  # Add this at the top
 from decimal import Decimal  # 👈 Ensure this is at the top of your file!
 from .models import SiteLocation, StaffAttendance, MaterialDeduction
 
@@ -273,21 +274,57 @@ def site_dashboard(request, site_id):
     })
 
 
+# @login_required
+# def daily_report(request, site_id):
+#     site = get_object_or_404(SiteLocation, id=site_id)
+#     if site.contractor != request.user and not request.user.is_superuser:
+#         raise PermissionDenied()
+
+#     today = timezone.now().date()
+
+#     # FIXED: Changed MaterialUsage to MaterialDeduction
+#     materials = MaterialDeduction.objects.filter(
+#         stock_item__site=site,
+#         timestamp__date=today
+#     )
+
+#     attendance = StaffAttendance.objects.filter(site=site, time_in__date=today)
+#     workers = SkilledWorker.objects.filter(
+#         contractor=request.user).select_related('site')
+
+#     context = {
+#         'site': site,
+#         'site_id': site_id,
+#         'materials': materials,
+#         'attendance': attendance,
+#         'workers': workers,
+#         'today': today,
+#     }
+#     return render(request, 'site_management/daily_report.html', context)
+
+
 @login_required
 def daily_report(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
     if site.contractor != request.user and not request.user.is_superuser:
         raise PermissionDenied()
 
-    today = timezone.now().date()
+    # 🟢 Use timezone.now() so it handles both Date and Time correctly
+    now = timezone.now()
+    today_date = now.date()
 
-    # FIXED: Changed MaterialUsage to MaterialDeduction
+    # Materials moved strictly today
     materials = MaterialDeduction.objects.filter(
         stock_item__site=site,
-        timestamp__date=today
-    )
+        timestamp__date=today_date
+    ).order_by('-timestamp')
 
-    attendance = StaffAttendance.objects.filter(site=site, time_in__date=today)
+    # Personnel clocked in strictly today
+    attendance = StaffAttendance.objects.filter(
+        site=site,
+        time_in__date=today_date
+    ).order_by('-time_in')
+
     workers = SkilledWorker.objects.filter(
         contractor=request.user).select_related('site')
 
@@ -297,7 +334,8 @@ def daily_report(request, site_id):
         'materials': materials,
         'attendance': attendance,
         'workers': workers,
-        'today': today,
+        'today': today_date,  # For the "Log Date" display
+        'now': now,          # For the "Live Time" display
     }
     return render(request, 'site_management/daily_report.html', context)
 

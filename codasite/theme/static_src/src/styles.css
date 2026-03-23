@@ -1,10 +1,33 @@
 @import "tailwindcss";
 
-/**
-  * A catch-all path to Django template files, JavaScript, and Python files
-  * that contain Tailwind CSS classes and will be scanned by Tailwind to generate the final CSS file.
-  *
-  * If your final CSS file is not being updated after code changes, you may want to broaden or narrow
-  * the scope of this path.
-  */
-@source "../../../**/*.{html,py,js}";
+/* 🟢 Tell Tailwind where to find your Django templates */
+@source "../../../**/*.html";
+@source "../../../../**/templates/**/*.html";
+
+@theme {
+  /* 🎨 Define your "Millionaire" colors here so they work in v4 */
+  --color-innocoda-navy: #001F3F;
+  --color-innocoda-teal: #00D2D2;
+  --color-innocoda-slate: #F8FAFC;
+}
+
+@layer components {
+    .glass {
+        @apply bg-white/5 backdrop-blur-2xl border border-white/10;
+    }
+    
+    .btn-innocoda {
+        @apply bg-white text-innocoda-navy font-black uppercase tracking-widest px-8 py-4 rounded-2xl hover:bg-innocoda-teal transition-all;
+    }
+}
+
+@layer base {
+    body {
+        @apply bg-innocoda-navy text-innocoda-slate antialiased;
+    }
+    
+    /* Fix for iOS Input Zoom */
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+}
