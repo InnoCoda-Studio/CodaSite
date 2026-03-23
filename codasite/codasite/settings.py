@@ -34,7 +34,15 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ["*"]
+# settings.py
+
+# 🟢 Only allow your official Render URL and your future domain
+ALLOWED_HOSTS = [
+    'codasite.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    # '.yourdomain.com', # 👈 Add this once you buy your domain
+]
 
 
 # Application definition
