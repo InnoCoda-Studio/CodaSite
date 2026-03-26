@@ -1,4 +1,5 @@
 
+from django.shortcuts import redirect
 from datetime import timedelta  # Add this at the top
 from decimal import Decimal  # 👈 Ensure this is at the top of your file!
 from .models import SiteLocation, StaffAttendance, MaterialDeduction
@@ -27,8 +28,8 @@ from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
 
-from django.db.models import F
-from django.db.models import Q
+
+from django.db.models import Q, F
 
 
 @login_required
@@ -214,44 +215,50 @@ def site_dashboard(request, site_id):
         # Inside your site_dashboard(request, site_id) function:
 
         # --- MATERIAL DEDUCTION LOGIC ---
+
+# ... inside your POST logic ...
+            # --- MATERIAL DEDUCTION LOGIC ---
         elif 'issue_material' in request.POST:
             stock_id = request.POST.get('stock_item')
             worker_id = request.POST.get('worker_id')
             try:
                 qty = Decimal(request.POST.get('quantity') or 0)
-                purpose = request.POST.get('purpose')
+                purpose = request.POST.get('purpose', 'General Use')
 
-                # 1. Get the stock item and the worker
-                stock = get_object_or_404(
-                    MaterialStock, id=stock_id, site=site)
-                worker = get_object_or_404(SkilledWorker, id=worker_id)
+                # 1. THE LOCK: Use select_for_update to stop other clicks
+                with transaction.atomic():
+                    stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
+                    worker = get_object_or_404(SkilledWorker, id=worker_id)
 
-                # 2. Check if there is enough balance
-                if stock.current_balance >= qty:
-                    # 📉 Subtract the quantity
-                    stock.current_balance -= qty
-                    stock.save()
+                    if stock.current_balance >= qty:
+                        # 2. DO THE MATH MANUALLY (Easier to see)
+                        old_balance = stock.current_balance
+                        new_balance = old_balance - qty
 
-                    # 3. Create a record of WHO took it and WHY (The audit trail)
-                    MaterialDeduction.objects.create(
-                        stock_item=stock,
-                        worker=worker,
-                        quantity_taken=qty,
-                        purpose=purpose,
-                        authorized_by=request.user,
-                    )
-                    messages.success(
-                        request, f"Authorized: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
-                else:
-                    messages.error(
-                        request, f"Insufficient Stock! Only {stock.current_balance} {stock.unit} remaining.")
+                        # 3. UPDATE THE STOCK
+                        stock.current_balance = new_balance
+                        stock.save()
 
-            except (InvalidOperation, ValueError):
-                messages.error(request, "Invalid quantity entered.")
+                        # 4. CREATE THE LOG
+                        MaterialDeduction.objects.create(
+                            stock_item=stock,
+                            worker=worker,
+                            quantity_taken=qty,
+                            purpose=purpose,
+                            authorized_by=request.user,
+                        )
 
-            return redirect('site_dashboard', site_id=site_id)
+                        messages.success(
+                            request, f"Deducted {qty}. Balance: {old_balance} -> {new_balance}")
+                    else:
+                        messages.error(
+                            request, f"Insufficient Stock! Only {stock.current_balance} left.")
 
-        return redirect('site_dashboard', site_id=site.id)
+            except Exception as e:
+                messages.error(request, f"System Error: {e}")
+
+            # 5. THE ULTIMATE KILL-SWITCH: Move the redirect OUTSIDE the try block
+            return redirect('site_dashboard', site_id=site.id)
 
     # 3. GATHER DATA FOR GET REQUEST
     weekly_data = get_weekly_summary(site.id)
@@ -336,7 +343,7 @@ def daily_report(request, site_id):
         'workers': workers,
         'today': today_date,  # For the "Log Date" display
         'now': now,          # For the "Live Time" display
-    },
+    }
     # 🟢 HTMX MAGIC CHECK
     # if request.headers.get('HX-Request'):
     #     return render(request, 'site_management/partials/_material_rows.html', context)
