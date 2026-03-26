@@ -378,4 +378,18 @@
     </div>
 
 </div>
+
+<script>
+    // Auto-hide messages after 4 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.glass.p-4'); // Adjust selector to your alert class
+            alerts.forEach(alert => {
+                alert.style.transition = "opacity 0.6s ease";
+                alert.style.opacity = "0";
+                setTimeout(() => alert.remove(), 600);
+            });
+        }, 4000);
+    });
+</script>
 {% endblock %}
