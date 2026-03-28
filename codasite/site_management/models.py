@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 from django.utils.text import slugify
+from cloudinary.models import CloudinaryField
 
 User = get_user_model()
 
@@ -79,8 +80,8 @@ class SkilledWorker(models.Model):
                              related_name='workers', null=True, blank=True)
     contractor = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True)
-    profile_picture = models.ImageField(
-        upload_to='worker_photos/', null=True, blank=True)
+    profile_picture = CloudinaryField(
+        folder='worker_photos/', null=True, blank=True)
     bank_name = models.CharField(
         max_length=100, null=True, blank=True, help_text="e.g. GTBank, Zenith, OPay")
     account_number = models.CharField(max_length=10, null=True, blank=True)
@@ -211,10 +212,10 @@ class MaterialStock(models.Model):
     )
 
     unit = models.CharField(max_length=50)
-    evidence_image = models.ImageField(
-        upload_to='material_evidence/%Y/%m/%d/', null=True, blank=True)
-    evidence_video = models.FileField(
-        upload_to='material_evidence_vids/%Y/%m/%d/', null=True, blank=True)
+    evidence_image = CloudinaryField(
+        'image', folder='material_evidence/', null=True, blank=True)
+    evidence_video = CloudinaryField(
+        'video', resource_type='video', folder='material_evidence_vids/', null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -263,10 +264,11 @@ class MaterialRestockLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     # 📸 The 'Proof' for this specific delivery event
-    evidence_image = models.ImageField(
-        upload_to='restock_proofs/%Y/%m/%d/', null=True, blank=True)
-    evidence_video = models.FileField(
-        upload_to='restock_proofs_vids/%Y/%m/%d/', null=True, blank=True)
+
+    evidence_image = CloudinaryField(
+        'image', folder='restock_proofs/', null=True, blank=True)
+    evidence_video = CloudinaryField(
+        'video', resource_type='video', folder='restock_proofs_vids/', null=True, blank=True)
 
     class Meta:
         ordering = ['-timestamp']
@@ -304,7 +306,8 @@ class CompanyProfile(models.Model):
     contractor = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='site_company_profile')
     business_name = models.CharField(max_length=255)
-    logo = models.ImageField(upload_to='company_logos/', null=True, blank=True)
+    logo = CloudinaryField(
+        'image', folder='company_logos/', null=True, blank=True)
     address = models.TextField(blank=True)
 
     def __str__(self):
