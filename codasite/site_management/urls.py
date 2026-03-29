@@ -47,4 +47,7 @@ urlpatterns = [
     #
     path('site/<int:site_id>/material-report/',
          views.material_usage_report, name='material_usage_report'),
+
+    # 🚀 ADD THIS FOR HTMX SEARCH
+    path('workers/search/', views.worker_search, name='worker_search'),
 ]

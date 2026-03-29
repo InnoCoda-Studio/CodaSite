@@ -1,132 +1,79 @@
 {% extends "base.html" %}
+    {% block content %}
 
-{% block content %}
-{% if low_stock_items %}
-<div class="mb-10 space-y-4">
-    <div class="flex items-center justify-between px-2">
-        <p class="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] flex items-center">
-            <span class="relative flex h-2 w-2 mr-3">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-            </span>
-            Critical Inventory Alert
-        </p>
-        <span class="text-[8px] font-black text-white/20 uppercase bg-white/5 px-3 py-1 rounded-full">Automated Audit</span>
-    </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for item in low_stock_items %}
-        <div class="glass border-l-4 border-orange-500 p-5 rounded-3xl flex justify-between items-center group hover:bg-white/5 transition-all animate-pulse">
-            <div class="space-y-1">
-                <h4 class="text-white font-black text-sm uppercase tracking-tight">{{ item.item_name }}</h4>
-                <p class="text-[9px] text-gray-500 font-bold uppercase">{{ item.site.name }}</p>
-                
-                <a href="https://wa.me/?text=URGENT:%20{{ item.item_name }}%20is%20running%20low%20at%20{{ item.site.name }}.%20Current%20Balance:%20{{ item.current_balance|floatformat:0 }}%20{{ item.unit }}." 
-                   class="inline-block mt-2 text-[8px] font-black text-innocoda-teal uppercase tracking-widest hover:underline">
-                    Send to WhatsApp →
-                </a>
-            </div>
-            <div class="text-right">
-                <div class="flex items-baseline justify-end gap-1">
-                    <p class="text-orange-500 font-black text-2xl tracking-tighter">{{ item.current_balance|floatformat:0 }}</p>
-                    <p class="text-[9px] text-gray-500 font-black uppercase">{{ item.unit }}</p>
-                </div>
-                <p class="text-[7px] font-black text-orange-500/50 uppercase tracking-widest mt-1">RESTOCK NOW</p>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
 
-<div x-data="{ open: false }" class="container mx-auto p-6 space-y-6 min-h-screen">
-    
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-black text-white uppercase tracking-tighter">My Sites</h1>
-            <p class="text-gray-400 text-xs uppercase tracking-widest font-bold">Active Projects</p>
-        </div>
-        <button @click="open = true" class="bg-innocoda-teal text-innocoda-navy px-6 py-2 rounded-xl font-bold text-sm hover:scale-105 transition-transform shadow-lg shadow-innocoda-teal/20">
-            + New Site
-        </button>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="glass p-6 rounded-3xl border border-white/10 relative overflow-hidden">
-            <div class="absolute -right-2 -bottom-2 opacity-10">
-                <svg class="w-20 h-20 text-innocoda-teal" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
-            </div>
-            <p class="text-[10px] uppercase font-black text-gray-400 tracking-widest">Global Cement Usage</p>
-            <p class="text-3xl font-black text-white mt-2">{{ total_cement }} <span class="text-sm text-innocoda-teal">Bags</span></p>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {% for site in sites %}
-        <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-3xl border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden">
-            {% for item in low_stock_items %}
-                {% if item.site_id == site.id %}
-                    <div class="absolute top-4 right-4 h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
-                {% endif %}
-            {% endfor %}
-
-            <div class="absolute -right-4 -top-4 w-24 h-24 bg-innocoda-teal/5 rounded-full group-hover:bg-innocoda-teal/10 transition-colors"></div>
+        <div x-data="{ open: false }" class="container mx-auto p-6 space-y-6 min-h-screen">
             
-            <h2 class="text-2xl font-bold text-white group-hover:text-innocoda-teal transition-colors">{{ site.name }}</h2>
-            <p class="text-gray-400 text-sm mt-1 flex items-center">
-                <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                {{ site.address|default:"Location not set" }}
-            </p>
-            
-            <div class="mt-8 flex items-center justify-between">
-                <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em]">Open Dashboard</span>
-                <div class="bg-white/5 p-2 rounded-lg group-hover:bg-innocoda-teal group-hover:text-innocoda-navy transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                </div>
-            </div>
-        </a>
-        
-        {% empty %}
-        <div class="col-span-full p-20 glass rounded-3xl border border-dashed border-white/10 text-center">
-            <p class="text-gray-500 mb-2 italic uppercase text-[10px] font-black tracking-widest">Fleet is Empty</p>
-        </div>
-        {% endfor %}
-    </div>
-
-    {% if recent_arrivals %}
-    <div class="mt-12 space-y-4">
-        <p class="text-[10px] font-black text-innocoda-teal uppercase tracking-[0.3em] ml-2">Deliveries Received Today</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% for item in recent_arrivals %}
-            <div class="glass border-l-4 border-innocoda-teal p-4 rounded-2xl flex justify-between items-center group hover:bg-white/5 transition-all">
+            <div class="flex justify-between items-center mt-10">
                 <div>
-                    <h4 class="text-white font-black text-sm uppercase">{{ item.item_name }}</h4>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase">{{ item.site.name }}</p>
+                    <h1 class="text-3xl font-black text-white uppercase tracking-tighter">My Sites</h1>
+                    <p class="text-gray-400 text-xs uppercase tracking-widest font-bold">Active Projects</p>
                 </div>
-                <div class="text-right text-innocoda-teal font-black text-lg tracking-tighter">
-                    +{{ item.current_balance|floatformat:0 }} <span class="text-[10px] uppercase text-gray-500">{{ item.unit }}</span>
-                </div>
+                <button @click="open = true" class="bg-innocoda-teal text-innocoda-navy px-6 py-2 rounded-xl font-bold text-sm shadow-lg shadow-innocoda-teal/20 hover:scale-105 transition-transform">
+                    + New Site
+                </button>
             </div>
+
+            <div id="dashboard-live-zone" 
+            hx-get="{% url 'index' %}" 
+            hx-trigger="every 60s" 
+            hx-swap="innerHTML">
+            {% include 'site_management/htmx_components/dashboard_feed.html' %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% for site in sites %}
+            <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-3xl border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden">
+                {% for item in low_stock_items %}
+                    {% if item.site_id == site.id %}
+                        <div class="absolute top-4 right-4 h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
+                    {% endif %}
+                {% endfor %}
+                <h2 class="text-2xl font-bold text-white group-hover:text-innocoda-teal transition-colors">{{ site.name }}</h2>
+                <p class="text-gray-400 text-sm mt-1 flex items-center">
+                    {{ site.address|default:"Location not set" }}
+                </p>
+                <div class="mt-8 flex items-center justify-between">
+                    <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em]">Open Dashboard</span>
+                    <div class="bg-white/5 p-2 rounded-lg group-hover:bg-innocoda-teal group-hover:text-innocoda-navy transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                    </div>
+                </div>
+            </a>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
 
-    <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
-        <div @click.away="open = false" class="glass w-full max-w-md p-8 rounded-[2rem] border border-white/10 shadow-2xl">
-            <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-tight">Register Site</h2>
-            <form action="{% url 'add_site' %}" method="POST" class="space-y-5">
-                {% csrf_token %}
-                <input type="text" name="name" required placeholder="Project Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white">
-                <textarea name="address" rows="3" placeholder="Address" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white"></textarea>
-                <div class="flex gap-4">
-                    <button type="button" @click="open = false" class="flex-1 text-xs font-black uppercase text-gray-500">Cancel</button>
-                    <button type="submit" class="flex-1 bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase shadow-lg">Confirm</button>
+        {% if recent_arrivals %}
+        <div class="mt-16 space-y-4">
+            <p class="text-[10px] font-black text-innocoda-teal uppercase tracking-[0.3em] ml-2">Deliveries Received Today</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for item in recent_arrivals %}
+                <div class="glass border-l-4 border-innocoda-teal p-4 rounded-2xl flex justify-between items-center group hover:bg-white/5 transition-all">
+                    <div>
+                        <h4 class="text-white font-black text-sm uppercase">{{ item.item_name }}</h4>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">{{ item.site.name }}</p>
+                    </div>
+                    <div class="text-right text-innocoda-teal font-black text-lg">+{{ item.current_balance|floatformat:0 }}</div>
                 </div>
-            </form>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
+            <div @click.away="open = false" class="glass w-full max-w-md p-8 rounded-[2rem] border border-white/10 shadow-2xl">
+                <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-tight">Register Site</h2>
+                <form action="{% url 'add_site' %}" method="POST" class="space-y-5">
+                    {% csrf_token %}
+                    <input type="text" name="name" required placeholder="Project Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal">
+                    <textarea name="address" rows="3" placeholder="Address" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal"></textarea>
+                    <div class="flex gap-4">
+                        <button type="button" @click="open = false" class="flex-1 text-xs font-black uppercase text-gray-500">Cancel</button>
+                        <button type="submit" class="flex-1 bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase shadow-lg">Confirm</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
-
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 {% endblock %}

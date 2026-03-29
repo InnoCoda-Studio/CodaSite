@@ -34,59 +34,43 @@ from django.db.models import Q, F
 
 @login_required
 def index(request):
-
     today = timezone.now().date()
 
-    # Sites ordered newest first
-    sites = SiteLocation.objects.filter(
-        contractor=request.user
-    ).order_by("-created_at")
+    # 1. BASE QUERIES (Filtered by the logged-in contractor)
+    user_sites = SiteLocation.objects.filter(contractor=request.user)
+    sites = user_sites.order_by("-created_at")
 
-    # Low stock items
+    # 2. INVENTORY LOGIC (Low stock & Recent arrivals)
+    # Using F() to compare current_balance against its own minimum_required
     low_stock_items = MaterialStock.objects.filter(
         site__contractor=request.user,
         current_balance__lt=F('minimum_required')
     ).select_related('site').order_by('current_balance')
 
-    # Recent arrivals
     recent_arrivals = MaterialStock.objects.filter(
         site__contractor=request.user,
         last_updated__date=today
     ).select_related('site').order_by('-last_updated')
 
-    # Total cement
-
-    sites = SiteLocation.objects.filter(contractor=request.user)
-    today = timezone.now().date()
-
-    # 🚨 LOW STOCK: Anything less than 10
-    low_stock_items = MaterialStock.objects.filter(
-        site__contractor=request.user,
-        current_balance__lt=10
-    ).select_related('site')
-
-    # 🚚 NEW ARRIVALS: Anything added today
-    # Assuming 'last_updated' is a field in your MaterialStock model
-    recent_arrivals = MaterialStock.objects.filter(
-        site__contractor=request.user,
-        last_updated__date=today
-    ).select_related('site')
-
+    # 3. GLOBAL AGGREGATES
     total_cement = MaterialStock.objects.filter(
         site__contractor=request.user,
         item_name__icontains='cement'
     ).aggregate(total=Sum('current_balance'))['total'] or 0
 
-    return render(request, 'site_management/index.html', {
+    context = {
         'sites': sites,
         'total_cement': total_cement,
         'low_stock_items': low_stock_items,
-
         'recent_arrivals': recent_arrivals,
+    }
 
-        'recent_arrivals': recent_arrivals,  # 👈 Pass this
+    # 🚀 HTMX MAGIC: If this is an HTMX request, send ONLY the dashboard components
+    if request.headers.get('HX-Request'):
+        return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
 
-    })
+    # Otherwise, send the full "Big Engine" page
+    return render(request, 'site_management/index.html', context)
 
 
 @login_required
@@ -523,6 +507,22 @@ def all_workers(request):
     workers = SkilledWorker.objects.filter(
         contractor=request.user).order_by('-id')
     return render(request, 'site_management/all_workers.html', {'workers': workers})
+
+# views.py
+# allworkers sers
+
+
+def worker_search(request):
+    search_text = request.GET.get('search', '').strip()
+
+    # Filter by name OR category (role) for ALL users or just current company
+    workers = SkilledWorker.objects.filter(
+        Q(name__icontains=search_text) |
+        Q(category__icontains=search_text)
+    )
+
+    # Return ONLY the results part, not the whole page!
+    return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
 
 # This function is specifically for adding a worker WHILE on a site dashboard
 # @login_required

@@ -112,7 +112,8 @@ WSGI_APPLICATION = 'codasite.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-# "Superbase Database"
+
+"Superbase Database"
 DATABASES = {
     'default': dj_database_url.config(
         default=os.getenv('DATABASE_URL')
