@@ -1,0 +1,22 @@
+<div id="worker-action-{{ worker.id }}">
+    {% if worker.id in present_worker_ids %}
+        <button 
+            hx-post="{% url 'htmx_clock_out' site.id %}"
+            hx-vals='{"worker_id": "{{ worker.id }}"}'
+            hx-target="#worker-action-{{ worker.id }}"
+            hx-swap="outerHTML"
+            class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+            Clock Out
+        </button>
+    {% else %}
+        <button 
+            onclick="clockInWithGPS('{{ worker.id }}', '{{ site.id }}')" 
+            class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg hover:scale-105 transition-transform">
+            ⚡ Quick Clock-In
+        </button>
+    {% endif %}
+</div>
+
+<div id="attendance-box" hx-swap-oob="true">
+    {% include 'site_management/htmx_components/attendance_list.html' %}
+</div>

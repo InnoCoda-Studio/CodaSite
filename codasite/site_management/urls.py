@@ -50,4 +50,15 @@ urlpatterns = [
 
     # 🚀 ADD THIS FOR HTMX SEARCH
     path('workers/search/', views.worker_search, name='worker_search'),
+
+
+
+    # 🛰️ HTMX Dynamic Update Paths
+    path('htmx/clock-in/<int:site_id>/',
+         views.htmx_clock_in, name='htmx_clock_in'),
+    path('htmx/clock-out/<int:site_id>/',
+         views.htmx_clock_out, name='htmx_clock_out'),
+    path('htmx/finance-summary/<int:site_id>/',
+         views.htmx_finance_summary, name='htmx_finance_summary'),
+
 ]

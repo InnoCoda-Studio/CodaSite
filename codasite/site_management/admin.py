@@ -1,15 +1,16 @@
 from django.contrib import admin
 from .models import (
     SiteLocation, Invitation, SkilledWorker,
-    DailyWorkLog, StaffAttendance, MaterialStock, MaterialDeduction, CompanyProfile
+    DailyWorkLog, StaffAttendance, MaterialStock, MaterialDeduction
 )
 
 
 @admin.register(SiteLocation)
 class SiteLocationAdmin(admin.ModelAdmin):
-    # Removed 'is_office' unless it's in your model
-    list_display = ('name', 'contractor', 'created_at')
-    search_fields = ('name',)
+    # ✅ Only use fields that exist in your models.py
+    list_display = ('name', 'company', 'latitude', 'longitude', 'created_at')
+    search_fields = ('name', 'company__business_name')
+    list_filter = ('company', 'created_at')
 
 
 @admin.register(SkilledWorker)
@@ -42,9 +43,9 @@ class StaffAttendanceAdmin(admin.ModelAdmin):
     list_filter = ('mode', 'site')
 
 
-@admin.register(CompanyProfile)
-class CompanyProfileAdmin(admin.ModelAdmin):
-    list_display = ('contractor', 'business_name', 'address')
+# @admin.register(CompanyProfile)
+# class CompanyProfileAdmin(admin.ModelAdmin):
+#     list_display = ('contractor', 'business_name', 'address')
 
 
 admin.site.register(Invitation)

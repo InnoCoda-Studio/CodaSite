@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 import uuid
 from django.utils.text import slugify
 from cloudinary.models import CloudinaryField
+from account.models import Company
 
 User = get_user_model()
 
@@ -12,18 +13,62 @@ User = get_user_model()
 
 
 class SiteLocation(models.Model):
-    name = models.CharField(max_length=255)  # e.g., "Lekki Phase 1"
-    contractor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='sites')
+    # ✅ FIX: Point to 'Company' (the actual model class)
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='sites',
+        null=True
+    )
+    name = models.CharField(max_length=255)
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # 📏 SETTINGS
     minimum_required = models.IntegerField(default=10, null=True, blank=True)
+
+    # 🛰️ GPS ENGINE
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True)
+
+    radius_meters = models.IntegerField(
+        default=100, help_text="Allowed distance from site center")
 
     def __str__(self):
         return self.name
 
+
+# class SiteLocation(models.Model):
+#     # name = models.CharField(max_length=255)  # e.g., "Lekki Phase 1"
+#     # contractor = models.ForeignKey(
+#     #     User, on_delete=models.CASCADE, related_name='sites')
+
+#     company = models.ForeignKey(
+#         'CompanyProfile', on_delete=models.CASCADE, related_name='sites', null=True)
+#     name = models.CharField(max_length=255)
+#     is_office = models.BooleanField(default=False)
+#     address = models.TextField(blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     # 📏 SETTINGS
+#     minimum_required = models.IntegerField(default=10, null=True, blank=True)
+
+#     # 🛰️ GPS ENGINE (ADD THESE)
+#     # Using DecimalField for high precision in Lekki/Ajah streets
+#     latitude = models.DecimalField(
+#         max_digits=9, decimal_places=6, null=True, blank=True)
+#     longitude = models.DecimalField(
+#         max_digits=9, decimal_places=6, null=True, blank=True)
+
+#     # How close the Storekeeper must be to the center (in Meters)
+#     radius_meters = models.IntegerField(
+#         default=100, help_text="Allowed distance from site center")
+
+#     def __str__(self):
+#         return self.name
 # 2. Access Control
 
 
@@ -49,6 +94,8 @@ class Invitation(models.Model):
 class SkilledWorker(models.Model):
 
     # IDENTITY
+    company = models.ForeignKey(
+        'account.Company', on_delete=models.CASCADE, related_name='workers', null=True, blank=True)
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, blank=True, null=True, max_length=100)
     id_number = models.CharField(
@@ -302,16 +349,16 @@ class MaterialDeduction(models.Model):
         super().save(*args, **kwargs)
 
 
-class CompanyProfile(models.Model):
-    contractor = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name='site_company_profile')
-    business_name = models.CharField(max_length=255)
-    logo = CloudinaryField(
-        'image', folder='company_logos/', null=True, blank=True)
-    address = models.TextField(blank=True)
+# class CompanyProfile(models.Model):
+#     contractor = models.OneToOneField(
+#         User, on_delete=models.CASCADE, related_name='site_company_profile')
+#     business_name = models.CharField(max_length=255)
+#     logo = CloudinaryField(
+#         'image', folder='company_logos/', null=True, blank=True)
+#     address = models.TextField(blank=True)
 
-    def __str__(self):
-        return self.business_name
+#     def __str__(self):
+#         return self.business_name
 
 
 class CategoryPay(models.Model):

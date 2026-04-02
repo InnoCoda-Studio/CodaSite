@@ -1,4 +1,3 @@
-
 from django.shortcuts import redirect
 from datetime import timedelta  # Add this at the top
 from decimal import Decimal  # 👈 Ensure this is at the top of your file!
@@ -19,7 +18,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from .models import SiteLocation, MaterialStock, CompanyProfile, MaterialDeduction, Invitation, StaffAttendance, SkilledWorker, MaterialRestockLog
+from .models import SiteLocation, MaterialStock, Company, MaterialDeduction, Invitation, StaffAttendance, SkilledWorker, MaterialRestockLog
 from django.db.models import Sum
 # 👈 Import your new file
 from django.core.mail import send_mail
@@ -30,31 +29,89 @@ from .forms import WorkerPayForm
 
 
 from django.db.models import Q, F
+# Distance calculating
+from math import radians, cos, sin, asin, sqrt
+from django.http import HttpResponse
+from decimal import Decimal
+# Clok in
 
+
+# @login_required
+# def index(request):
+#     today = timezone.now().date()
+
+#     # 🏢 1. Identify the Company
+#     # We grab the company linked to the logged-in Contractor or Staff
+#     user_company = request.user.site_company_profile
+
+#     # 🏗️ 2. BASE QUERIES (Filtered by Company)
+#     user_sites = SiteLocation.objects.filter(company=user_company)
+#     sites = user_sites.order_by("-created_at")
+
+#     # 📦 3. INVENTORY LOGIC (Scoped to the Company's Sites)
+#     # Notice we changed site__contractor to site__company
+#     low_stock_items = MaterialStock.objects.filter(
+#         site__company=user_company,
+#         current_balance__lt=F('minimum_required')
+#     ).select_related('site').order_by('current_balance')
+
+#     recent_arrivals = MaterialStock.objects.filter(
+#         site__company=user_company,
+#         last_updated__date=today
+#     ).select_related('site').order_by('-last_updated')
+
+#     # 💰 4. GLOBAL AGGREGATES (Total Cement across all sites in the company)
+#     total_cement = MaterialStock.objects.filter(
+#         site__company=user_company,
+#         item_name__icontains='cement'
+#     ).aggregate(total=Sum('current_balance'))['total'] or 0
+
+#     context = {
+#         'sites': sites,
+#         'total_cement': total_cement,
+#         'low_stock_items': low_stock_items,
+#         'recent_arrivals': recent_arrivals,
+#     }
+
+#     # 🚀 HTMX MAGIC: Partial update for the Dashboard Feed
+#     if request.headers.get('HX-Request'):
+#         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
+
+#     return render(request, 'site_management/index.html', context)
 
 @login_required
 def index(request):
     today = timezone.now().date()
 
-    # 1. BASE QUERIES (Filtered by the logged-in contractor)
-    user_sites = SiteLocation.objects.filter(contractor=request.user)
+    # 🏢 1. Identify the Company
+    # ✅ FIX: Changed 'site_company_profile' to 'company' to match your model
+    try:
+        user_company = request.user.company
+    except AttributeError:
+        # 🛡️ Safety: If it's a superuser or user without a company yet
+        messages.error(request, "Access Denied: No Company Profile found.")
+        return redirect('login')
+
+    # 🏗️ 2. BASE QUERIES (Filtered by Company)
+    # We use the 'user_company' object we just grabbed
+    user_sites = SiteLocation.objects.filter(company=user_company)
     sites = user_sites.order_by("-created_at")
 
-    # 2. INVENTORY LOGIC (Low stock & Recent arrivals)
-    # Using F() to compare current_balance against its own minimum_required
+    # 📦 3. INVENTORY LOGIC (Scoped to the Company's Sites)
+    # Filter by the company object directly
     low_stock_items = MaterialStock.objects.filter(
-        site__contractor=request.user,
+        site__company=user_company,
         current_balance__lt=F('minimum_required')
     ).select_related('site').order_by('current_balance')
 
     recent_arrivals = MaterialStock.objects.filter(
-        site__contractor=request.user,
+        site__company=user_company,
         last_updated__date=today
     ).select_related('site').order_by('-last_updated')
 
-    # 3. GLOBAL AGGREGATES
+    # 💰 4. GLOBAL AGGREGATES (Total Cement across all sites in the company)
     total_cement = MaterialStock.objects.filter(
-        site__contractor=request.user,
+        site__company=user_company,
         item_name__icontains='cement'
     ).aggregate(total=Sum('current_balance'))['total'] or 0
 
@@ -63,31 +120,48 @@ def index(request):
         'total_cement': total_cement,
         'low_stock_items': low_stock_items,
         'recent_arrivals': recent_arrivals,
+        'company': user_company,  # Added this so your template can show the name
     }
 
-    # 🚀 HTMX MAGIC: If this is an HTMX request, send ONLY the dashboard components
+    # 🚀 HTMX MAGIC: Partial update for the Dashboard Feed
     if request.headers.get('HX-Request'):
         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
 
-    # Otherwise, send the full "Big Engine" page
     return render(request, 'site_management/index.html', context)
 
 
 @login_required
 @transaction.atomic
 def site_dashboard(request, site_id):
-    site = get_object_or_404(SiteLocation, id=site_id)
+   # 🏢 1. Identify the Company
+    # Every user (Contractor or Staff) must be linked to a CompanyProfile
+
+    user_company = request.user.company
+
+    # 🛡️ 2. Secure the Site
+    # Only allow access if the site belongs to the user's company
+    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
     today = timezone.now().date()
 
-    # 1. PERMISSIONS & POOLS
+    # 3. Permissions Check
     invitation = Invitation.objects.filter(
         email=request.user.email, site=site).last()
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site).last()
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+    is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
+
+    # 4. Scoped Pools (This is where you save money/security!)
     workers = SkilledWorker.objects.filter(site=site)
     stocks = MaterialStock.objects.filter(site=site)
+
+    # 🌍 GLOBAL POOL: Only show workers from the SAME company
     global_workers_pool = SkilledWorker.objects.filter(
-        contractor=request.user
+        company=user_company  # ✅ NEW (Much cleaner!)
     ).exclude(site=site)
 
     # 2. HANDLE ACTIONS (ONE SINGLE POST BLOCK)
@@ -98,6 +172,7 @@ def site_dashboard(request, site_id):
             try:
                 worker = SkilledWorker.objects.create(
                     contractor=request.user,
+                    company=user_company,
                     site=site,
                     name=request.POST.get('name'),
                     category=request.POST.get('category'),
@@ -130,31 +205,10 @@ def site_dashboard(request, site_id):
             messages.success(
                 request, f"{worker.name} deployed to {site.name}.")
 
-        # C. CLOCK-IN
-        elif 'quick_clock_in' in request.POST:
-            worker = get_object_or_404(
-                SkilledWorker, id=request.POST.get('worker_id'))
-            StaffAttendance.objects.get_or_create(
-                worker=worker, site=site, user=request.user,
-                time_in__date=today,
-                defaults={'time_in': timezone.now(), 'mode': 'SITE'}
-            )
-            messages.success(request, f"{worker.name} clocked in.")
-
-        # D. CLOCK-OUT
-        elif 'quick_clock_out' in request.POST:
-            attendance = StaffAttendance.objects.filter(
-                worker_id=request.POST.get('worker_id'), site=site, time_out__isnull=True
-            ).last()
-            if attendance:
-                attendance.time_out = timezone.now()
-                attendance.save()
-                messages.success(
-                    request, f"{attendance.worker.name} clocked out.")
-
         # E. UPDATE ALL PAY RATES
         elif 'update_all_rates' in request.POST:
-            if request.user == site.contractor or user_role == 'PROJECT_MANAGER':
+            # ✅ Change this (Line 210 area):
+            if request.user == site.company.owner or user_role == 'PROJECT_MANAGER':
                 for w in workers:
                     new_rate = request.POST.get(f'rate_{w.id}')
                     if new_rate:
@@ -253,6 +307,7 @@ def site_dashboard(request, site_id):
 
     return render(request, 'site_management/site_dashboard.html', {
         'site': site,
+        'is_boss': is_boss,
         'workers': workers,
         'stocks': stocks,
         'attendance_today': attendance_today,
@@ -265,6 +320,161 @@ def site_dashboard(request, site_id):
     })
 
 
+@login_required
+def htmx_finance_summary(request, site_id):
+    site = get_object_or_404(SiteLocation, id=site_id)
+
+    # 🛡️ THE STRONG PERMISSION CHECK
+    # 1. Get role from invitation if it exists
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site, is_used=True).last()
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+    # 2. Check: Are you the Company Owner OR the Project Manager?
+    # ✅ This ensures YOU (the Boss) always pass the test
+    is_boss = (site.company.owner == request.user) or (
+        user_role == 'PROJECT_MANAGER')
+
+    if not is_boss:
+        return HttpResponse("<p class='text-red-500 font-black uppercase text-[10px]'>Access Denied</p>")
+
+    # 💰 THE MATH
+    # Ensure these utility functions are updated to use site.id correctly
+    weekly_data = get_weekly_summary(site.id)
+    monthly_data = get_monthly_summary(site.id)
+
+    context = {
+        'total_spent': monthly_data['total_payroll'],
+        'weekly_total': weekly_data['total_payroll'],
+        'total_workers': weekly_data['total_workers'],
+        'site': site,
+    }
+
+    # 🚀 Return ONLY the cards to the dashboard container
+    return render(request, 'site_management/htmx_components/finance_card.html', context)
+
+# clok in
+
+
+# Distance calculating
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    # 🌍 Earth radius in kilometers
+    R = 6371.0
+
+    # Convert degrees to radians
+    lat1, lon1, lat2, lon2 = map(
+        radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * asin(sqrt(a))
+
+    # Return distance in Meters
+    return c * R * 1000
+
+
+# site_management/views.py
+
+def htmx_clock_in(request, site_id):
+    if request.method == "POST":
+        site = get_object_or_404(SiteLocation, id=site_id)
+        worker_id = request.POST.get('worker_id')
+        worker = get_object_or_404(SkilledWorker, id=worker_id)
+        user_lat = request.POST.get('lat')
+        user_lng = request.POST.get('lng')
+
+        # 1. 🚨 Security (Distance Check)
+        if site.latitude and site.longitude and user_lat and user_lng:
+            distance = calculate_distance(
+                site.latitude, site.longitude, user_lat, user_lng)
+            if distance > site.radius_meters:
+                return HttpResponse(
+                    f'<div class="p-2 bg-red-500/20 text-red-400 text-[10px] font-black uppercase rounded-xl animate-shake">'
+                    f'🚨 Access Denied: {int(distance)}m away!</div>',
+                    status=200
+                )
+
+        # 2. ✅ Save to Database FIRST
+        StaffAttendance.objects.update_or_create(
+            worker=worker,
+            site=site,
+            time_in__date=timezone.now().date(),
+            defaults={
+                'user': request.user,
+                'time_in': timezone.now(),
+                'daily_rate_at_time': worker.daily_rate
+            }
+        )
+
+        # 3. 🔄 Calculate the lists SECOND (Now it includes the new clock-in)
+        attendance_today = StaffAttendance.objects.filter(
+            site=site,
+            time_in__date=timezone.now().date()
+        )
+
+        present_worker_ids = list(
+            attendance_today.filter(time_out__isnull=True).values_list(
+                'worker_id', flat=True)
+        )
+
+        # 4. 🛡️ Role Check
+        invitation = Invitation.objects.filter(
+            email=request.user.email, site=site).last()
+        user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+        # 5. 🚀 Return the Button Partial
+        return render(request, 'site_management/htmx_components/worker_button.html', {
+            'worker': worker,
+            'site': site,
+            'present_worker_ids': present_worker_ids,
+            'attendance_today': attendance_today,
+            'user_role': user_role,
+        })
+# site_management/views.py
+
+
+def htmx_clock_out(request, site_id):
+    if request.method == "POST":
+        site = get_object_or_404(SiteLocation, id=site_id)
+        worker_id = request.POST.get('worker_id')
+        worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+        # 1. Find the active shift and close it
+        attendance = StaffAttendance.objects.filter(
+            worker_id=worker_id,
+            site=site,
+            time_out__isnull=True
+        ).last()
+
+        if attendance:
+            attendance.time_out = timezone.now()
+            attendance.save()
+
+        # 2. 🔄 RECALCULATE for the UI
+        attendance_today = StaffAttendance.objects.filter(
+            site=site,
+            time_in__date=timezone.now().date()
+        )
+
+        # We need this list so the 'Clock In' buttons reappear for these workers
+        present_worker_ids = list(attendance_today.filter(
+            time_out__isnull=True).values_list('worker_id', flat=True))
+
+        # 🛡️ Get role for permissions
+        invitation = Invitation.objects.filter(
+            email=request.user.email, site=site).last()
+        user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+        return render(request, 'site_management/htmx_components/worker_button.html', {
+            'worker': worker,
+            'site': site,
+            'present_worker_ids': present_worker_ids,
+            'attendance_today': attendance_today,
+        })
 # @login_required
 # def daily_report(request, site_id):
 #     site = get_object_or_404(SiteLocation, id=site_id)
@@ -297,7 +507,7 @@ def site_dashboard(request, site_id):
 @login_required
 def daily_report(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
-    if site.contractor != request.user and not request.user.is_superuser:
+    if site.company.owner != request.user and not request.user.is_superuser:
         raise PermissionDenied()
 
     # 🟢 Use timezone.now() so it handles both Date and Time correctly
@@ -337,99 +547,23 @@ def daily_report(request, site_id):
 # --- WORKER & SITE MANAGEMENT ---
 
 
+# @login_required
 @login_required
 def add_site(request):
     if request.method == "POST":
+        # ✅ FIX: Use '.company' instead of '.site_company_profile'
+        # This matches the 'related_name' we set in your account/models.py
+        user_company = request.user.company
+
+        # 🏗️ 2. Now you can use it down here
         SiteLocation.objects.create(
             name=request.POST.get('name'),
             address=request.POST.get('address'),
-            contractor=request.user
+            company=user_company  # ✅ Now this works perfectly!
         )
+        messages.success(request, "New site location added successfully.")
+
     return redirect('index')
-
-
-# @login_required
-# @transaction.atomic
-# def add_worker(request, site_id):
-#     site = get_object_or_404(SiteLocation, id=site_id)
-#     if request.method == "POST":
-#         id_num = request.POST.get('id_number', '').strip()
-#         phone_num = request.POST.get('phone', '').strip()
-
-#         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
-#             messages.error(
-#                 request, "Access Denied: Personnel already exists in Global Registry.")
-#             return redirect('site_dashboard', site_id=site_id)
-
-#         try:
-#             # 🟢 UPDATED: Capturing full details here too
-#             SkilledWorker.objects.create(
-#                 contractor=request.user,
-#                 site=site,
-#                 name=request.POST.get('name'),
-#                 category=request.POST.get('category'),
-#                 id_number=id_num,
-#                 phone=phone_num,
-#                 emergency_contact=request.POST.get(
-#                     'emergency_contact'),  # 👈 ADD THIS
-#                 bank_name=request.POST.get(
-#                     'bank_name'),                 # 👈 ADD THIS
-#                 account_number=request.POST.get(
-#                     'account_number'),           # 👈 ADD THIS
-#                 account_name=request.POST.get(
-#                     'account_name'),             # 👈 ADD THIS
-#                 pay_frequency=request.POST.get('pay_frequency'),
-#                 profile_picture=request.FILES.get('profile_picture')
-#             )
-#             messages.success(request, "New Personnel enrolled and deployed.")
-#         except Exception as e:
-#             messages.error(
-#                 request, "Registry Error: Please check bank and ID fields.")
-
-#     return redirect('site_dashboard', site_id=site_id)
-@login_required
-@transaction.atomic
-def add_worker(request, site_id):
-    site = get_object_or_404(SiteLocation, id=site_id)
-    if request.method == "POST":
-        id_num = request.POST.get('id_number', '').strip()
-        phone_num = request.POST.get('phone', '').strip()
-
-        # Gatekeeper Check (Make sure Q is imported from django.db.models)
-        if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
-            messages.error(
-                request, "Personnel already exists in Global Registry.")
-            return redirect('site_dashboard', site_id=site_id)
-
-        try:
-            # 🟢 CAPTURE DAILY RATE FROM HTML
-            # Note: We take it from the input named 'daily_rate'
-            raw_rate = request.POST.get('daily_rate')
-            daily_rate = Decimal(raw_rate) if raw_rate else Decimal('0.00')
-
-            SkilledWorker.objects.create(
-                contractor=request.user,
-                site=site,
-                name=request.POST.get('name'),
-                category=request.POST.get('category'),
-                id_number=id_num,
-                phone=phone_num,
-                emergency_contact=request.POST.get('emergency_contact'),
-                bank_name=request.POST.get('bank_name'),
-                account_number=request.POST.get('account_number'),
-                account_name=request.POST.get('account_name'),
-                pay_frequency=request.POST.get(
-                    'pay_frequency', 'Daily'),  # Default to Daily
-                daily_rate=daily_rate,  # 👈 THIS WAS MISSING
-                profile_picture=request.FILES.get('profile_picture')
-            )
-            messages.success(request, "New Personnel enrolled and deployed.")
-        except Exception as e:
-            # THIS PRINT IS FOR YOU: Look at your black terminal to see the exact error
-            print(f"CRITICAL ERROR: {e}")
-            messages.error(request, f"Registry Error: {e}")
-
-    return redirect('site_dashboard', site_id=site_id)
 
 
 @login_required
@@ -524,50 +658,48 @@ def worker_search(request):
     # Return ONLY the results part, not the whole page!
     return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
 
-# This function is specifically for adding a worker WHILE on a site dashboard
-# @login_required
-# def add_worker(request, site_id):
-#     site = get_object_or_404(SiteLocation, id=site_id)
-#     if request.method == "POST":
-#         # ... logic for site-specific add ...
-#         # (Usually better to redirect to all_workers if it's a global registry)
-#         pass
-#     return redirect('site_dashboard', site_id=site_id)
-# Global registry
-
 
 @login_required
+@transaction.atomic
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
-
     if request.method == "POST":
-        id_num = request.POST.get('id_number')
+        id_num = request.POST.get('id_number', '').strip()
+        phone_num = request.POST.get('phone', '').strip()
 
-        # 🛡️ THE SECURITY CHECK: Check if ID already exists
-        if id_num and SkilledWorker.objects.filter(id_number=id_num).exists():
+        # Gatekeeper Check (Make sure Q is imported from django.db.models)
+        if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
-                request, f"Access Denied: ID {id_num} is already registered to another worker.")
+                request, "Personnel already exists in Global Registry.")
             return redirect('site_dashboard', site_id=site_id)
 
-        # If it's unique, go ahead and create
         try:
+            # 🟢 CAPTURE DAILY RATE FROM HTML
+            # Note: We take it from the input named 'daily_rate'
+            raw_rate = request.POST.get('daily_rate')
+            daily_rate = Decimal(raw_rate) if raw_rate else Decimal('0.00')
+
             SkilledWorker.objects.create(
+                contractor=request.user,
+                site=site,
                 name=request.POST.get('name'),
                 category=request.POST.get('category'),
-                phone=request.POST.get('phone'),
                 id_number=id_num,
-                pay_frequency=request.POST.get('pay_frequency'),
+                phone=phone_num,
+                emergency_contact=request.POST.get('emergency_contact'),
                 bank_name=request.POST.get('bank_name'),
                 account_number=request.POST.get('account_number'),
                 account_name=request.POST.get('account_name'),
-                profile_picture=request.FILES.get('profile_picture'),
-                site=site,
-                contractor=request.user
+                pay_frequency=request.POST.get(
+                    'pay_frequency', 'Daily'),  # Default to Daily
+                daily_rate=daily_rate,  # 👈 THIS WAS MISSING
+                profile_picture=request.FILES.get('profile_picture')
             )
-            messages.success(
-                request, "Personnel successfully enrolled in registry.")
+            messages.success(request, "New Personnel enrolled and deployed.")
         except Exception as e:
-            messages.error(request, "Registry Error: Please check all fields.")
+            # THIS PRINT IS FOR YOU: Look at your black terminal to see the exact error
+            print(f"CRITICAL ERROR: {e}")
+            messages.error(request, f"Registry Error: {e}")
 
     return redirect('site_dashboard', site_id=site_id)
 
@@ -610,11 +742,11 @@ def worker_profile(request, slug):
 
 @login_required
 def mark_as_paid(request, attendance_id):
-    # 1. Secure the log: Only the contractor who owns the site can authorize pay
+    # 1. ✅ THE SECURITY FIX: Use the Company Owner link
     log = get_object_or_404(
         StaffAttendance,
         id=attendance_id,
-        site__contractor=request.user
+        site__company__owner=request.user  # 👈 Changed from site__contractor
     )
 
     # 2. Logic Check: Only process if it hasn't been paid yet
@@ -628,12 +760,12 @@ def mark_as_paid(request, attendance_id):
         # 3. Success Feedback
         messages.success(
             request,
-            f"Payment for {log.worker.name} on {log.time_in.date()} finalized: {log.payment_reference}"
+            f"Payment for {log.worker.name} finalized: {log.payment_reference}"
         )
     else:
         messages.info(request, "This shift has already been settled.")
 
-    # 4. Single Redirect (The logic "bridge" back to the profile)
+    # 4. Redirect back to the worker's profile
     return redirect('worker_profile', slug=log.worker.slug)
 
 
@@ -643,14 +775,31 @@ def invite_staff(request):
         email = request.POST.get('email')
         role = request.POST.get('role')
         site_id = request.POST.get('site_id')
-
-        # 1. Get the site or show 404 (Safely)
         site = get_object_or_404(SiteLocation, id=site_id)
 
-        # 2. Create the invitation in the DB
+        # 🛡️ THE UPDATED PERMISSION GATE
+        # 1. Check the Company Owner (The Boss)
+        # ✅ We use site.company.owner now
+        is_owner = (site.company.owner == request.user)
+
+        # 2. Check if the user is a Project Manager for THIS site
+        is_pm = Invitation.objects.filter(
+            email=request.user.email,
+            site=site,
+            role_assigned='PROJECT_MANAGER',
+            is_used=True
+        ).exists()
+
+        # 🔥 Block anyone who isn't the Boss or a PM
+        if not (is_owner or is_pm):
+            messages.error(
+                request, "Access Denied: Only Company Owners and PMs can invite staff.")
+            return redirect('site_dashboard', site_id=site.id)
+
+        # 3. Create the Invite record
+        import uuid
         token = uuid.uuid4()
-        # We rename this variable to 'invitation_obj' so it doesn't clash with the string link later
-        invitation_obj = Invitation.objects.create(
+        Invitation.objects.create(
             email=email,
             site=site,
             role_assigned=role,
@@ -658,12 +807,12 @@ def invite_staff(request):
             token=token
         )
 
-        # 3. Build the REAL Invitation Link (The Banana Island Move)
-        # This uses your actual Render URL
-        domain = "https://codasite.onrender.com"
+        # 4. Build the Link
+        # domain = "https://codasite.onrender.com"
+        domain = "http://127.0.0.1:8000"
         invite_link = f"{domain}/account/register/?token={token}"
 
-        # 4. Send the Email
+        # 5. The Dispatch
         subject = f"Invitation to join {site.name} on CodaSite"
         message = f"""
         Hello,
@@ -674,13 +823,13 @@ def invite_staff(request):
         Please click the link below to set up your account:
         {invite_link}
         
-        This link is unique to your email address.
-        
         Best regards,
         InnoCoda Team
         """
 
         try:
+            from django.core.mail import send_mail
+            from django.conf import settings
             send_mail(
                 subject,
                 message,
@@ -693,7 +842,7 @@ def invite_staff(request):
         except Exception as e:
             messages.error(request, f"Email failed to send. Error: {e}")
 
-        return redirect('index')  # Or wherever your dashboard is
+        return redirect('profile')
 
 # Restock
 
@@ -706,7 +855,8 @@ def restock_history(request, site_id):
     # 🛡️ ONE SECURITY CHECK: Is this user allowed to be here?
     is_pm = Invitation.objects.filter(
         email=request.user.email, site=site).exists()
-    if site.contractor != request.user and not request.user.is_superuser and not is_pm:
+    # ✅ NEW (Through the Company)
+    if site.company.owner != request.user and not request.user.is_superuser:
         raise PermissionDenied()
 
     # 🟢 THE HISTORY LOGS (Every delivery event)
@@ -741,13 +891,15 @@ def restock_history(request, site_id):
 def material_usage_report(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
 
-    # 🛡️ Security Check
-    if site.contractor != request.user and not request.user.is_superuser:
-        # (Add your PM invitation check here if needed)
-        pass
+    # ✅ FIX: Permission Check
+    # We look through the company to find the owner (You/Innocoda)
+    if site.company.owner != request.user and not request.user.is_superuser:
+        # (Optional: Add your Project Manager invitation check here)
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied()
 
     # 🟢 THE OPTIMIZED QUERY
-    # select_related pulls the Worker, Stock Item, and Authorizer in 1 database hit
+    # This remains the same—it's already very efficient!
     usage_logs = MaterialDeduction.objects.filter(
         stock_item__site=site
     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
@@ -755,48 +907,85 @@ def material_usage_report(request, site_id):
     return render(request, 'site_management/material_usage_report.html', {
         'site': site,
         'usage_logs': usage_logs,
+        'company': site.company,  # ✅ Added for branding in the report
     })
 # Profiles
 
 
 # Profiles
 
+# @login_required
+# def profile_view(request):
+#     user = request.user
+
+#     # 1. Determine Role & Site Assignment
+#     invitation = Invitation.objects.filter(
+#         email=user.email, is_used=True).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#     # 2. Get Branding (Logo/Business Name)
+#     # If they are staff, we pull the profile of the person who invited them
+#     if invitation:
+#         company_profile =Company.objects.filter(
+#             contractor=invitation.invited_by).first()
+#     else:
+#         company_profile = Company.objects.filter(
+#             contractor=user).first()
+
+#     context = {
+#         'user_role': user_role,
+#         'invitation': invitation,
+#         'company_profile': company_profile,
+#         'sites_count': SiteLocation.objects.filter(contractor=user).count() if user_role == 'CONTRACTOR' else 0,
+#         # For staff, show the one site they are assigned to
+#         'assigned_site': invitation.site if invitation else None,
+#     }
+
+#     return render(request, 'site_management/profile.html', context)
+
+
+# @login_required
+# def update_company_logo(request):
+#     if request.method == "POST" and request.FILES.get('logo'):
+#         # Get or create the profile
+#         profile, created = CompanyProfile.objects.get_or_create(
+#             contractor=request.user)
+#         profile.logo = request.FILES['logo']
+#         profile.save()
+#         messages.success(request, "Logo updated successfully!")
+#     return redirect('profile')
+
+
 @login_required
 def profile_view(request):
     user = request.user
-
-    # 1. Determine Role & Site Assignment
     invitation = Invitation.objects.filter(
         email=user.email, is_used=True).last()
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
-    # 2. Get Branding (Logo/Business Name)
-    # If they are staff, we pull the profile of the person who invited them
+    # ✅ Change CompanyProfile -> Company | contractor -> owner
     if invitation:
-        company_profile = CompanyProfile.objects.filter(
-            contractor=invitation.invited_by).first()
+        company_profile = Company.objects.filter(
+            owner=invitation.invited_by).first()
     else:
-        company_profile = CompanyProfile.objects.filter(
-            contractor=user).first()
+        company_profile = Company.objects.filter(owner=user).first()
 
     context = {
         'user_role': user_role,
         'invitation': invitation,
         'company_profile': company_profile,
-        'sites_count': SiteLocation.objects.filter(contractor=user).count() if user_role == 'CONTRACTOR' else 0,
-        # For staff, show the one site they are assigned to
+        'sites_count': SiteLocation.objects.filter(company=company_profile).count() if company_profile else 0,
         'assigned_site': invitation.site if invitation else None,
     }
-
     return render(request, 'site_management/profile.html', context)
 
 
 @login_required
 def update_company_logo(request):
     if request.method == "POST" and request.FILES.get('logo'):
-        # Get or create the profile
-        profile, created = CompanyProfile.objects.get_or_create(
-            contractor=request.user)
+        # ✅ FIX: Get or create using the new 'Company' model
+        profile, created = Company.objects.get_or_create(
+            owner=request.user)
         profile.logo = request.FILES['logo']
         profile.save()
         messages.success(request, "Logo updated successfully!")
@@ -807,12 +996,28 @@ def update_company_logo(request):
 def update_company_name(request):
     if request.method == "POST":
         name = request.POST.get('business_name')
-        profile, created = CompanyProfile.objects.get_or_create(
-            contractor=request.user)
-        profile.business_name = name
+
+        # ✅ FIX: Use 'Company' and 'owner' instead of 'CompanyProfile' and 'contractor'
+        # Also use 'name' instead of 'business_name' to match your account/models.py
+        profile, created = Company.objects.get_or_create(
+            owner=request.user
+        )
+        profile.name = name
         profile.save()
+
         messages.success(request, "Company name updated!")
     return redirect('profile')
+
+# @login_required
+# def update_company_name(request):
+#     if request.method == "POST":
+#         name = request.POST.get('business_name')
+#         profile, created = CompanyProfile.objects.get_or_create(
+#             contractor=request.user)
+#         profile.business_name = name
+#         profile.save()
+#         messages.success(request, "Company name updated!")
+#     return redirect('profile')
 
 
 @login_required
