@@ -1,11 +1,20 @@
 <div id="worker-action-{{ worker.id }}">
     {% if worker.id in present_worker_ids %}
+        {% comment %} <button 
+            hx-post="{% url 'htmx_clock_out' site.id %}"
+            hx-vals='{"worker_id": "{{ worker.id }}"}'
+            hx-target="#worker-action-{{ worker.id }}"
+            hx-swap="outerHTML"
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+            class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+            Clock Out
+        </button> {% endcomment %}
         <button 
             hx-post="{% url 'htmx_clock_out' site.id %}"
             hx-vals='{"worker_id": "{{ worker.id }}"}'
             hx-target="#worker-action-{{ worker.id }}"
             hx-swap="outerHTML"
-            class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'  class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
             Clock Out
         </button>
     {% else %}

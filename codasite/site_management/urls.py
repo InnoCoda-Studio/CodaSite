@@ -58,6 +58,8 @@ urlpatterns = [
          views.htmx_clock_in, name='htmx_clock_in'),
     path('htmx/clock-out/<int:site_id>/',
          views.htmx_clock_out, name='htmx_clock_out'),
+    # path('htmx/clock-out/<int:site_id>/',
+    #      views.htmx_clock_out, name='htmx_clock_out'),
     path('htmx/finance-summary/<int:site_id>/',
          views.htmx_finance_summary, name='htmx_finance_summary'),
 

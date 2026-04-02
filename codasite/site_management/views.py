@@ -303,7 +303,11 @@ def site_dashboard(request, site_id):
     monthly_data = get_monthly_summary(site.id)
     attendance_today = StaffAttendance.objects.filter(
         site=site, time_in__date=today)
-    present_worker_ids = attendance_today.values_list('worker_id', flat=True)
+
+    # 🎯 THE FIX: Only include workers who haven't clocked out yet!
+    present_worker_ids = list(attendance_today.filter(
+        time_out__isnull=True
+    ).values_list('worker_id', flat=True))
 
     return render(request, 'site_management/site_dashboard.html', {
         'site': site,
@@ -475,33 +479,6 @@ def htmx_clock_out(request, site_id):
             'present_worker_ids': present_worker_ids,
             'attendance_today': attendance_today,
         })
-# @login_required
-# def daily_report(request, site_id):
-#     site = get_object_or_404(SiteLocation, id=site_id)
-#     if site.contractor != request.user and not request.user.is_superuser:
-#         raise PermissionDenied()
-
-#     today = timezone.now().date()
-
-#     # FIXED: Changed MaterialUsage to MaterialDeduction
-#     materials = MaterialDeduction.objects.filter(
-#         stock_item__site=site,
-#         timestamp__date=today
-#     )
-
-#     attendance = StaffAttendance.objects.filter(site=site, time_in__date=today)
-#     workers = SkilledWorker.objects.filter(
-#         contractor=request.user).select_related('site')
-
-#     context = {
-#         'site': site,
-#         'site_id': site_id,
-#         'materials': materials,
-#         'attendance': attendance,
-#         'workers': workers,
-#         'today': today,
-#     }
-#     return render(request, 'site_management/daily_report.html', context)
 
 
 @login_required

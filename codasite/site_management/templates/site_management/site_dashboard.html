@@ -411,10 +411,26 @@ function clockInWithGPS(workerId, siteId) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
 
-            htmx.ajax('POST', `/htmx/clock-in/${siteId}/`, {
+            {% comment %} htmx.ajax('POST', `/htmx/clock-in/${siteId}/`, {
                 values: { 'worker_id': workerId, 'lat': lat, 'lng': lng },
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
                 target: `#worker-action-${workerId}`,
+                swap: 'outerHTML' 
+            }); {% endcomment %}
+
+            // Replace the htmx.ajax line with this "Bulletproof" version:
+            const cleanUrl = "/htmx/clock-in/" + siteId + "/";
+
+            htmx.ajax('POST', cleanUrl, {
+                values: { 
+                    'worker_id': workerId, 
+                    'lat': lat, 
+                    'lng': lng 
+                },
+                headers: { 
+                    'X-CSRFToken': '{{ csrf_token }}' 
+                },
+                target: '#worker-action-' + workerId,
                 swap: 'outerHTML' 
             });
         }, function(error) {
@@ -456,21 +472,32 @@ function showToast(message, type = 'success') {
 }
 
 // 🔔 4. THE SINGLE LISTENER: Handlers Toast & Voice after HTMX
+// 🔔 4. THE SINGLE LISTENER: Only triggers for Clock Actions
 document.body.addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.successful) {
-        const responseText = evt.detail.xhr.responseText;
-        
-        if (responseText.includes("Access Denied")) {
-            showToast("🚨 Access Denied: You are too far!", "error");
-            speakMessage("Access Denied.");
+    // 🔍 ONLY trigger if the request came from a worker-action button
+    const targetId = evt.detail.target.id;
+    
+    if (targetId && targetId.startsWith('worker-action-')) {
+        if (evt.detail.successful) {
+            const responseText = evt.detail.xhr.responseText;
+            
+            if (responseText.includes("Access Denied")) {
+                showToast("🚨 Access Denied: You are too far!", "error");
+                speakMessage("Access Denied.");
+            } else {
+                showToast("✅ Attendance Logged!", "success");
+                speakMessage("Success.");
+            }
         } else {
-            showToast("✅ Attendance Logged!", "success");
-            speakMessage("Success.");
+            showToast("❌ Connection Error", "error");
+            speakMessage("Error.");
         }
-    } else {
-        showToast("❌ Connection Error", "error");
-        speakMessage("Error.");
     }
+});
+
+// 🔑 This tells HTMX to ALWAYS include the CSRF token in every request
+document.body.addEventListener('htmx:configRequest', (event) => {
+    event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
 });
 </script>
 {% endblock %}
