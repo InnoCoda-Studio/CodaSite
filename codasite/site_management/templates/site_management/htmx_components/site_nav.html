@@ -1,0 +1,19 @@
+<nav class="glass mb-8 p-4 rounded-[2rem] border border-white/10 flex items-center justify-between px-8 bg-black/20 backdrop-blur-xl">
+    <div class="flex items-center space-x-6">
+        <a href="{% url 'site_dashboard' site.id %}" 
+           class="text-[10px] font-black uppercase tracking-widest transition-all 
+           {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %}">
+           ⚡ Attendance
+        </a>
+
+        <a href="{% url 'site_warehouse' site.id %}" 
+           class="text-[10px] font-black uppercase tracking-widest transition-all 
+           {% if request.resolver_match.url_name == 'site_warehouse' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %}">
+           📦 Warehouse
+        </a>
+    </div>
+
+    <div class="text-[9px] font-black text-white/20 uppercase italic hidden md:block">
+        {{ site.name }} Operational Node
+    </div>
+</nav>

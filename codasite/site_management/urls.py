@@ -63,4 +63,7 @@ urlpatterns = [
     path('htmx/finance-summary/<int:site_id>/',
          views.htmx_finance_summary, name='htmx_finance_summary'),
 
+    path('site/<int:site_id>/warehouse/',
+         views.site_warehouse, name='site_warehouse'),
+
 ]

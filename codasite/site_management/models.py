@@ -342,23 +342,8 @@ class MaterialDeduction(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Force the safety check before saving
-        if not self.pk:
-            # Atomic update to prevent race conditions
-            self.stock_item.current_balance -= self.quantity_taken
-            self.stock_item.save()
+
         super().save(*args, **kwargs)
-
-
-# class CompanyProfile(models.Model):
-#     contractor = models.OneToOneField(
-#         User, on_delete=models.CASCADE, related_name='site_company_profile')
-#     business_name = models.CharField(max_length=255)
-#     logo = CloudinaryField(
-#         'image', folder='company_logos/', null=True, blank=True)
-#     address = models.TextField(blank=True)
-
-#     def __str__(self):
-#         return self.business_name
 
 
 class CategoryPay(models.Model):

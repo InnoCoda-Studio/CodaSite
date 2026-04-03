@@ -5,8 +5,8 @@ from .models import SiteLocation, StaffAttendance, MaterialDeduction
 
 from django.conf import settings
 # Ensure these are at the top
-from .reports import get_weekly_summary, get_monthly_summary
-from .reports import get_weekly_summary, generate_pdf_report
+#
+from .reports import get_weekly_summary, generate_pdf_report, get_monthly_summary
 from decimal import Decimal, InvalidOperation
 from django.template.loader import render_to_string
 import uuid
@@ -26,6 +26,7 @@ from .reports import get_daily_summary, generate_pdf_report
 from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
+from .utils import get_weekly_summary, get_monthly_summary
 
 
 from django.db.models import Q, F
@@ -35,49 +36,6 @@ from django.http import HttpResponse
 from decimal import Decimal
 # Clok in
 
-
-# @login_required
-# def index(request):
-#     today = timezone.now().date()
-
-#     # 🏢 1. Identify the Company
-#     # We grab the company linked to the logged-in Contractor or Staff
-#     user_company = request.user.site_company_profile
-
-#     # 🏗️ 2. BASE QUERIES (Filtered by Company)
-#     user_sites = SiteLocation.objects.filter(company=user_company)
-#     sites = user_sites.order_by("-created_at")
-
-#     # 📦 3. INVENTORY LOGIC (Scoped to the Company's Sites)
-#     # Notice we changed site__contractor to site__company
-#     low_stock_items = MaterialStock.objects.filter(
-#         site__company=user_company,
-#         current_balance__lt=F('minimum_required')
-#     ).select_related('site').order_by('current_balance')
-
-#     recent_arrivals = MaterialStock.objects.filter(
-#         site__company=user_company,
-#         last_updated__date=today
-#     ).select_related('site').order_by('-last_updated')
-
-#     # 💰 4. GLOBAL AGGREGATES (Total Cement across all sites in the company)
-#     total_cement = MaterialStock.objects.filter(
-#         site__company=user_company,
-#         item_name__icontains='cement'
-#     ).aggregate(total=Sum('current_balance'))['total'] or 0
-
-#     context = {
-#         'sites': sites,
-#         'total_cement': total_cement,
-#         'low_stock_items': low_stock_items,
-#         'recent_arrivals': recent_arrivals,
-#     }
-
-#     # 🚀 HTMX MAGIC: Partial update for the Dashboard Feed
-#     if request.headers.get('HX-Request'):
-#         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
-
-#     return render(request, 'site_management/index.html', context)
 
 @login_required
 def index(request):
@@ -130,41 +88,226 @@ def index(request):
     return render(request, 'site_management/index.html', context)
 
 
+# @login_required
+# @transaction.atomic
+# def site_dashboard(request, site_id):
+#    # 🏢 1. Identify the Company
+#     # Every user (Contractor or Staff) must be linked to a CompanyProfile
+
+#     user_company = request.user.company
+
+#     # 🛡️ 2. Secure the Site
+#     # Only allow access if the site belongs to the user's company
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+#     today = timezone.now().date()
+
+#     # 3. Permissions Check
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#     is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
+
+#     # 4. Scoped Pools (This is where you save money/security!)
+#     workers = SkilledWorker.objects.filter(site=site)
+#     stocks = MaterialStock.objects.filter(site=site)
+
+#     # 🌍 GLOBAL POOL: Only show workers from the SAME company
+#     global_workers_pool = SkilledWorker.objects.filter(
+#         company=user_company  # ✅ NEW (Much cleaner!)
+#     ).exclude(site=site)
+
+#     # 2. HANDLE ACTIONS (ONE SINGLE POST BLOCK)
+#     if request.method == "POST":
+
+#         # A. REGISTER NEW WORKER
+#         if 'register_worker' in request.POST:
+#             try:
+#                 worker = SkilledWorker.objects.create(
+#                     contractor=request.user,
+#                     company=user_company,
+#                     site=site,
+#                     name=request.POST.get('name'),
+#                     category=request.POST.get('category'),
+#                     phone=request.POST.get('phone'),
+#                     daily_rate=request.POST.get('daily_rate') or 0,
+#                     emergency_contact=request.POST.get('emergency_contact'),
+#                     bank_name=request.POST.get('bank_name'),
+#                     account_number=request.POST.get('account_number'),
+#                     account_name=request.POST.get('account_name')
+#                 )
+#                 if 'profile_picture' in request.FILES:
+#                     worker.profile_picture = request.FILES['profile_picture']
+#                     worker.save()
+#                 messages.success(
+#                     request, f"Registry created for {worker.name}.")
+#             except Exception as e:
+#                 print(f"DATABASE ERROR: {e}")  # Check your terminal for this!
+#                 messages.error(request, "Registry Error: Check all fields.")
+
+#         # B. RECALL / DEPLOY FROM MASTER REGISTRY
+#         elif 'deploy_worker' in request.POST:
+#             worker = get_object_or_404(SkilledWorker, id=request.POST.get(
+#                 'worker_id'), contractor=request.user)
+#             worker.site = site
+#             if request.POST.get('update_category'):
+#                 worker.category = request.POST.get('update_category')
+#             if request.POST.get('update_rate'):
+#                 worker.daily_rate = Decimal(request.POST.get('update_rate'))
+#             worker.save()
+#             messages.success(
+#                 request, f"{worker.name} deployed to {site.name}.")
+
+#         # E. UPDATE ALL PAY RATES
+#         elif 'update_all_rates' in request.POST:
+#             # ✅ Change this (Line 210 area):
+#             if request.user == site.company.owner or user_role == 'PROJECT_MANAGER':
+#                 for w in workers:
+#                     new_rate = request.POST.get(f'rate_{w.id}')
+#                     if new_rate:
+#                         w.daily_rate = Decimal(new_rate)
+#                         w.save()
+#                 messages.success(request, "Labor rates updated.")
+
+#        # F. STOCK & MATERIAL LOGIC
+#         elif 'add_stock' in request.POST:
+#             try:
+#                 # 1. Capture the form data
+#                 qty_raw = request.POST.get('quantity')
+#                 qty = Decimal(
+#                     qty_raw) if qty_raw and qty_raw.strip() else Decimal('0.00')
+#                 item_name = request.POST.get('item_name', '').strip().upper()
+#                 unit = request.POST.get('unit', '').strip()
+
+#                 # 2. Update/Create the Master Balance card
+#                 stock, created = MaterialStock.objects.get_or_create(
+#                     site=site,
+#                     item_name=item_name,
+#                     defaults={'unit': unit}
+#                 )
+#                 stock.current_balance += qty
+#                 stock.save()
+
+#                 # 3. 🟢 THE HISTORY RECEIPT (fills your history page)
+#                 # Ensure your model handles null=True for both evidence fields!
+#                 MaterialRestockLog.objects.create(
+#                     stock_item=stock,
+#                     site=site,
+#                     quantity_added=qty,
+#                     # We capture the image and video here
+#                     evidence_image=request.FILES.get('evidence_image'),
+#                     evidence_video=request.FILES.get('evidence_video')
+#                 )
+#                 messages.success(
+#                     request, f"Received {qty} {unit} of {item_name}. Proof logged.")
+#             except Exception as e:
+#                 messages.error(request, f"Intake Error: {e}")
+
+#         # Inside your site_dashboard(request, site_id) function:
+
+#         # --- MATERIAL DEDUCTION LOGIC ---
+
+# # ... inside your POST logic ...
+#             # --- MATERIAL DEDUCTION LOGIC ---
+#         # elif 'issue_material' in request.POST:
+#         #     stock_id = request.POST.get('stock_item')
+#         #     worker_id = request.POST.get('worker_id')
+#         #     try:
+#         #         qty = Decimal(request.POST.get('quantity') or 0)
+#         #         purpose = request.POST.get('purpose', 'General Use')
+
+#         #         # 1. THE LOCK: Use select_for_update to stop other clicks
+#         #         with transaction.atomic():
+#         #             stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
+#         #             worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+#         #             if stock.current_balance >= qty:
+#         #                 # 2. DO THE MATH MANUALLY (Easier to see)
+#         #                 old_balance = stock.current_balance
+#         #                 new_balance = old_balance - qty
+
+#         #                 # 3. UPDATE THE STOCK
+#         #                 stock.current_balance = new_balance
+#         #                 stock.save()
+
+#         #                 # 4. CREATE THE LOG
+#         #                 MaterialDeduction.objects.create(
+#         #                     stock_item=stock,
+#         #                     worker=worker,
+#         #                     quantity_taken=qty,
+#         #                     purpose=purpose,
+#         #                     authorized_by=request.user,
+#         #                 )
+
+#         #                 messages.success(
+#         #                     request, f"Deducted {qty}. Balance: {old_balance} -> {new_balance}")
+#         #             else:
+#         #                 messages.error(
+#         #                     request, f"Insufficient Stock! Only {stock.current_balance} left.")
+
+#         #     except Exception as e:
+#         #         messages.error(request, f"System Error: {e}")
+
+#             # 5. THE ULTIMATE KILL-SWITCH: Move the redirect OUTSIDE the try block
+#             # return redirect('site_dashboard', site_id=site.id)
+
+#     # 3. GATHER DATA FOR GET REQUEST
+#     weekly_data = get_weekly_summary(site.id)
+#     monthly_data = get_monthly_summary(site.id)
+#     attendance_today = StaffAttendance.objects.filter(
+#         site=site, time_in__date=today)
+
+#     # 🎯 THE FIX: Only include workers who haven't clocked out yet!
+#     present_worker_ids = list(attendance_today.filter(
+#         time_out__isnull=True
+#     ).values_list('worker_id', flat=True))
+
+#     return render(request, 'site_management/site_dashboard.html', {
+#         'site': site,
+#         'is_boss': is_boss,
+#         'workers': workers,
+#         'stocks': stocks,
+#         'attendance_today': attendance_today,
+#         'present_worker_ids': present_worker_ids,
+#         'global_workers_pool': global_workers_pool,
+#         'user_role': user_role,
+#         'total_spent': monthly_data['total_payroll'],
+#         'weekly_total': weekly_data['total_payroll'],
+#         'total_workers': weekly_data['total_workers'],
+#     })
+
 @login_required
 @transaction.atomic
 def site_dashboard(request, site_id):
-   # 🏢 1. Identify the Company
-    # Every user (Contractor or Staff) must be linked to a CompanyProfile
-
+    # 🏢 1. Identify the Company
     user_company = request.user.company
 
     # 🛡️ 2. Secure the Site
-    # Only allow access if the site belongs to the user's company
     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
-
     today = timezone.now().date()
 
     # 3. Permissions Check
     invitation = Invitation.objects.filter(
         email=request.user.email, site=site).last()
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
-    invitation = Invitation.objects.filter(
-        email=request.user.email, site=site).last()
-    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
     is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
 
-    # 4. Scoped Pools (This is where you save money/security!)
+    # 4. Scoped Pools
     workers = SkilledWorker.objects.filter(site=site)
-    stocks = MaterialStock.objects.filter(site=site)
+    stocks = MaterialStock.objects.filter(
+        site=site)  # Keep for summary display
 
-    # 🌍 GLOBAL POOL: Only show workers from the SAME company
+    # 🌍 GLOBAL POOL: Only show workers from the SAME company (for deployment)
     global_workers_pool = SkilledWorker.objects.filter(
-        company=user_company  # ✅ NEW (Much cleaner!)
+        company=user_company
     ).exclude(site=site)
 
-    # 2. HANDLE ACTIONS (ONE SINGLE POST BLOCK)
+    # 5. HANDLE PERSONNEL ACTIONS
     if request.method == "POST":
 
         # A. REGISTER NEW WORKER
@@ -189,13 +332,12 @@ def site_dashboard(request, site_id):
                 messages.success(
                     request, f"Registry created for {worker.name}.")
             except Exception as e:
-                print(f"DATABASE ERROR: {e}")  # Check your terminal for this!
                 messages.error(request, "Registry Error: Check all fields.")
 
-        # B. RECALL / DEPLOY FROM MASTER REGISTRY
+        # B. DEPLOY FROM MASTER REGISTRY
         elif 'deploy_worker' in request.POST:
             worker = get_object_or_404(SkilledWorker, id=request.POST.get(
-                'worker_id'), contractor=request.user)
+                'worker_id'), company=user_company)
             worker.site = site
             if request.POST.get('update_category'):
                 worker.category = request.POST.get('update_category')
@@ -205,10 +347,9 @@ def site_dashboard(request, site_id):
             messages.success(
                 request, f"{worker.name} deployed to {site.name}.")
 
-        # E. UPDATE ALL PAY RATES
+        # C. UPDATE ALL PAY RATES
         elif 'update_all_rates' in request.POST:
-            # ✅ Change this (Line 210 area):
-            if request.user == site.company.owner or user_role == 'PROJECT_MANAGER':
+            if is_boss:
                 for w in workers:
                     new_rate = request.POST.get(f'rate_{w.id}')
                     if new_rate:
@@ -216,95 +357,15 @@ def site_dashboard(request, site_id):
                         w.save()
                 messages.success(request, "Labor rates updated.")
 
-       # F. STOCK & MATERIAL LOGIC
-        elif 'add_stock' in request.POST:
-            try:
-                # 1. Capture the form data
-                qty_raw = request.POST.get('quantity')
-                qty = Decimal(
-                    qty_raw) if qty_raw and qty_raw.strip() else Decimal('0.00')
-                item_name = request.POST.get('item_name', '').strip().upper()
-                unit = request.POST.get('unit', '').strip()
+        return redirect('site_dashboard', site_id=site.id)
 
-                # 2. Update/Create the Master Balance card
-                stock, created = MaterialStock.objects.get_or_create(
-                    site=site,
-                    item_name=item_name,
-                    defaults={'unit': unit}
-                )
-                stock.current_balance += qty
-                stock.save()
-
-                # 3. 🟢 THE HISTORY RECEIPT (fills your history page)
-                # Ensure your model handles null=True for both evidence fields!
-                MaterialRestockLog.objects.create(
-                    stock_item=stock,
-                    site=site,
-                    quantity_added=qty,
-                    # We capture the image and video here
-                    evidence_image=request.FILES.get('evidence_image'),
-                    evidence_video=request.FILES.get('evidence_video')
-                )
-                messages.success(
-                    request, f"Received {qty} {unit} of {item_name}. Proof logged.")
-            except Exception as e:
-                messages.error(request, f"Intake Error: {e}")
-
-        # Inside your site_dashboard(request, site_id) function:
-
-        # --- MATERIAL DEDUCTION LOGIC ---
-
-# ... inside your POST logic ...
-            # --- MATERIAL DEDUCTION LOGIC ---
-        elif 'issue_material' in request.POST:
-            stock_id = request.POST.get('stock_item')
-            worker_id = request.POST.get('worker_id')
-            try:
-                qty = Decimal(request.POST.get('quantity') or 0)
-                purpose = request.POST.get('purpose', 'General Use')
-
-                # 1. THE LOCK: Use select_for_update to stop other clicks
-                with transaction.atomic():
-                    stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
-                    worker = get_object_or_404(SkilledWorker, id=worker_id)
-
-                    if stock.current_balance >= qty:
-                        # 2. DO THE MATH MANUALLY (Easier to see)
-                        old_balance = stock.current_balance
-                        new_balance = old_balance - qty
-
-                        # 3. UPDATE THE STOCK
-                        stock.current_balance = new_balance
-                        stock.save()
-
-                        # 4. CREATE THE LOG
-                        MaterialDeduction.objects.create(
-                            stock_item=stock,
-                            worker=worker,
-                            quantity_taken=qty,
-                            purpose=purpose,
-                            authorized_by=request.user,
-                        )
-
-                        messages.success(
-                            request, f"Deducted {qty}. Balance: {old_balance} -> {new_balance}")
-                    else:
-                        messages.error(
-                            request, f"Insufficient Stock! Only {stock.current_balance} left.")
-
-            except Exception as e:
-                messages.error(request, f"System Error: {e}")
-
-            # 5. THE ULTIMATE KILL-SWITCH: Move the redirect OUTSIDE the try block
-            return redirect('site_dashboard', site_id=site.id)
-
-    # 3. GATHER DATA FOR GET REQUEST
+    # 6. GATHER DATA FOR DISPLAY
     weekly_data = get_weekly_summary(site.id)
     monthly_data = get_monthly_summary(site.id)
     attendance_today = StaffAttendance.objects.filter(
         site=site, time_in__date=today)
 
-    # 🎯 THE FIX: Only include workers who haven't clocked out yet!
+    # 🎯 THE FIX: Active workers only
     present_worker_ids = list(attendance_today.filter(
         time_out__isnull=True
     ).values_list('worker_id', flat=True))
@@ -321,6 +382,200 @@ def site_dashboard(request, site_id):
         'total_spent': monthly_data['total_payroll'],
         'weekly_total': weekly_data['total_payroll'],
         'total_workers': weekly_data['total_workers'],
+    })
+
+
+# @login_required
+# @transaction.atomic
+# def site_warehouse(request, site_id):
+#     user_company = request.user.company
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+#     if request.method == "POST":
+#         # 🟢 Logic for ADDING STOCK
+#         if 'add_stock' in request.POST:
+#             try:
+#                 qty = Decimal(request.POST.get('quantity') or '0')
+#                 item_name = request.POST.get('item_name', '').strip().upper()
+#                 unit = request.POST.get('unit', '').strip()
+
+#                 stock, _ = MaterialStock.objects.get_or_create(
+#                     site=site, item_name=item_name, defaults={'unit': unit}
+#                 )
+#                 stock.current_balance += qty
+#                 stock.save()
+
+#                 MaterialRestockLog.objects.create(
+#                     stock_item=stock, site=site, quantity_added=qty,
+#                     evidence_image=request.FILES.get('evidence_image'),
+#                     evidence_video=request.FILES.get('evidence_video')
+#                 )
+#                 messages.success(
+#                     request, f"Inventory updated: {qty} {unit} of {item_name}")
+#             except Exception as e:
+#                 messages.error(request, f"Error adding stock: {e}")
+
+#             # 🎯 CRITICAL: Redirect here so the page refreshes properly
+#             return redirect('site_warehouse', site_id=site.id)
+
+#         # 🔴 Logic for ISSUING MATERIAL
+#         elif 'issue_material' in request.POST:
+#             try:
+#                 stock_id = request.POST.get('stock_item')
+#                 worker_id = request.POST.get('worker_id')
+#                 qty = Decimal(request.POST.get('quantity') or 0)
+#                 purpose = request.POST.get('purpose', 'General Use')
+
+#                 stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
+#                 worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+#                 if stock.current_balance >= qty:
+#                     stock.current_balance -= qty
+#                     stock.save()
+
+#                     MaterialDeduction.objects.create(
+#                         stock_item=stock, worker=worker,
+#                         quantity_taken=qty, purpose=purpose, authorized_by=request.user,
+#                     )
+#                     messages.success(
+#                         request, f"Authorized release: {qty} {stock.unit}")
+#                 else:
+#                     messages.error(request, "Insufficient stock available.")
+#             except Exception as e:
+#                 messages.error(request, f"Requisition Error: {e}")
+
+#             # 🎯 CRITICAL: Redirect here too!
+#             return redirect('site_warehouse', site_id=site.id)
+
+#     # 📋 3. GATHER DATA FOR GET REQUEST
+#     stocks = MaterialStock.objects.filter(site=site)
+#     workers = SkilledWorker.objects.filter(site=site)
+
+#     # Permission checks
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#     return render(request, 'site_management/site_warehouse.html', {
+#         'site': site,
+#         'stocks': stocks,
+#         'workers': workers,
+#         'user_role': user_role,
+#     })
+
+@login_required
+# @transaction.atomic
+def site_warehouse(request, site_id):
+    user_company = request.user.company
+    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+    # --- HANDLE ACTIONS FOR MATERIALS ---
+    if request.method == "POST":
+        # A. ADD STOCK
+        if 'add_stock' in request.POST:
+            try:
+                qty = Decimal(request.POST.get('quantity') or '0.00')
+                item_name = request.POST.get('item_name', '').strip().upper()
+                unit = request.POST.get('unit', '').strip()
+
+                # 📸 Capture the files once here
+                img_file = request.FILES.get('evidence_image')
+                vid_file = request.FILES.get('evidence_video')
+
+                stock, _ = MaterialStock.objects.get_or_create(
+                    site=site, item_name=item_name, defaults={'unit': unit}
+                )
+
+                # ➕ Update Balance
+                stock.current_balance += qty
+
+                # 🔄 SYNC: Update the Stock object with the latest proof
+                if img_file:
+                    stock.evidence_image = img_file
+                if vid_file:
+                    stock.evidence_video = vid_file
+
+                stock.save()
+
+                # 📝 LOG: Create the audit trail
+                MaterialRestockLog.objects.create(
+                    stock_item=stock,
+                    site=site,
+                    quantity_added=qty,
+                    evidence_image=img_file,
+                    evidence_video=vid_file
+                )
+
+                messages.success(
+                    request, f"Received {qty} {unit} of {item_name}.")
+            except Exception as e:
+                messages.error(request, f"Intake Error: {e}")
+
+       # B. ISSUE MATERIAL
+        elif 'issue_material' in request.POST:
+            stock_id = request.POST.get('stock_item')
+            worker_id = request.POST.get('worker_id')
+            qty_input = request.POST.get('quantity')
+
+            try:
+                qty = Decimal(qty_input or 0)
+
+                # 🛡️ 1. LOCK THE TRANSACTION
+                with transaction.atomic():
+                    # 🔒 select_for_update() makes Request #2 wait until Request #1 is DONE
+                    stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
+                    worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+                    # 🛡️ 2. CHECK FOR DUPLICATES (Inside the Lock!)
+                    # Check if this exact worker took this exact amount in the last 10 seconds
+                    is_duplicate = MaterialDeduction.objects.filter(
+                        stock_item=stock,
+                        worker=worker,
+                        quantity_taken=qty,
+                        timestamp__gte=timezone.now() - timedelta(seconds=10)
+                    ).exists()
+
+                    if is_duplicate:
+                        # If Request #2 tries to run, it finds Request #1's data and STOPS.
+                        return redirect('site_warehouse', site_id=site.id)
+
+                    # 🛡️ 3. DO THE MATH
+                    if stock.current_balance >= qty:
+                        stock.current_balance -= qty
+                        stock.save()
+
+                        MaterialDeduction.objects.create(
+                            stock_item=stock,
+                            worker=worker,
+                            quantity_taken=qty,
+                            purpose=request.POST.get('purpose', 'General'),
+                            authorized_by=request.user,
+                        )
+                        messages.success(
+                            request, f"Deducted {qty}. New Balance: {stock.current_balance}")
+                    else:
+                        messages.error(request, "Insufficient Stock.")
+
+            except Exception as e:
+                messages.error(request, f"Error: {e}")
+
+            return redirect('site_warehouse', site_id=site.id)
+
+    # 📋 Gather Data
+    stocks = MaterialStock.objects.filter(site=site)
+    workers = SkilledWorker.objects.filter(site=site)
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site, is_used=True).last()
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+    is_boss = (site.company.owner == request.user) or (
+        user_role == 'PROJECT_MANAGER')
+
+    return render(request, 'site_management/site_warehouse.html', {
+        'site': site,
+        'stocks': stocks,
+        'workers': workers,
+        'is_boss': is_boss,
+        'user_role': user_role,
     })
 
 
@@ -431,13 +686,19 @@ def htmx_clock_in(request, site_id):
         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
         # 5. 🚀 Return the Button Partial
-        return render(request, 'site_management/htmx_components/worker_button.html', {
+        response = render(request, 'site_management/htmx_components/worker_button.html', {
             'worker': worker,
             'site': site,
             'present_worker_ids': present_worker_ids,
             'attendance_today': attendance_today,
             'user_role': user_role,
         })
+
+        # 🎯 STEP 2: Add the "Finance Update" signal to the header
+        response['HX-Trigger'] = 'financeUpdate'
+
+        return response
+
 # site_management/views.py
 
 
@@ -473,12 +734,17 @@ def htmx_clock_out(request, site_id):
             email=request.user.email, site=site).last()
         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
-        return render(request, 'site_management/htmx_components/worker_button.html', {
+        response = render(request, 'site_management/htmx_components/worker_button.html', {
             'worker': worker,
             'site': site,
             'present_worker_ids': present_worker_ids,
             'attendance_today': attendance_today,
         })
+
+        # 🎯 STEP 2: Add the signal
+        response['HX-Trigger'] = 'financeUpdate'
+
+        return response
 
 
 @login_required
