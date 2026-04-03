@@ -260,9 +260,9 @@ class MaterialStock(models.Model):
 
     unit = models.CharField(max_length=50)
     evidence_image = CloudinaryField(
-        'image', folder='material_evidence/', null=True, blank=True)
+        'image', folder='material_evidence', null=True, blank=True)
     evidence_video = CloudinaryField(
-        'video', resource_type='video', folder='material_evidence_vids/', null=True, blank=True)
+        'video', resource_type='video', folder='material_evidence_vids', null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:

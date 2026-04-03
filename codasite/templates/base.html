@@ -14,10 +14,17 @@
     <meta property="og:image" content="{% static 'images/images/CodaSite_logo.jpeg' %}">
 
     {% tailwind_css %}
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
 
+    {% comment %} HTMX link {% endcomment %}
+        <script>
+            document.body.addEventListener('htmx:configRequest', (event) => {
+                event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+            });
+        </script>
     <style>
         [x-cloak] { display: none !important; }
         body { font-family: 'Inter', sans-serif; }
@@ -193,8 +200,18 @@
 
 </footer>
 
-    {% block extra_script %}{% endblock %}
+    {% block extra_script %}
+    <script>
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            // This re-initializes Alpine components inside the swapped area
+            if (window.Alpine) {
+                Alpine.discover(); 
+            }
+        });
+    </script>
+    {% endblock %}
 
 </body>
+
 
 </html>

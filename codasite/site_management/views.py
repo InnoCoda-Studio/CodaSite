@@ -463,55 +463,187 @@ def site_dashboard(request, site_id):
 #         'user_role': user_role,
 #     })
 
+# @login_required
+# # @transaction.atomic
+# def site_warehouse(request, site_id):
+#     user_company = request.user.company
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+#     # --- HANDLE ACTIONS FOR MATERIALS ---
+#     if request.method == "POST":
+#         # A. ADD STOCK
+#         # A. ADD STOCK
+#         if 'add_stock' in request.POST:
+#             try:
+#                 qty = Decimal(request.POST.get('quantity') or '0.00')
+#                 item_name = request.POST.get('item_name', '').strip().upper()
+#                 unit = request.POST.get('unit', '').strip()
+
+#                 img_file = request.FILES.get('evidence_image')
+#                 vid_file = request.FILES.get('evidence_video')
+
+#                 stock, _ = MaterialStock.objects.get_or_create(
+#                     site=site, item_name=item_name, defaults={'unit': unit}
+#                 )
+
+#                 # 1️⃣ FIRST SAVE: Update the Stock object
+#                 stock.current_balance += qty
+#                 if img_file:
+#                     stock.evidence_image = img_file
+#                 if vid_file:
+#                     stock.evidence_video = vid_file
+#                 stock.save()
+
+#                 # 🛑 THE MAGIC REWIND:
+#                 # After stock.save(), the files are 'closed'. We must seek(0) to reopen them.
+#                 if img_file:
+#                     img_file.seek(0)
+#                 if vid_file:
+#                     vid_file.seek(0)
+
+#                 # 2️⃣ SECOND SAVE: Create the audit log
+#                 MaterialRestockLog.objects.create(
+#                     stock_item=stock,
+#                     site=site,
+#                     quantity_added=qty,
+#                     evidence_image=img_file,
+#                     evidence_video=vid_file
+#                 )
+
+#                 if request.htmx:
+#                     stocks = MaterialStock.objects.filter(site=site)
+#                     return render(request, 'site_management/partials/stock_list_partial.html', {'stocks': stocks})
+#                 messages.success(
+#                     request, f"Received {qty} {unit} of {item_name}.")
+
+#             except Exception as e:
+#                 messages.error(request, f"Intake Error: {e}")
+
+#             return redirect('site_warehouse', site_id=site.id)
+
+#        # B. ISSUE MATERIAL
+#         elif 'issue_material' in request.POST:
+#             stock_id = request.POST.get('stock_item')
+#             worker_id = request.POST.get('worker_id')
+#             qty_input = request.POST.get('quantity')
+
+#             try:
+#                 qty = Decimal(qty_input or 0)
+
+#                 # 🛡️ 1. LOCK THE TRANSACTION
+#                 with transaction.atomic():
+#                     # 🔒 select_for_update() makes Request #2 wait until Request #1 is DONE
+#                     stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
+#                     worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+#                     # 🛡️ 2. CHECK FOR DUPLICATES (Inside the Lock!)
+#                     # Check if this exact worker took this exact amount in the last 10 seconds
+#                     is_duplicate = MaterialDeduction.objects.filter(
+#                         stock_item=stock,
+#                         worker=worker,
+#                         quantity_taken=qty,
+#                         timestamp__gte=timezone.now() - timedelta(seconds=10)
+#                     ).exists()
+
+#                     if is_duplicate:
+#                         # If Request #2 tries to run, it finds Request #1's data and STOPS.
+#                         return redirect('site_warehouse', site_id=site.id)
+
+#                     # 🛡️ 3. DO THE MATH
+#                     if stock.current_balance >= qty:
+#                         stock.current_balance -= qty
+#                         stock.save()
+
+#                         MaterialDeduction.objects.create(
+#                             stock_item=stock,
+#                             worker=worker,
+#                             quantity_taken=qty,
+#                             purpose=request.POST.get('purpose', 'General'),
+#                             authorized_by=request.user,
+#                         )
+#                         messages.success(
+#                             request, f"Deducted {qty}. New Balance: {stock.current_balance}")
+#                     else:
+#                         messages.error(request, "Insufficient Stock.")
+
+#             except Exception as e:
+#                 messages.error(request, f"Error: {e}")
+
+#             return redirect('site_warehouse', site_id=site.id)
+
+#     # 📋 Gather Data
+#     stocks = MaterialStock.objects.filter(site=site)
+#     workers = SkilledWorker.objects.filter(site=site)
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site, is_used=True).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+#     is_boss = (site.company.owner == request.user) or (
+#         user_role == 'PROJECT_MANAGER')
+
+#     return render(request, 'site_management/site_warehouse.html', {
+#         'site': site,
+#         'stocks': stocks,
+#         'workers': workers,
+#         'is_boss': is_boss,
+#         'user_role': user_role,
+#     })
+
+
 @login_required
-# @transaction.atomic
 def site_warehouse(request, site_id):
     user_company = request.user.company
     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
 
-    # --- HANDLE ACTIONS FOR MATERIALS ---
     if request.method == "POST":
-        # A. ADD STOCK
+        print("SIGNAL RECEIVED!")
+        # --- A. ADD STOCK ---
         if 'add_stock' in request.POST:
+            print("ADDING STOCK...")
             try:
-                qty = Decimal(request.POST.get('quantity') or '0.00')
-                item_name = request.POST.get('item_name', '').strip().upper()
-                unit = request.POST.get('unit', '').strip()
+                with transaction.atomic():  # 🛡️ Keep it atomic!
+                    qty = Decimal(request.POST.get('quantity') or '0.00')
+                    item_name = request.POST.get(
+                        'item_name', '').strip().upper()
+                    unit = request.POST.get('unit', '').strip()
 
-                # 📸 Capture the files once here
-                img_file = request.FILES.get('evidence_image')
-                vid_file = request.FILES.get('evidence_video')
+                    img_file = request.FILES.get('evidence_image')
+                    vid_file = request.FILES.get('evidence_video')
 
-                stock, _ = MaterialStock.objects.get_or_create(
-                    site=site, item_name=item_name, defaults={'unit': unit}
-                )
+                    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                        site=site, item_name=item_name, defaults={'unit': unit}
+                    )
 
-                # ➕ Update Balance
-                stock.current_balance += qty
+                    stock.current_balance += qty
+                    if img_file:
+                        stock.evidence_image = img_file
+                    if vid_file:
+                        stock.evidence_video = vid_file
+                    stock.save()
 
-                # 🔄 SYNC: Update the Stock object with the latest proof
-                if img_file:
-                    stock.evidence_image = img_file
-                if vid_file:
-                    stock.evidence_video = vid_file
+                    if img_file:
+                        img_file.seek(0)
+                    if vid_file:
+                        vid_file.seek(0)
 
-                stock.save()
+                    MaterialRestockLog.objects.create(
+                        stock_item=stock, site=site, quantity_added=qty,
+                        evidence_image=img_file, evidence_video=vid_file
+                    )
 
-                # 📝 LOG: Create the audit trail
-                MaterialRestockLog.objects.create(
-                    stock_item=stock,
-                    site=site,
-                    quantity_added=qty,
-                    evidence_image=img_file,
-                    evidence_video=vid_file
-                )
+                # ✨ HTMX CHECK HERE
+                if request.htmx:
+                    stocks = MaterialStock.objects.filter(site=site)
+                    return render(request, 'site_management/partials/stock_list_partial.html', {'stocks': stocks})
 
                 messages.success(
                     request, f"Received {qty} {unit} of {item_name}.")
+                return redirect('site_warehouse', site_id=site.id)
+
             except Exception as e:
                 messages.error(request, f"Intake Error: {e}")
+                return redirect('site_warehouse', site_id=site.id)
 
-       # B. ISSUE MATERIAL
+        # --- B. ISSUE MATERIAL ---
         elif 'issue_material' in request.POST:
             stock_id = request.POST.get('stock_item')
             worker_id = request.POST.get('worker_id')
@@ -519,38 +651,33 @@ def site_warehouse(request, site_id):
 
             try:
                 qty = Decimal(qty_input or 0)
-
-                # 🛡️ 1. LOCK THE TRANSACTION
                 with transaction.atomic():
-                    # 🔒 select_for_update() makes Request #2 wait until Request #1 is DONE
                     stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
                     worker = get_object_or_404(SkilledWorker, id=worker_id)
 
-                    # 🛡️ 2. CHECK FOR DUPLICATES (Inside the Lock!)
-                    # Check if this exact worker took this exact amount in the last 10 seconds
-                    is_duplicate = MaterialDeduction.objects.filter(
-                        stock_item=stock,
-                        worker=worker,
-                        quantity_taken=qty,
+                    # Duplicate check
+                    if MaterialDeduction.objects.filter(
+                        stock_item=stock, worker=worker, quantity_taken=qty,
                         timestamp__gte=timezone.now() - timedelta(seconds=10)
-                    ).exists()
-
-                    if is_duplicate:
-                        # If Request #2 tries to run, it finds Request #1's data and STOPS.
+                    ).exists():
                         return redirect('site_warehouse', site_id=site.id)
 
-                    # 🛡️ 3. DO THE MATH
                     if stock.current_balance >= qty:
                         stock.current_balance -= qty
                         stock.save()
 
                         MaterialDeduction.objects.create(
-                            stock_item=stock,
-                            worker=worker,
-                            quantity_taken=qty,
-                            purpose=request.POST.get('purpose', 'General'),
+                            stock_item=stock, worker=worker,
+                            quantity_taken=qty, purpose=request.POST.get(
+                                'purpose', 'General'),
                             authorized_by=request.user,
                         )
+
+                        # ✨ HTMX CHECK HERE TOO
+                        if request.htmx:
+                            stocks = MaterialStock.objects.filter(site=site)
+                            return render(request, 'site_management/partials/stock_list_partial.html', {'stocks': stocks})
+
                         messages.success(
                             request, f"Deducted {qty}. New Balance: {stock.current_balance}")
                     else:
@@ -561,22 +688,32 @@ def site_warehouse(request, site_id):
 
             return redirect('site_warehouse', site_id=site.id)
 
-    # 📋 Gather Data
+    # 📋 Normal Page Load - Data Gathering
     stocks = MaterialStock.objects.filter(site=site)
     workers = SkilledWorker.objects.filter(site=site)
+
+    # Check user role/permissions
     invitation = Invitation.objects.filter(
-        email=request.user.email, site=site, is_used=True).last()
+        email=request.user.email,
+        site=site,
+        is_used=True
+    ).last()
+
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
     is_boss = (site.company.owner == request.user) or (
         user_role == 'PROJECT_MANAGER')
 
-    return render(request, 'site_management/site_warehouse.html', {
+    # 📦 THE FIX: Define the context dictionary here
+    context = {
         'site': site,
         'stocks': stocks,
         'workers': workers,
         'is_boss': is_boss,
         'user_role': user_role,
-    })
+    }
+
+    # Now 'context' is found and passed to the template
+    return render(request, 'site_management/site_warehouse.html', context)
 
 
 @login_required
