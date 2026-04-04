@@ -14,16 +14,13 @@
     <meta property="og:image" content="{% static 'images/images/CodaSite_logo.jpeg' %}">
 
     <link rel="manifest" href="{% static 'manifest.json' %}">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <meta name="theme-color" content="#001F3F">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -55,22 +52,33 @@
             });
         </script>
     <style>
-       @layer base {
-    body {
-        @apply bg-innocoda-navy text-innocoda-slate antialiased;
-        /* 📱 Stretches the Navy color to the very top and bottom */
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-        min-height: 100vh;
-    }
-}
+        @layer base {
+            body {
+                @apply bg-innocoda-navy text-innocoda-slate antialiased;
+                /* 📱 Stretches the Navy color to the very top and bottom */
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                min-height: 100vh;
+            }
+        }
 
-@layer components {
-    /* 📱 Update your nav to respect the bottom "Safe Area" */
-    #bottom-nav {
-        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem) !important;
-    }
-}
+        @layer components {
+            /* 📱 Update your nav to respect the bottom "Safe Area" */
+            #bottom-nav {
+                padding-bottom: calc(env(safe-area-inset-bottom) + 1rem) !important;
+            }
+        }
+        @layer utilities {
+            .animate-glow {
+                box-shadow: 0 0 20px rgba(0, 210, 210, 0.3);
+                animation: logo-glow 2s infinite alternate;
+            }
+
+            @keyframes logo-glow {
+                from { box-shadow: 0 0 10px rgba(0, 210, 210, 0.2); }
+                to { box-shadow: 0 0 40px rgba(0, 210, 210, 0.6); }
+            }
+        }
         
         
         /* 🚀 Top Loading Bar */
@@ -89,37 +97,78 @@
             width: 100%;
         }
 
-    {% comment %} HTMX ☝🏻{% endcomment %}
+        {% comment %} HTMX ☝🏻{% endcomment %}
 
-        [x-cloak] { display: none !important; }
-        body { font-family: 'Inter', sans-serif; }
-        .glass { 
-            background: rgba(255, 255, 255, 0.05); 
-            backdrop-filter: blur(20px); 
-            -webkit-backdrop-filter: blur(20px); 
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            [x-cloak] { display: none !important; }
+            body { font-family: 'Inter', sans-serif; }
+            .glass { 
+                background: rgba(255, 255, 255, 0.05); 
+                backdrop-filter: blur(20px); 
+                -webkit-backdrop-filter: blur(20px); 
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            /* Fixes iOS zoom on focus */
+            input, select, textarea { font-size: 16px !important; }
+            [x-cloak] { 
+            display: none !important; 
         }
-        /* Fixes iOS zoom on focus */
-        input, select, textarea { font-size: 16px !important; }
-        [x-cloak] { 
-        display: none !important; 
-    }
 
-    /* 🎨 Make it the InnoCoda Teal color */
-    #nprogress .bar {
-        background: #00D2D2 !important; /* Your brand teal */
-        height: 3px !important;
-    }
-    #nprogress .peg {
-        box-shadow: 0 0 10px #00D2D2, 0 0 5px #00D2D2 !important;
-    }
-    #nprogress .spinner {
-        display: none; /* Hide the spinning circle, we just want the bar */
-    }
+        /* 🎨 Make it the InnoCoda Teal color */
+        #nprogress .bar {
+            background: #00D2D2 !important; /* Your brand teal */
+            height: 3px !important;
+        }
+        #nprogress .peg {
+            box-shadow: 0 0 10px #00D2D2, 0 0 5px #00D2D2 !important;
+        }
+        #nprogress .spinner {
+            display: none; /* Hide the spinning circle, we just want the bar */
+        }
     </style>
 
     
 </head>
+
+    {% comment %} Ealy morning greatings 👇🏻 {% endcomment %}
+    <div x-data="{ 
+            showGreeting: false, 
+            greeting: '', 
+            userName: '{{ user.first_name|default:"Boss" }}' 
+        }"
+        x-init="
+            const hours = new Date().getHours();
+            if (hours >= 5 && hours < 12 && !sessionStorage.getItem('greeted')) {
+                greeting = 'Good Morning, ' + userName;
+                showGreeting = true;
+                sessionStorage.setItem('greeted', 'true');
+                setTimeout(() => showGreeting = false, 4000);
+                
+                // 🔊 Voice Greeting
+                if ('speechSynthesis' in window) {
+                    const msg = new SpeechSynthesisUtterance(greeting + '. Ready for the morning audit?');
+                    msg.rate = 0.9;
+                    window.speechSynthesis.speak(msg);
+                }
+            }
+        "
+        x-show="showGreeting"
+        x-transition:enter="transition ease-out duration-500"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-500"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-110"
+        class="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-innocoda-navy/95 backdrop-blur-3xl"
+    >
+        <div class="relative mb-8">
+            <div class="absolute inset-0 rounded-full bg-innocoda-teal opacity-20 animate-ping"></div>
+            <img src="{% static 'images/icon-512.png' %}" class="relative w-32 h-32 rounded-3xl shadow-2xl animate-pulse border border-white/10">
+        </div>
+
+        <h1 x-text="greeting" class="text-3xl font-black text-white tracking-tighter text-center px-6"></h1>
+        <p class="text-innocoda-teal text-xs uppercase tracking-[0.3em] mt-2 font-bold animate-bounce">CodaSite Operations Live</p>
+    </div>
+    {% comment %} Ealy morning greatings ☝🏻 {% endcomment %}
 
     <body  class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24">
          {% block nav %}{% endblock %}
