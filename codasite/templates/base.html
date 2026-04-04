@@ -13,6 +13,23 @@
     <meta property="og:type" content="website">
     <meta property="og:image" content="{% static 'images/images/CodaSite_logo.jpeg' %}">
 
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#0a0f1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+            .then(reg => console.log('CodaSite PWA Ready!', reg))
+            .catch(err => console.log('PWA Setup Failed', err));
+        });
+    }
+    </script>
+
+
+
+
     {% tailwind_css %}
    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 
@@ -78,6 +95,8 @@
         display: none; /* Hide the spinning circle, we just want the bar */
     }
     </style>
+
+    
 </head>
 
     <body  class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24">
