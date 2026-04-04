@@ -79,7 +79,14 @@
                 to { box-shadow: 0 0 40px rgba(0, 210, 210, 0.6); }
             }
         }
-        
+        :root {
+            /* This ensures that if the env variable isn't supported, it defaults to 0 */
+            --sab: env(safe-area-inset-bottom, 0px);
+        }
+        .pb-safe {
+            padding-bottom: var(--sab);
+        }
+                    
         
         /* 🚀 Top Loading Bar */
         .htmx-progress {
@@ -209,19 +216,19 @@
 
        {% if user.is_authenticated %}
     <nav 
-    id="bottom-nav"
-    x-data="{ 
-        path: window.location.pathname,
-        // 🔍 Reactive visibility check
-        get showLiveOps() { return this.path.includes('/site/') },
-        // 💡 Reactive 'Teal Light' check
-        get liveOpsActive() { 
-            return ['dashboard', 'warehouse', 'report', 'history', 'material'].some(word => this.path.includes(word))
-        }
-    }"
-    @htmx:after-on-load.window="path = window.location.pathname"
-    class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl"
->
+        id="bottom-nav"
+        x-data="{ 
+            path: window.location.pathname,
+            // 🔍 Reactive visibility check
+            get showLiveOps() { return this.path.includes('/site/') },
+            // 💡 Reactive 'Teal Light' check
+            get liveOpsActive() { 
+                return ['dashboard', 'warehouse', 'report', 'history', 'material'].some(word => this.path.includes(word))
+            }
+        }"
+        @htmx:after-on-load.window="path = window.location.pathname"
+        class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl"
+    >
 
     <a hx-get="{% url 'index' %}" 
        hx-target="#main-content" hx-push-url="true"
