@@ -16,7 +16,7 @@
     <link rel="manifest" href="{% static 'manifest.json' %}">
 
     <meta name="theme-color" content="#001F3F">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -52,6 +52,7 @@
             });
         </script>
     <style>
+        
         @layer base {
             body {
                 @apply bg-innocoda-navy text-innocoda-slate antialiased;
@@ -216,6 +217,11 @@
 
        {% if user.is_authenticated %}
     <nav 
+
+    id="bottom-nav" 
+        style="padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));"
+
+        
         id="bottom-nav"
         x-data="{ 
             path: window.location.pathname,
