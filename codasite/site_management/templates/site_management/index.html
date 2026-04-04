@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
     {% block content %}
 
 
@@ -14,15 +14,33 @@
                     + New Site
                 </button>
             </div>
-
             <div id="dashboard-live-zone" 
+                hx-get="{% url 'index' %}" 
+                hx-trigger="every 60s" 
+                hx-target="#dashboard-live-zone" hx-swap="innerHTML">
+                {% include 'site_management/htmx_components/dashboard_feed.html' %}
+            </div>
+            {% comment %} <div id="dashboard-live-zone" 
+                hx-get="{% url 'dashboard_feed_component' %}" 
+                hx-trigger="load, every 60s" 
+                hx-swap="innerHTML">
+                <div class="flex justify-center p-4">
+                    <span class="animate-spin h-5 w-5 border-2 border-innocoda-teal border-t-transparent rounded-full"></span>
+                </div>
+            </div> {% endcomment %}
+            {% comment %} <div id="dashboard-live-zone" 
+                hx-get="{% url 'dashboard_feed_component' %}"  hx-trigger="every 60s" 
+                hx-swap="innerHTML">
+                {% include 'site_management/htmx_components/dashboard_feed.html' %}
+            </div> {% endcomment %}
+            {% comment %} <div id="dashboard-live-zone" 
             hx-get="{% url 'index' %}" 
             hx-trigger="every 60s" 
             hx-swap="innerHTML">
             {% include 'site_management/htmx_components/dashboard_feed.html' %}
-        </div>
+            </div> {% endcomment %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
             {% for site in sites %}
             <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-3xl border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden">
                 {% for item in low_stock_items %}
@@ -64,7 +82,12 @@
         <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
             <div @click.away="open = false" class="glass w-full max-w-md p-8 rounded-[2rem] border border-white/10 shadow-2xl">
                 <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-tight">Register Site</h2>
-                <form action="{% url 'add_site' %}" method="POST" class="space-y-5">
+                <form
+                    hx-post="{% url 'add_site' %}" 
+                    hx-target="#main-content" 
+                    @htmx:after-request="open = false"
+
+                    class="space-y-5">
                     {% csrf_token %}
                     <input type="text" name="name" required placeholder="Project Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal">
                     <textarea name="address" rows="3" placeholder="Address" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal"></textarea>

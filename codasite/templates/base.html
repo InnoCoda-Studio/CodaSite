@@ -14,10 +14,11 @@
     <meta property="og:image" content="{% static 'images/images/CodaSite_logo.jpeg' %}">
 
     {% tailwind_css %}
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="{% static 'js/alpine.min.js' %}" defer></script>
-    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+<script src="{% static 'js/alpine.min.js' %}" defer></script>
 
     {% comment %} HTMX link {% endcomment %}
         <script>
@@ -26,6 +27,25 @@
             });
         </script>
     <style>
+        
+    /* 🚀 Top Loading Bar */
+.htmx-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0%;
+    height: 3px;
+    background: #00FFD1;
+    z-index: 2000;
+    transition: width 0.4s ease;
+}
+
+.htmx-request .htmx-progress {
+    width: 100%;
+}
+
+    {% comment %} HTMX ☝🏻{% endcomment %}
+
         [x-cloak] { display: none !important; }
         body { font-family: 'Inter', sans-serif; }
         .glass { 
@@ -46,8 +66,11 @@
     
 
 </head>
-    <body class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24"> {% block nav %}{% endblock %}
-        <main>
+
+    <body  class="bg-innocoda-navy text-innocoda-slate min-h-screen pb-24">
+         {% block nav %}{% endblock %}
+        <div class="htmx-progress"></div>
+        <main id="main-content">
             {% if messages %}
                 <div class="fixed top-6 right-6 z-999 space-y-3 w-full max-w-sm">
                     {% for message in messages %}
@@ -80,73 +103,122 @@
 
         </main>
 
+        {% if user.is_authenticated %}
+            <nav 
+               
+                hx-boost="true" hx-target="#main-content" hx-push-url="true"
+                class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl">
 
+                <a hx-get="{% url 'index' %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="cursor-pointer flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'index' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
+                </a>
 
-   {% if user.is_authenticated %}
-
-    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl">
-
-       
-
-        <a href="{% url 'index' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'index' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-
-            <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
-
-        </a>
-
-
-
-        {% if site.id or site_id %}
-
-        <a href="{% if site %}{% url 'site_dashboard' site.id %}{% else %}#{% endif %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-            <div class="relative">
-
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-
-                {% if request.resolver_match.url_name == 'site_dashboard' %}
-
-                <span class="absolute -top-1 -right-1 flex h-2 w-2">
-
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
-
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal"></span>
-
-                </span>
-
+                {% if site.id or site_id %}
+                <a hx-get="{% url 'site_dashboard' site.id %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                class="cursor-pointer flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+                    <div class="relative">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        {% if request.resolver_match.url_name == 'site_dashboard' %}
+                        <span class="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal"></span>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+                </a>
                 {% endif %}
 
-            </div>
+                <a hx-get="{% url 'all_workers' %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="cursor-pointer flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
+                </a>
 
-            <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+                <a hx-get="{% url 'profile' %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="cursor-pointer flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'profile' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
+                </a>
 
-        </a>
+            </nav>
         {% endif %}
-        <a href="{% url 'all_workers' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
 
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        {% comment %} {% if user.is_authenticated %}
 
-            <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
+            <nav class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl">
 
-        </a>
+            
 
+                <a href="{% url 'index' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'index' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
 
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
 
-        <a href="{% url 'profile' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'profile' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
 
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-
-            <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
-
-        </a>
+                </a>
 
 
 
-    </nav>
+                {% if site.id or site_id %}
 
-    {% endif %}
+                <a href="{% if site %}{% url 'site_dashboard' site.id %}{% else %}#{% endif %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
+                    <div class="relative">
+
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+
+                        {% if request.resolver_match.url_name == 'site_dashboard' %}
+
+                        <span class="absolute -top-1 -right-1 flex h-2 w-2">
+
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal"></span>
+
+                        </span>
+
+                        {% endif %}
+
+                    </div>
+
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+
+                </a>
+                {% endif %}
+                <a href="{% url 'all_workers' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
+
+                </a>
+
+
+
+                <a href="{% url 'profile' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'profile' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
+
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
+
+                </a>
+
+
+
+            </nav>
+
+        {% endif %} {% endcomment %}
 
     <footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20 ">
 
@@ -202,16 +274,78 @@
 
     {% block extra_script %}
     <script>
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            // This re-initializes Alpine components inside the swapped area
-            if (window.Alpine) {
-                Alpine.discover(); 
+    // 1️⃣ SAFETY GUARD: Only add the logo listener if we are on the Profile page
+    document.addEventListener('DOMContentLoaded', function() {
+        const logoInput = document.getElementById('logoInput');
+        const logoForm = document.getElementById('logoForm');
+        
+        if (logoInput && logoForm) {
+            logoInput.addEventListener('change', function() {
+                logoForm.submit();
+            });
+        }
+    });
+
+    // 2️⃣ HTMX + ALPINE SYNC: Keeps Warehouse & Profile interactive
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (window.Alpine) {
+            window.Alpine.initTree(evt.detail.target);
+        }
+    });
+
+    // 3️⃣ NAVIGATION HIGHLIGHTER
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        const links = document.querySelectorAll('nav a');
+        const currentUrl = window.location.href.split('?')[0];
+        links.forEach(link => {
+            if (link.href === currentUrl) {
+                link.classList.add('text-innocoda-teal');
+                link.classList.remove('text-gray-500');
+            } else {
+                link.classList.remove('text-innocoda-teal');
+                link.classList.add('text-gray-500');
             }
+        });
+    });
+
+    // 4️⃣ THE MESSAGE TOAST (The part that isn't showing)
+    document.body.addEventListener("showMessage", function(evt) {
+        const messageText = evt.detail.value;
+        
+        // Remove old toast if it exists
+        const oldToast = document.querySelector('.inno-toast');
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement("div");
+        // Added z-[9999] so it stays on top of everything
+        toast.className = "inno-toast fixed top-5 right-5 bg-innocoda-teal text-innocoda-navy px-6 py-3 rounded-2xl font-black text-xs uppercase shadow-2xl z-[9999] animate-bounce transition-all duration-500";
+        toast.innerHTML = `<span>✅ ${messageText}</span>`;
+        
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    });
+
+
+    // Put this at the very bottom of your script tag, all by itself
+        document.body.addEventListener("showMessage", function(evt) {
+            console.log("SHOUT HEARD:", evt.detail.value); // If you see this in console, it works!
+            
+            const toast = document.createElement("div");
+            toast.className = "fixed top-10 right-10 bg-innocoda-teal text-innocoda-navy px-8 py-4 rounded-3xl font-black shadow-2xl z-[9999] animate-bounce";
+            toast.innerText = "✅ " + evt.detail.value;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 4000);
         });
     </script>
     {% endblock %}
 
 </body>
+
 
 
 </html>

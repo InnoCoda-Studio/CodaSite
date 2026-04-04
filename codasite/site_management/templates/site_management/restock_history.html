@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% block content %}
 <div class="container mx-auto p-6 pb-32" x-data="{ imgModal: false, imgUrl: '', isVideo: false }">
     
@@ -16,7 +15,7 @@
         
         <div class="w-full md:w-64 h-64 rounded-[2.5rem] overflow-hidden bg-black/40 border border-white/10 relative shrink-0 shadow-2xl">
             {% if log.evidence_image %}
-                <img src="{{ log.evidence_image.url }}" 
+                <img src="{{ log.evidence_image.url|add:'c_thumb,w_150,g_auto }}" 
                      @click="imgModal = true; imgUrl = '{{ log.evidence_image.url }}'; isVideo = false"
                      class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition-transform duration-700">
                 
@@ -31,7 +30,7 @@
             {% elif log.evidence_video %}
                 <div class="relative w-full h-full cursor-pointer group/vid" 
                      @click="imgModal = true; imgUrl = '{{ log.evidence_video.url }}'; isVideo = true">
-                    <video src="{{ log.evidence_video.url }}" class="w-full h-full object-cover opacity-50"></video>
+                    <video src="{{ log.evidence_video.url|replace:'/upload/','/upload/f_auto,q_auto,w_720/ }}" class="w-full h-full object-cover opacity-50"></video>
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="w-16 h-16 rounded-full bg-innocoda-teal/20 backdrop-blur-md flex items-center justify-center border border-innocoda-teal/50 group-hover/vid:scale-110 transition-all">
                             <svg class="w-8 h-8 text-innocoda-teal ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>

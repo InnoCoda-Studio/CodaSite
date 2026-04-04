@@ -1,6 +1,8 @@
-# from django.contrib.auth.models import User
-# from django.contrib.auth.models import AbstractUser
-# from django.db import models
+# 👈 Make sure this import is at the top
+from cloudinary.models import CloudinaryField
+from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 # # Create your models here.
 
@@ -25,8 +27,6 @@
 #         return self.name
 
 # account/models.py
-from django.contrib.auth.models import AbstractUser
-from django.db import models
 
 
 class User(AbstractUser):
@@ -37,11 +37,27 @@ class User(AbstractUser):
         return self.username
 
 
+# class Company(models.Model):
+#     name = models.CharField(max_length=255)
+#     # 🏗️ Using 'owner' because that's what your register_view is looking for
+#     owner = models.OneToOneField(
+#         User, on_delete=models.CASCADE, related_name='company')
+#     phone_number = models.CharField(max_length=20, blank=True, null=True)
+#     office_address = models.TextField(blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return self.name
+
+
 class Company(models.Model):
     name = models.CharField(max_length=255)
-    # 🏗️ Using 'owner' because that's what your register_view is looking for
     owner = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='company')
+
+    # 📸 ADD THIS LINE
+    logo = CloudinaryField('image', null=True, blank=True)
+
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     office_address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

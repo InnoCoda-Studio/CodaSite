@@ -1,5 +1,6 @@
-{% extends "base.html" %}
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% load static %}
+
 
 {% block title %}Daily Audit | {{ today|date:"d M Y" }} | CodaSite{% endblock %}
 

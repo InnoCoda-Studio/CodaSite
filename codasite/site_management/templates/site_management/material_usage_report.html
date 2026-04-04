@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% block content %}
 <div class="container mx-auto p-6 pb-32">
     <div class="mb-10">
@@ -14,7 +13,7 @@
             <div class="flex items-center space-x-5 w-full md:w-1/3">
                 <div class="w-14 h-14 rounded-2xl bg-innocoda-navy border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
                     {% if log.worker.profile_picture %}
-                        <img src="{{ log.worker.profile_picture.url }}" class="w-full h-full object-cover">
+                        <img src="{{ log.worker.profile_picture.url|add:'c_thumb,w_150,g_auto }}" class="w-full h-full object-cover">
                     {% else %}
                         <span class="text-xl font-black text-innocoda-teal opacity-30">{{ log.worker.name|slice:":1" }}</span>
                     {% endif %}

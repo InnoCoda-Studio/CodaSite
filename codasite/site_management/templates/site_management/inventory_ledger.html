@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% block title %}{{ site.name }} | Warehouse Ledger{% endblock %}
 
 {% block content %}
@@ -59,7 +58,7 @@
                                 <div class="flex gap-3">
                                     {% if item.evidence_image %}
                                         <div class="relative group/img">
-                                            <img src="{{ item.evidence_image.url }}" 
+                                            <img src="{{ item.evidence_image.url|add:'c_thumb,w_150,g_auto }}" 
                                                  @click="imgModal = true; imgUrl = '{{ item.evidence_image.url }}'; isVideo = false" 
                                                  class="w-20 h-14 rounded-xl object-cover border border-white/10 cursor-zoom-in group-hover/img:scale-105 transition-transform shadow-lg">
                                             <span class="absolute -top-2 -right-2 bg-emerald-500 text-[8px] font-black text-white px-1.5 py-0.5 rounded shadow-lg">IMG</span>

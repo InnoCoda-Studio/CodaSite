@@ -1,0 +1,44 @@
+{% load static %}
+
+<div id="logo-container" class="relative inline-block group">
+    <form hx-post="{% url 'update_company_logo' %}" 
+          hx-target="#logo-container" 
+          hx-swap="outerHTML" 
+          hx-encoding="multipart/form-data">
+        {% csrf_token %}
+        
+        <label for="logoInput" class="cursor-pointer block relative">
+            {% if company_profile.logo %}
+                {# 🎯 object-cover + rounded-3xl for that premium 'Squircle' look #}
+                <img src="{{ company_profile.logo.url }}" 
+                     alt="Company Logo"
+                     class="w-28 h-28 object-cover mx-auto mb-4 rounded-3xl shadow-2xl border border-white/10 group-hover:opacity-50 transition-all transition-duration-300">
+            {% else %}
+                {# 🎯 Fallback if logo is deleted or empty #}
+                <div class="w-28 h-28 bg-gradient-to-tr from-innocoda-teal to-emerald-500 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:opacity-50 transition-all">
+                    <span class="text-4xl font-black text-innocoda-navy">
+                        {{ company_profile.name|slice:":1"|upper|default:user.username|slice:":1"|upper }}
+                    </span>
+                </div>
+            {% endif %}
+            
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </div>
+            
+            <div class="htmx-indicator absolute inset-0 flex items-center justify-center bg-black/40 rounded-3xl">
+                <div class="animate-spin h-6 w-6 border-2 border-innocoda-teal border-t-transparent rounded-full"></div>
+            </div>
+        </label>
+
+        <input type="file" name="logo" id="logoInput" class="hidden" 
+               hx-post="{% url 'update_company_logo' %}" 
+               hx-trigger="change" 
+               hx-target="#logo-container" 
+               hx-swap="outerHTML"
+               hx-indicator=".htmx-indicator">
+    </form>
+</div>

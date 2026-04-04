@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% block title %}{{ site.name }} | Pro Operations{% endblock %}
 
 {% block content %}

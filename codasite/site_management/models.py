@@ -20,7 +20,7 @@ class SiteLocation(models.Model):
         related_name='sites',
         null=True
     )
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,13 +42,13 @@ class SiteLocation(models.Model):
 
 
 # class SiteLocation(models.Model):
-#     # name = models.CharField(max_length=255)  # e.g., "Lekki Phase 1"
+#     # name = models.CharField(max_length=255,db_index=True)  # e.g., "Lekki Phase 1"
 #     # contractor = models.ForeignKey(
 #     #     User, on_delete=models.CASCADE, related_name='sites')
 
 #     company = models.ForeignKey(
 #         'CompanyProfile', on_delete=models.CASCADE, related_name='sites', null=True)
-#     name = models.CharField(max_length=255)
+#     name = models.CharField(max_length=255,db_index=True)
 #     is_office = models.BooleanField(default=False)
 #     address = models.TextField(blank=True)
 #     created_at = models.DateTimeField(auto_now_add=True)
@@ -81,7 +81,8 @@ class Invitation(models.Model):
     site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     invited_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    role_assigned = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    role_assigned = models.CharField(
+        max_length=20, db_index=True, choices=ROLE_CHOICES)
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -96,14 +97,15 @@ class SkilledWorker(models.Model):
     # IDENTITY
     company = models.ForeignKey(
         'account.Company', on_delete=models.CASCADE, related_name='workers', null=True, blank=True)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     slug = models.SlugField(unique=True, blank=True, null=True, max_length=100)
     id_number = models.CharField(
-        max_length=50, unique=True, null=True, blank=True)
+        max_length=50, unique=True, null=True, db_index=True, blank=True)
     category = models.CharField(
-        max_length=100, help_text="e.g. Mason, Plumber, Supervisor")
-    phone = models.CharField(max_length=20, blank=True)
-    emergency_contact = models.CharField(max_length=255, null=True, blank=True)
+        max_length=100, db_index=True, help_text="e.g. Mason, Plumber, Supervisor")
+    phone = models.CharField(max_length=20, db_index=True, blank=True)
+    emergency_contact = models.CharField(
+        max_length=255, db_index=True, null=True, blank=True)
 
     # 💰 PAYROLL & STATUS
     daily_rate = models.DecimalField(
@@ -113,6 +115,7 @@ class SkilledWorker(models.Model):
 
     pay_frequency = models.CharField(
         max_length=50,
+        db_index=True,
         default='Daily',
         help_text="e.g. Daily, Weekly, Per Slab, or Monthly"
     )
@@ -130,9 +133,11 @@ class SkilledWorker(models.Model):
     profile_picture = CloudinaryField(
         folder='worker_photos/', null=True, blank=True)
     bank_name = models.CharField(
-        max_length=100, null=True, blank=True, help_text="e.g. GTBank, Zenith, OPay")
-    account_number = models.CharField(max_length=10, null=True, blank=True)
-    account_name = models.CharField(max_length=255, null=True, blank=True)
+        max_length=100, db_index=True, null=True, blank=True, help_text="e.g. GTBank, Zenith, OPay")
+    account_number = models.CharField(
+        max_length=10, db_index=True, null=True, blank=True)
+    account_name = models.CharField(
+        max_length=255, db_index=True, null=True, blank=True)
 
     class Meta:
         # '-' means descending order (Newest/Latest ID first)
@@ -160,7 +165,7 @@ class SkilledWorker(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        # Remove get_category_display() because category is a CharField, not a ChoiceField
+        # Remove get_category_display() because category is a CharField, not a ChoiceF,db_index=Trueield
         return f"{self.name} ({self.category})"
 
 
@@ -193,7 +198,8 @@ class StaffAttendance(models.Model):
 
     site = models.ForeignKey(
         SiteLocation, on_delete=models.SET_NULL, null=True)
-    mode = models.CharField(max_length=10, choices=WORK_MODES, default='SITE')
+    mode = models.CharField(max_length=10, db_index=True,
+                            choices=WORK_MODES, default='SITE')
 
     latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True)
@@ -205,7 +211,8 @@ class StaffAttendance(models.Model):
         null=True, blank=True)  # Captured on Clock Out
     is_paid = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
-    payment_reference = models.CharField(max_length=100, null=True, blank=True)
+    payment_reference = models.CharField(
+        max_length=100, db_index=True, null=True, blank=True)
 
     daily_rate_at_time = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
@@ -258,7 +265,7 @@ class MaterialStock(models.Model):
         default=10
     )
 
-    unit = models.CharField(max_length=50)
+    unit = models.CharField(max_length=50, db_index=True)
     evidence_image = CloudinaryField(
         'image', folder='material_evidence', null=True, blank=True)
     evidence_video = CloudinaryField(
@@ -329,7 +336,7 @@ class MaterialDeduction(models.Model):
         MaterialStock, on_delete=models.PROTECT, related_name='deductions')
     worker = models.ForeignKey(SkilledWorker, on_delete=models.PROTECT)
     quantity_taken = models.DecimalField(max_digits=12, decimal_places=2)
-    purpose = models.CharField(max_length=255)
+    purpose = models.CharField(max_length=255, db_index=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     authorized_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True)
@@ -352,6 +359,7 @@ class CategoryPay(models.Model):
     # NEW: Removed choices so it matches the flexible SkilledWorker category
     category = models.CharField(
         max_length=100,
+        db_index=True,
         help_text="e.g. Mason, Laborer, Iron Bender"
     )
 

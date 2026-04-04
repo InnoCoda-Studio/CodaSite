@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 {% block title %}Warehouse | {{ site.name }}{% endblock %}
 
 {% block content %}
