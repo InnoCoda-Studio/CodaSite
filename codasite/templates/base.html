@@ -62,12 +62,12 @@
             }
         }
 
-        {% comment %} @layer components {
+        @layer components {
             /* 📱 Update your nav to respect the bottom "Safe Area" */
             #bottom-nav {
                 padding-bottom: calc(env(safe-area-inset-bottom) + 1rem) !important;
             }
-        } {% endcomment %}
+        } 
         @layer utilities {
             .animate-glow {
                 box-shadow: 0 0 20px rgba(0, 210, 210, 0.3);
