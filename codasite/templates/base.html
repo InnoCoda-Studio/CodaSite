@@ -14,9 +14,14 @@
     <meta property="og:image" content="{% static 'images/images/CodaSite_logo.jpeg' %}">
 
     <link rel="manifest" href="{% static 'manifest.json' %}">
-    <meta name="theme-color" content="#0a0f1a">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <meta name="theme-color" content="#001F3F">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <script>
@@ -50,17 +55,22 @@
             });
         </script>
     <style>
-        body {
-            /* This ensures your content stays inside the visible area */
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-            background-color: #0a0f1a; /* Match your navy blue exactly */
-        }
+       @layer base {
+    body {
+        @apply bg-innocoda-navy text-innocoda-slate antialiased;
+        /* 📱 Stretches the Navy color to the very top and bottom */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        min-height: 100vh;
+    }
+}
 
-        /* Make sure your bottom nav bar account for the phone's bottom "pill" */
-        nav {
-            padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
-        }
+@layer components {
+    /* 📱 Update your nav to respect the bottom "Safe Area" */
+    #bottom-nav {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem) !important;
+    }
+}
         
         
         /* 🚀 Top Loading Bar */

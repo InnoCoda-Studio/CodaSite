@@ -4,8 +4,8 @@
     "description": "Premium Construction Management & Live Attendance",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#0a0f1a",
-    "theme_color": "#00f2ea",
+    "background_color": "#001F3F",
+    "theme_color": "#001F3F",
     "icons": [
         {
             "src": "/static/images/icon-192.png",
