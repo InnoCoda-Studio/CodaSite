@@ -1,5 +1,5 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-        {% for worker in workers %}
+    {% for worker in workers %}
         <div x-show="search === '' || '{{ worker.name|lower }}'.includes(search.toLowerCase()) || '{{ worker.category|lower }}'.includes(search.toLowerCase())"
              class="glass p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group hover:border-innocoda-teal/40 transition-all duration-500">
             
@@ -46,6 +46,10 @@
                 {% include 'site_management/htmx_components/worker_button.html' %}
             </div>
             </div>
+        </div>
+        <div x-show="search !== '' && $el.parentElement.querySelectorAll('.glass:not([style*=\'display: none\'])').length === 0" 
+            class="col-span-full py-20 text-center glass rounded-[4rem] border border-dashed border-white/10">
+            <p class="text-gray-500 font-black uppercase tracking-widest text-xs">No matching personnel found</p>
         </div>
         {% empty %}
         <div class="col-span-full py-32 text-center glass rounded-[4rem] border border-dashed border-white/10">

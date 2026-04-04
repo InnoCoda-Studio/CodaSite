@@ -22,7 +22,7 @@
 <div x-data="{ workerModal: false, stockModal: false, imgModal: false, imgUrl: '', payModal: false, isVideo: false, loading: false }" class="pb-32">
     <div class="container mx-auto p-4 md:p-6 space-y-8">
         
-        {% if messages %}
+        {% comment %} {% if messages %}
         <div class="fixed top-6 right-6 z-[100] space-y-3 w-full max-w-sm">
             {% for message in messages %}
             <div class="glass p-4 rounded-2xl border {% if message.tags == 'error' %}border-red-500/50 bg-red-500/10 text-red-200{% else %}border-emerald-500/50 bg-emerald-500/10 text-emerald-200{% endif %} shadow-2xl animate-pulse">
@@ -30,7 +30,7 @@
             </div>
             {% endfor %}
         </div>
-        {% endif %}
+        {% endif %} {% endcomment %}
 
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
@@ -98,11 +98,22 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             
-            <div class="glass p-8 rounded-[3rem] border border-white/10 bg-gradient-to-br from-white/5 to-transparent flex flex-col justify-between">
+            {% comment %} <div class="glass p-8 rounded-[3rem] border border-white/10 bg-gradient-to-br from-white/5 to-transparent flex flex-col justify-between">
                 <div>
                     <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
                     <h3 class="text-4xl font-black text-white tracking-tighter">
                         {{ present_worker_ids|length }} <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
+                    </h3>
+                </div>
+                <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
+            </div> {% endcomment %}
+            <div class="glass p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between">
+                <div>
+                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
+                    
+                    <h3 id="onsite-counter" class="text-4xl font-black text-white tracking-tighter">
+                        {{ present_worker_ids|length }} 
+                        <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
                     </h3>
                 </div>
                 <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
@@ -416,30 +427,43 @@ function showToast(message, type = 'success') {
         setTimeout(() => toast.remove(), 500);
     }, 4000);
 }
-
 // 🔔 4. THE SINGLE LISTENER: Handlers Toast & Voice after HTMX
-// 🔔 4. THE SINGLE LISTENER: Only triggers for Clock Actions
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    // 🔍 ONLY trigger if the request came from a worker-action button
+{% comment %} document.body.addEventListener('htmx:afterRequest', function(evt) {
     const targetId = evt.detail.target.id;
     
     if (targetId && targetId.startsWith('worker-action-')) {
+        const responseText = evt.detail.xhr.responseText;
+        
+        // 1️⃣ Check for THE SECURITY GATE BLOCK (Completed Shift)
+        if (responseText.includes("SECURITY: Shift already completed")) {
+            showToast("🚨 Shift already finished for today!", "error");
+            speakMessage("Security Alert. Shift already completed. Access denied until tomorrow.");
+            return; // Stop here
+        }
+
+        // 2️⃣ Check for GPS DISTANCE BLOCK
+        if (responseText.includes("Access Denied") || responseText.includes("Distance Error")) {
+            showToast("🚨 Access Denied: Out of Range!", "error");
+            speakMessage("Access Denied. You are outside the site boundary.");
+            return; // Stop here
+        }
+
+        // 3️⃣ Standard Success/Error Handling
         if (evt.detail.successful) {
-            const responseText = evt.detail.xhr.responseText;
-            
-            if (responseText.includes("Access Denied")) {
-                showToast("🚨 Access Denied: You are too far!", "error");
-                speakMessage("Access Denied.");
+            // Check if we just Clocked In or Out based on the button returned
+            if (responseText.includes("Clock Out")) {
+                showToast("✅ Clocked In Successfully!", "success");
+                speakMessage("Clock in successful. Have a productive shift.");
             } else {
-                showToast("✅ Attendance Logged!", "success");
-                speakMessage("Success.");
+                showToast("🏁 Clocked Out Successfully!", "success");
+                speakMessage("Clock out successful. See you tomorrow.");
             }
         } else {
             showToast("❌ Connection Error", "error");
-            speakMessage("Error.");
+            speakMessage("System error. Please check your internet.");
         }
     }
-});
+}); {% endcomment %}
 
 // 🔑 This tells HTMX to ALWAYS include the CSRF token in every request
 document.body.addEventListener('htmx:configRequest', (event) => {

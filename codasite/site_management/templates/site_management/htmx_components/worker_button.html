@@ -1,26 +1,17 @@
-<div id="worker-action-{{ worker.id }}">
+<div id="worker-action-{{ worker.id }}" hx-swap="outerHTML">
     {% if worker.id in present_worker_ids %}
-        {% comment %} <button 
-            hx-post="{% url 'htmx_clock_out' site.id %}"
-            hx-vals='{"worker_id": "{{ worker.id }}"}'
-            hx-target="#worker-action-{{ worker.id }}"
-            hx-swap="outerHTML"
-            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-            class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
-            Clock Out
-        </button> {% endcomment %}
         <button 
             hx-post="{% url 'htmx_clock_out' site.id %}"
             hx-vals='{"worker_id": "{{ worker.id }}"}'
             hx-target="#worker-action-{{ worker.id }}"
-            hx-swap="outerHTML"
-            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'  class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+            class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95">
             Clock Out
         </button>
     {% else %}
         <button 
             onclick="clockInWithGPS('{{ worker.id }}', '{{ site.id }}')" 
-            class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg hover:scale-105 transition-transform">
+            class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg hover:scale-105 active:scale-95 transition-all">
             ⚡ Quick Clock-In
         </button>
     {% endif %}
@@ -28,4 +19,15 @@
 
 <div id="attendance-box" hx-swap-oob="true">
     {% include 'site_management/htmx_components/attendance_list.html' %}
+</div>
+
+<h3 id="onsite-counter" hx-swap-oob="true" class="text-4xl font-black text-white tracking-tighter">
+    {{ present_worker_ids|length }} <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
+</h3>
+
+<div hx-get="{% url 'htmx_finance_summary' site.id %}" 
+     hx-trigger="load" 
+     hx-target="#finance-cards-container" 
+     hx-swap="innerHTML" 
+     class="hidden">
 </div>
