@@ -185,6 +185,12 @@
                     {% endif %}
                 </div>
                 {% endfor %}
+
+                {% comment %} hiding some personel {% endcomment %}
+                <div x-show="search !== '' && !document.querySelector('.personnel-card:not([style*=\'display: none\'])')" 
+                    class="col-span-full p-20 text-center glass rounded-[3rem] border border-dashed border-white/10">
+                    <p class="text-gray-500 font-black uppercase tracking-widest text-xs">No personnel found matching your search.</p>
+                </div>
             </div>
         </section>
 

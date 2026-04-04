@@ -39,4 +39,25 @@
     {% endfor %}
 </select>
 
+<div id="warehouse-messages" hx-swap-oob="true">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="p-4 rounded-2xl border {% if message.tags == 'error' %}border-red-500/50 bg-red-500/10 text-red-200{% else %}border-innocoda-teal/50 bg-innocoda-teal/10 text-innocoda-teal{% endif %} shadow-lg animate-pulse mb-3 transition-opacity duration-500" id="msg-{{ forloop.counter }}">
+            <p class="text-[10px] font-black uppercase tracking-widest">{% if message.tags == 'error' %}🚨{% else %}✅{% endif %} {{ message }}</p>
+        </div>
+        {% endfor %}
+        
+        <script>
+            // 🎯 Sharp Sharp cleanup: Clear messages after 4 seconds
+            setTimeout(() => {
+                const msgDiv = document.getElementById('warehouse-messages');
+                if (msgDiv) {
+                    msgDiv.style.opacity = '0';
+                    setTimeout(() => { msgDiv.innerHTML = ''; }, 500);
+                }
+            }, 4000);
+        </script>
+    {% endif %}
+</div>
+
 <div id="modal-status" hx-swap-oob="true" x-init="stockModal = false; loading = false"></div>

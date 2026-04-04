@@ -20,6 +20,10 @@
 
 <script src="{% static 'js/alpine.min.js' %}" defer></script>
 
+
+<script src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css">
+
     {% comment %} HTMX link {% endcomment %}
         <script>
             document.body.addEventListener('htmx:configRequest', (event) => {
@@ -27,6 +31,8 @@
             });
         </script>
     <style>
+
+        
         
     /* 🚀 Top Loading Bar */
 .htmx-progress {
@@ -58,6 +64,18 @@
         input, select, textarea { font-size: 16px !important; }
         [x-cloak] { 
         display: none !important; 
+    }
+
+    /* 🎨 Make it the InnoCoda Teal color */
+    #nprogress .bar {
+        background: #00D2D2 !important; /* Your brand teal */
+        height: 3px !important;
+    }
+    #nprogress .peg {
+        box-shadow: 0 0 10px #00D2D2, 0 0 5px #00D2D2 !important;
+    }
+    #nprogress .spinner {
+        display: none; /* Hide the spinning circle, we just want the bar */
     }
     </style>
 
@@ -154,72 +172,7 @@
             </nav>
         {% endif %}
 
-        {% comment %} {% if user.is_authenticated %}
-
-            <nav class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 py-4 flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl">
-
-            
-
-                <a href="{% url 'index' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'index' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-
-                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
-
-                </a>
-
-
-
-                {% if site.id or site_id %}
-
-                <a href="{% if site %}{% url 'site_dashboard' site.id %}{% else %}#{% endif %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'site_dashboard' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-                    <div class="relative">
-
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-
-                        {% if request.resolver_match.url_name == 'site_dashboard' %}
-
-                        <span class="absolute -top-1 -right-1 flex h-2 w-2">
-
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
-
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal"></span>
-
-                        </span>
-
-                        {% endif %}
-
-                    </div>
-
-                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
-
-                </a>
-                {% endif %}
-                <a href="{% url 'all_workers' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'all_workers' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-
-                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
-
-                </a>
-
-
-
-                <a href="{% url 'profile' %}" class="flex flex-col items-center flex-1 {% if request.resolver_match.url_name == 'profile' %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %} transition-all">
-
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-
-                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
-
-                </a>
-
-
-
-            </nav>
-
-        {% endif %} {% endcomment %}
-
+        
     <footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20 ">
 
     <div class="max-w-md mx-auto py-1">
@@ -273,27 +226,17 @@
 </footer>
 
     {% block extra_script %}
-    <script>
-    // 1️⃣ SAFETY GUARD: Only add the logo listener if we are on the Profile page
-    document.addEventListener('DOMContentLoaded', function() {
-        const logoInput = document.getElementById('logoInput');
-        const logoForm = document.getElementById('logoForm');
-        
-        if (logoInput && logoForm) {
-            logoInput.addEventListener('change', function() {
-                logoForm.submit();
-            });
-        }
-    });
 
-    // 2️⃣ HTMX + ALPINE SYNC: Keeps Warehouse & Profile interactive
+<script>
+    // 1️⃣ HTMX + ALPINE SYNC: Keeps Warehouse & Profile interactive
+    // This fixes the 'Alpine is not defined' or 'dead component' bugs after a swap
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         if (window.Alpine) {
             window.Alpine.initTree(evt.detail.target);
         }
     });
 
-    // 3️⃣ NAVIGATION HIGHLIGHTER
+    // 2️⃣ NAVIGATION HIGHLIGHTER: Updates teal active state on sidebar/nav
     document.body.addEventListener('htmx:afterOnLoad', function(evt) {
         const links = document.querySelectorAll('nav a');
         const currentUrl = window.location.href.split('?')[0];
@@ -308,41 +251,72 @@
         });
     });
 
-    // 4️⃣ THE MESSAGE TOAST (The part that isn't showing)
-    document.body.addEventListener("showMessage", function(evt) {
-        const messageText = evt.detail.value;
-        
-        // Remove old toast if it exists
-        const oldToast = document.querySelector('.inno-toast');
-        if (oldToast) oldToast.remove();
+  document.body.addEventListener("showMessage", function(evt) {
+    const messageText = evt.detail.value;
+    
+    // 1. Clean up old toasts
+    const oldToast = document.querySelector('.inno-toast');
+    if (oldToast) oldToast.remove();
 
-        const toast = document.createElement("div");
-        // Added z-[9999] so it stays on top of everything
-        toast.className = "inno-toast fixed top-5 right-5 bg-innocoda-teal text-innocoda-navy px-6 py-3 rounded-2xl font-black text-xs uppercase shadow-2xl z-[9999] animate-bounce transition-all duration-500";
-        toast.innerHTML = `<span>✅ ${messageText}</span>`;
-        
-        document.body.appendChild(toast);
+    // 2. Create the element
+    const toast = document.createElement("div");
+    
+    // 🎯 Use 'fixed', 'z-[100000]', and make sure it's attached to the BODY
+    toast.className = "inno-toast fixed top-10 right-10 bg-innocoda-teal text-innocoda-navy px-5  rounded-3xl font-black shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[100000] pointer-events-none animate-bounce transition-all duration-500 border-2 border-white/30";
+    
+    toast.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="text-2xl">⚡</span>
+            <span class="uppercase tracking-[0.2em] text-sm">${messageText}</span>
+        </div>
+    `;
+    
+    // 🚀 CRITICAL: This line puts it at the very bottom of the HTML, 
+    // outside of any cards that might be "trapping" it.
+    document.body.appendChild(toast);
 
-        setTimeout(() => {
-            toast.style.opacity = "0";
-            setTimeout(() => toast.remove(), 500);
-        }, 3000);
+    // 3. Smooth exit
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(-40px) scale(0.95)";
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+});
+
+
+    // 4️⃣ LOGO UPLOAD SAFETY GUARD (For Profile Page)
+    document.addEventListener('DOMContentLoaded', function() {
+        const logoInput = document.getElementById('logoInput');
+        const logoForm = document.getElementById('logoForm');
+        
+        if (logoInput && logoForm) {
+            logoInput.addEventListener('change', function() {
+                // If not using HTMX for the form yet, this handles standard submit
+                if (!logoForm.hasAttribute('hx-post')) {
+                    logoForm.submit();
+                }
+            });
+        }
     });
 
 
-    // Put this at the very bottom of your script tag, all by itself
-        document.body.addEventListener("showMessage", function(evt) {
-            console.log("SHOUT HEARD:", evt.detail.value); // If you see this in console, it works!
-            
-            const toast = document.createElement("div");
-            toast.className = "fixed top-10 right-10 bg-innocoda-teal text-innocoda-navy px-8 py-4 rounded-3xl font-black shadow-2xl z-[9999] animate-bounce";
-            toast.innerText = "✅ " + evt.detail.value;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => toast.remove(), 4000);
-        });
-    </script>
-    {% endblock %}
+    {% comment %} Page Reload Scripts {% endcomment %}
+    // Start the top bar when HTMX starts a request
+    document.body.addEventListener('htmx:beforeRequest', function() {
+        NProgress.start();
+    });
+
+    // Finish the top bar when the request is done
+    document.body.addEventListener('htmx:afterRequest', function() {
+        NProgress.done();
+    });
+
+    // Handle errors (if the internet drops out)
+    document.body.addEventListener('htmx:onLoadError', function() {
+        NProgress.done();
+    });
+</script>
+{% endblock %}
 
 </body>
 

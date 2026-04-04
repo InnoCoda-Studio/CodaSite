@@ -1,0 +1,61 @@
+<div class="container mx-auto p-4 md:p-8 space-y-8 animate-fade-in">
+    
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div>
+            <h1 class="text-4xl font-black uppercase tracking-tighter text-white">Material Usage Audit</h1>
+            <p class="text-gray-400 text-xs mt-1 uppercase tracking-widest">
+                Compliance Log for: <span class="text-innocoda-teal font-black">{{ site.name }}</span>
+            </p>
+        </div>
+
+        <div class="glass border border-white/10 px-8 py-4 rounded-[2rem] text-right shadow-2xl">
+            <p class="text-[9px] text-gray-500 uppercase font-black tracking-[0.3em]">Report Generated</p>
+            <p class="text-xl font-black text-innocoda-teal">{% now "l, d F Y" %}</p>
+        </div>
+    </div>
+
+    <section class="glass rounded-[2rem] md:rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl">
+        <div class="bg-white/5 p-6 border-b border-white/10 flex justify-between items-center">
+            <h2 class="text-lg font-black uppercase tracking-tight flex items-center text-white">
+                <span class="w-2 h-6 bg-orange-400 rounded-full mr-3"></span> Deduction History
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse">
+                <thead class="text-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-white/5 bg-white/[0.02]">
+                    <tr>
+                        <th class="p-6 whitespace-nowrap">Material</th>
+                        <th class="p-6 whitespace-nowrap">Quantity</th>
+                        <th class="p-6 whitespace-nowrap">Recipient (Worker)</th>
+                        <th class="p-6 whitespace-nowrap">Purpose</th>
+                        <th class="p-6 text-right whitespace-nowrap">Authorized By</th>
+                        <th class="p-6 text-right whitespace-nowrap">Time</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for log in usage_logs %}
+                    <tr class="hover:bg-white/[0.03] transition-colors">
+                        <td class="p-6 font-black text-white uppercase">{{ log.stock_item.item_name }}</td>
+                        <td class="p-6">
+                            <span class="text-orange-400 font-black">- {{ log.quantity_taken }}</span>
+                            <span class="text-[8px] text-gray-500">{{ log.stock_item.unit }}</span>
+                        </td>
+                        <td class="p-6 text-white font-bold">{{ log.worker.name }}</td>
+                        <td class="p-6 text-gray-400 text-xs">{{ log.purpose }}</td>
+                        <td class="p-6 text-right text-[10px] text-gray-500 font-black uppercase">{{ log.authorized_by.username }}</td>
+                        <td class="p-6 text-right whitespace-nowrap">
+                            <p class="text-white font-black text-xs">{{ log.timestamp|date:"h:i A" }}</p>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase">{{ log.timestamp|date:"d M Y" }}</p>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-12 text-center text-gray-500 italic">No usage logs found for this site.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

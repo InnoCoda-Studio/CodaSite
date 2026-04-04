@@ -247,9 +247,25 @@ def site_warehouse(request, site_id):
                     )
 
                 # ✨ HTMX CHECK HERE
+               # --- Inside ADD STOCK logic ---
                 if request.htmx:
+                    # 1. Grab the latest stocks
                     stocks = MaterialStock.objects.filter(site=site)
-                    return render(request, 'site_management/partials/stock_list_partial.html', {'stocks': stocks})
+
+                    # 2. Define the response using the PARTIAL template
+                    # 🎯 This ensures NO "mini-site" loops inside your card
+                    response = render(request, 'site_management/partials/stock_list_partial.html', {
+                        'stocks': stocks,
+                        'messages': messages.get_messages(request)
+                    })
+
+                    # 3. 🚦 TO STOP THE POPPING: Keep this line commented out!
+                    # If you want the teal toast back later, uncomment the lines below:
+                    msg = f"Received {qty} {unit} of {item_name}."
+                    response['HX-Trigger'] = json.dumps({"showMessage": msg})
+
+                    # 4. Finally, return the actual response object
+                    return response
 
                 messages.success(
                     request, f"Received {qty} {unit} of {item_name}.")
@@ -290,10 +306,20 @@ def site_warehouse(request, site_id):
                         )
 
                         # ✨ HTMX CHECK HERE TOO
+                        # --- Inside B. ISSUE MATERIAL ---
                         if request.htmx:
-                            stocks = MaterialStock.objects.filter(site=site)
-                            return render(request, 'site_management/partials/stock_list_partial.html', {'stocks': stocks})
+                            msg = f"Deducted {qty}. New Balance: {stock.current_balance}"
+                            messages.success(request, msg)
 
+                            stocks = MaterialStock.objects.filter(site=site)
+                            response = render(request, 'site_management/partials/stock_list_partial.html', {
+                                'stocks': stocks,
+                                'messages': messages.get_messages(request)
+                            })
+
+                            # response['HX-Trigger'] = json.dumps(
+                            #     {"showMessage": msg})
+                            return response
                         messages.success(
                             request, f"Deducted {qty}. New Balance: {stock.current_balance}")
                     else:
@@ -326,6 +352,7 @@ def site_warehouse(request, site_id):
         'workers': workers,
         'is_boss': is_boss,
         'user_role': user_role,
+        'messages': messages.get_messages(request)
     }
 
     # Now 'context' is found and passed to the template
@@ -872,26 +899,39 @@ def restock_history(request, site_id):
 
 @login_required
 def material_usage_report(request, site_id):
-    site = get_object_or_404(SiteLocation, id=site_id)
+    user_company = request.user.company
+    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
 
-    # ✅ FIX: Permission Check
-    # We look through the company to find the owner (You/Innocoda)
-    if site.company.owner != request.user and not request.user.is_superuser:
-        # (Optional: Add your Project Manager invitation check here)
+    # 🛡️ Permission Check (Including Project Managers)
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site, is_used=True).last()
+    is_authorized = (site.company.owner == request.user) or (
+        invitation and invitation.role_assigned == 'PROJECT_MANAGER')
+
+    if not is_authorized and not request.user.is_superuser:
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied()
 
     # 🟢 THE OPTIMIZED QUERY
-    # This remains the same—it's already very efficient!
     usage_logs = MaterialDeduction.objects.filter(
         stock_item__site=site
     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
 
-    return render(request, 'site_management/material_usage_report.html', {
+    context = {
         'site': site,
         'usage_logs': usage_logs,
-        'company': site.company,  # ✅ Added for branding in the report
-    })
+        'company': site.company,
+    }
+
+    # 🎯 THE HTMX SWITCH (The Engine)
+    if request.htmx:
+        # This returns ONLY the table content, no navbar, no sidebar.
+        return render(request, 'site_management/partials/usage_report_partial.html', context)
+
+    # Normal full page load if they refresh or type the URL
+    return render(request, 'site_management/material_usage_report.html', context)
+
+
 # Profiles
 
 
@@ -925,45 +965,42 @@ def profile_view(request):
 
 @login_required
 def update_company_logo(request):
-    if request.method == "POST" and request.FILES.get('logo'):
-        user = request.user
+    if request.method == "POST":
+        logo_file = request.FILES.get('logo')
 
-        # 🕵️‍♂️ 1. Find the actual company (matching your profile logic)
+        # 🛡️ 1. CRITICAL: Check if the file actually exists and has a size
+        if not logo_file or logo_file.size == 0:
+            if request.htmx:
+                return HttpResponse("No valid image selected.", status=400)
+            messages.error(request, "Please select a valid image file.")
+            return redirect('profile')
+
+        user = request.user
         invitation = Invitation.objects.filter(
             email=user.email, is_used=True).last()
+        company = Company.objects.filter(owner=invitation.invited_by).first(
+        ) if invitation else Company.objects.filter(owner=user).first()
 
-        if invitation:
-            company = Company.objects.filter(
-                owner=invitation.invited_by).first()
-        else:
-            company = Company.objects.filter(owner=user).first()
-
-        # 🛡️ 2. CHECK if company exists BEFORE using it
-        # 🛡️ 2. CHECK if company exists BEFORE using it
         if company:
-            company.logo = request.FILES['logo']
-            company.save()
+            try:
+                # 🚀 2. Only save if we are sure it's an image
+                company.logo = logo_file
+                company.save()  # This is where Cloudinary upload happens
 
-            # 🚀 3. HTMX Partial Return
-            if request.headers.get('HX-Request'):
-                # 🎯 Define the response object FIRST
-                response = render(request, 'site_management/partials/logo_partial.html', {
-                    'company_profile': company
-                })
+                if request.htmx:
+                    response = render(
+                        request, 'site_management/partials/logo_partial.html', {'company_profile': company})
+                    response['HX-Trigger'] = json.dumps(
+                        {"showMessage": "Logo updated!"})
+                    return response
 
-                # 🎯 NOW add the trigger to that response object
-                response['HX-Trigger'] = json.dumps({
-                    "showMessage": "Logo updated successfully!"
-                })
+                messages.success(request, "Logo updated!")
+            except Exception as e:
+                # 🕵️‍♂️ Catch Cloudinary errors specifically
+                print(f"Cloudinary Error: {e}")
+                messages.error(
+                    request, "Cloudinary upload failed. Check your connection.")
 
-                # 🎯 Finally, return the completed response
-                return response
-
-            messages.success(request, "Logo updated!")
-        else:
-            messages.error(request, "Company not found.")
-
-    # Fallback for non-HTMX or if company search fails
     return redirect('profile')
 
 
@@ -971,30 +1008,35 @@ def update_company_logo(request):
 def update_company_name(request):
     if request.method == "POST":
         new_name = request.POST.get('business_name')
-        invitation = Invitation.objects.filter(
-            email=request.user.email, is_used=True).last()
+        user = request.user
 
+        # 🕵️‍♂️ Find the company
+        invitation = Invitation.objects.filter(
+            email=user.email, is_used=True).last()
         if invitation:
             company = Company.objects.filter(
                 owner=invitation.invited_by).first()
         else:
-            company = Company.objects.filter(owner=request.user).first()
+            company = Company.objects.filter(owner=user).first()
 
         if company and new_name:
             company.name = new_name
             company.save()
 
-            # 🚀 HTMX Sharp Sharp Response
+            # ✅ 1. Handle HTMX Requests
             if request.headers.get('HX-Request'):
                 from django.http import HttpResponse
-                # 🎯 Return a small 'No Content' response but keep the Trigger
+                # Use 204 (No Content) so HTMX doesn't swap anything, just triggers the event
                 response = HttpResponse(status=204)
-
                 response['HX-Trigger'] = json.dumps({
                     "showMessage": f"Business name updated to {new_name}!"
                 })
                 return response
-                messages.success(request, f"Business name updated!")
+
+            # ✅ 2. Handle standard Form Requests (Fallback)
+            messages.success(request, f"Business name updated successfully!")
+        else:
+            messages.error(request, "Could not update business name.")
 
     return redirect('profile')
 
