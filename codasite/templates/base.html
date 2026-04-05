@@ -161,12 +161,12 @@
     "
     x-show="showGreeting"
     x-cloak
-    class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-innocoda-navy pointer-events-auto"
+    class="fixed inset-0 z-99999 flex flex-col items-center justify-center bg-innocoda-navy pointer-events-auto"
     style="background-color: #001F3F;" 
 >
     <div class="absolute inset-0 backdrop-blur-3xl bg-black/40"></div>
 
-    <div class="relative z-[100000] flex flex-col items-center">
+    <div class="relative z-100000 flex flex-col items-center">
         <div class="relative mb-8">
             <div class="absolute inset-0 rounded-full bg-innocoda-teal opacity-30 animate-ping"></div>
             <img src="{% static 'images/CodaSite_logo.png' %}" 
@@ -215,72 +215,73 @@
 
         </main>
 
-       {% if user.is_authenticated %}
-    <nav 
+      {% if user.is_authenticated %}
+<nav 
+    id="bottom-nav"
+    x-data="{ 
+        path: window.location.pathname,
+        // 🕵️‍♂️ Check if we are inside a specific site's area
+        get isOnSite() { return this.path.includes('/site/') }
+    }"
+    @htmx:after-on-load.window="path = window.location.pathname"
+    class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] flex justify-between items-center z-[999] backdrop-blur-2xl"
+>
 
+            <a hx-get="{% url 'index' %}" hx-target="#main-content" hx-push-url="true"
+            class="cursor-pointer flex flex-col items-center flex-1 transition-all"
+            :class="path === '/' || path.includes('index') ? 'text-innocoda-teal' : 'text-gray-400'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
+            </a>
+
+            
+<div id="live-ops-anchor">
+{% if active_site_id %}
+<div hx-get="{% url 'site_dashboard' active_site_id %}" 
+     hx-target="#main-content" 
+     hx-push-url="true"
+     hx-trigger="click" 
+     hx-swap="innerHTML transition:true"
+     hx-indicator=".htmx-progress"
+     class="cursor-pointer flex flex-col items-center flex-1 transition-all group 
+     {% if '/site/' in request.path %}text-innocoda-teal animate-pulse{% else %}text-gray-500 hover:text-white{% endif %}">
     
+    <div class="relative group-active:scale-90 transition-transform">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
         
-        id="bottom-nav"
-        x-data="{ 
-            path: window.location.pathname,
-            // 🔍 Reactive visibility check
-            get showLiveOps() { return this.path.includes('/site/') },
-            // 💡 Reactive 'Teal Light' check
-            get liveOpsActive() { 
-                return ['dashboard', 'warehouse', 'report', 'history', 'material'].some(word => this.path.includes(word))
-            }
-        }"
-        @htmx:after-on-load.window="path = window.location.pathname"
-        class="fixed bottom-0 left-0 right-0 glass border-t border-white/10 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] flex justify-between items-center z-50 transition-all duration-300 backdrop-blur-2xl"
-    >
-
-    <a hx-get="{% url 'index' %}" 
-       hx-target="#main-content" hx-push-url="true"
-       class="cursor-pointer flex flex-col items-center flex-1 transition-all"
-       :class="path === '/' ? 'text-innocoda-teal' : 'text-gray-500 hover:text-white'">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Projects</span>
-    </a>
-
-{% if site.id or site_id %}
-<a hx-get="{% url 'site_dashboard' site.id %}" 
-   hx-target="#main-content" 
-   hx-push-url="true"
-   class="cursor-pointer flex flex-col items-center flex-1 transition-all"
-   /* 🎯 Turn the whole button Teal when on the dashboard */
-   :class="path.includes('dashboard') ? 'text-innocoda-teal' : 'text-gray-500 hover:text-white'">
-    
-    <div class="relative">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-        
-        <template x-if="path.includes('dashboard')">
-            <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal"></span>
-            </span>
-        </template>
+        <span class="absolute -top-1 -right-1 flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal"></span>
+        </span>
     </div>
+    
     <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
-</a>
+</div>
 {% endif %}
+</div>
 
-    <a hx-get="{% url 'all_workers' %}" 
-       hx-target="#main-content" hx-push-url="true"
-       class="cursor-pointer flex flex-col items-center flex-1 transition-all"
-       :class="path.includes('workers') ? 'text-innocoda-teal' : 'text-gray-500 hover:text-white'">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
-    </a>
+            <div hx-get="{% url 'all_workers' %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="cursor-pointer flex flex-col items-center flex-1 transition-all group"
+                :class="path.includes('workers') ? 'text-innocoda-teal' : 'text-gray-400'">
+                
+                <svg class="w-6 h-6 transition-transform group-active:scale-95" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Staff</span>
+            </div>
 
-    <a hx-get="{% url 'profile' %}" 
-       hx-target="#main-content" hx-push-url="true"
-       class="cursor-pointer flex flex-col items-center flex-1 transition-all"
-       :class="path.includes('profile') ? 'text-innocoda-teal' : 'text-gray-500 hover:text-white'">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
-    </a>
-</nav>
-    {% endif %}
+        <a hx-get="{% url 'profile' %}" hx-target="#main-content" hx-push-url="true"
+        class="cursor-pointer flex flex-col items-center flex-1 transition-all"
+        :class="path.includes('profile') ? 'text-innocoda-teal' : 'text-gray-400'">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Profile</span>
+        </a>
+    </nav>
+{% endif %}
 
         
     <footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20 ">
@@ -336,164 +337,163 @@
 </footer>
 
     {% block extra_script %}
-<script>
-    // 1️⃣ HTMX + ALPINE SYNC
-    // Fixes 'Alpine is not defined' or 'dead components' after HTMX swaps content
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (window.Alpine) {
-            window.Alpine.initTree(evt.detail.target);
-        }
-    });
+        <script>
+            // 1️⃣ HTMX + ALPINE SYNC
+            // Fixes 'Alpine is not defined' or 'dead components' after HTMX swaps content
+            document.body.addEventListener('htmx:afterSwap', function(evt) {
+                if (window.Alpine) {
+                    window.Alpine.initTree(evt.detail.target);
+                }
+            });
 
-    // 2️⃣ NAVIGATION HIGHLIGHTER (Teal Sync)
-    // Updates the active state of your bottom-nav or sidebar links instantly
-    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-        const links = document.querySelectorAll('nav a');
-        const currentUrl = window.location.href.split('?')[0];
-        links.forEach(link => {
-            if (link.href === currentUrl) {
-                link.classList.add('text-innocoda-teal');
-                link.classList.remove('text-gray-500');
-            } else {
-                link.classList.remove('text-innocoda-teal');
-                link.classList.add('text-gray-500');
+            // 2️⃣ NAVIGATION HIGHLIGHTER (Teal Sync)
+            // Updates the active state of your bottom-nav or sidebar links instantly
+            document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+                const links = document.querySelectorAll('nav a');
+                const currentUrl = window.location.href.split('?')[0];
+                links.forEach(link => {
+                    if (link.href === currentUrl) {
+                        link.classList.add('text-innocoda-teal');
+                        link.classList.remove('text-gray-500');
+                    } else {
+                        link.classList.remove('text-innocoda-teal');
+                        link.classList.add('text-gray-500');
+                    }
+                });
+            });
+
+            // 3️⃣ UNIFIED TOAST ENGINE (The Guarded Version)
+            function showToast(message, type = 'success') {
+                const container = document.getElementById('toast-container');
+                
+                // 🛡️ CRITICAL GUARD: If container is missing, fallback to body or console
+                if (!container) {
+                    console.info("Toast Container missing, appending to body.");
+                    // Optional: You can trigger your 'showMessage' logic here as a backup
+                    return; 
+                }
+
+                const toast = document.createElement('div');
+                const borderColor = type === 'success' ? 'border-innocoda-teal/50' : 'border-red-500/50';
+                const textColor = type === 'success' ? 'text-innocoda-teal' : 'text-red-400';
+                const icon = type === 'success' ? '✅' : '🚨';
+
+                toast.className = `glass p-6 rounded-[2rem] border ${borderColor} ${textColor} shadow-2xl animate-fade-in flex items-center gap-4 min-w-[300px] pointer-events-auto mb-4`;
+                toast.innerHTML = `
+                    <span class="text-xl">${icon}</span>
+                    <div class="flex flex-col">
+                        <p class="text-[10px] font-black uppercase tracking-widest opacity-50">${type}</p>
+                        <p class="text-sm font-bold text-white">${message}</p>
+                    </div>
+                `;
+
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.transform = "translateX(100%)";
+                    toast.style.opacity = "0";
+                    toast.style.transition = "all 0.5s ease";
+                    setTimeout(() => toast.remove(), 500);
+                }, 4000);
             }
+
+            // 4️⃣ ATTENDANCE & STATUS HANDLER
+            // Listens for clock-in/out results and triggers Voice + Toasts
+            {% comment %} document.body.addEventListener('htmx:afterRequest', function(evt) {
+                const targetId = evt.detail.target.id;
+                
+                // 🔊 Voice Helper
+                const speak = (text) => {
+                    if ('speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        window.speechSynthesis.speak(utterance);
+                    }
+                };
+
+                // Handle Worker Actions (Clock In/Out)
+                if (targetId && targetId.startsWith('worker-action-')) {
+                    if (evt.detail.xhr.status === 200) {
+                        showToast("Attendance Logged!", "success");
+                        speak("Success");
+                    } else if (evt.detail.xhr.status === 403) {
+                        showToast("Access Denied: Distance too far!", "error");
+                        speak("Access Denied");
+                    }
+                }
+                
+                // Stop NProgress bar
+                NProgress.done();
+            }); {% endcomment %}
+
+            document.body.addEventListener('htmx:afterRequest', function(evt) {
+            const targetId = evt.detail.target.id;
+            const responseText = evt.detail.xhr.responseText; // 🔍 Get the message from Django
+            
+            // 🔊 THE INNO-VOICE ENGINE
+            const speak = (text) => {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.9; // 🐢 Slightly slower for authority
+                    utterance.pitch = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
+            };
+
+            // 1️⃣ THE SECURITY GATE VOICE
+            // If the response contains our Security Block message
+            if (responseText.includes("SECURITY: Shift already completed")) {
+                showToast("🚨 SECURITY BLOCK: Shift finished!", "error");
+                speak("Security alert. Your shift is already completed for today. Access denied.");
+                return; // Stop here so it doesn't trigger 'Success' toasts
+            }
+
+            // 2️⃣ THE DISTANCE ERROR VOICE
+            if (responseText.includes("Distance Error") || responseText.includes("Too far away")) {
+                showToast("🚨 OUT OF RANGE", "error");
+                speak("Access denied. You are outside the site boundary.");
+                return;
+            }
+
+            // 3️⃣ THE STANDARD ATTENDANCE VOICE
+            if (targetId && targetId.startsWith('worker-action-')) {
+                if (evt.detail.xhr.status === 200) {
+                    // Check if it's a Clock-In or Clock-Out based on button text
+                    if (responseText.includes("Clock Out")) {
+                        showToast("✅ Clocked In Successfully", "success");
+                        speak("Clock in successful. Have a productive shift.");
+                    } else {
+                        showToast("🏁 Clocked Out Successfully", "success");
+                        speak("Clock out successful. See you tomorrow.");
+                    }
+                } else {
+                    showToast("❌ Connection Error", "error");
+                    speak("System error. Please check your internet.");
+                }
+            }
+            
+            NProgress.done();
         });
-    });
 
-    // 3️⃣ UNIFIED TOAST ENGINE (The Guarded Version)
-    function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        
-        // 🛡️ CRITICAL GUARD: If container is missing, fallback to body or console
-        if (!container) {
-            console.info("Toast Container missing, appending to body.");
-            // Optional: You can trigger your 'showMessage' logic here as a backup
-            return; 
-        }
+            // 5️⃣ PROGRESS BAR & ERROR HANDLING
+            document.body.addEventListener('htmx:beforeRequest', () => NProgress.start());
+            document.body.addEventListener('htmx:onLoadError', () => {
+                NProgress.done();
+                showToast("Connection Interrupted", "error");
+            });
 
-        const toast = document.createElement('div');
-        const borderColor = type === 'success' ? 'border-innocoda-teal/50' : 'border-red-500/50';
-        const textColor = type === 'success' ? 'text-innocoda-teal' : 'text-red-400';
-        const icon = type === 'success' ? '✅' : '🚨';
-
-        toast.className = `glass p-6 rounded-[2rem] border ${borderColor} ${textColor} shadow-2xl animate-fade-in flex items-center gap-4 min-w-[300px] pointer-events-auto mb-4`;
-        toast.innerHTML = `
-            <span class="text-xl">${icon}</span>
-            <div class="flex flex-col">
-                <p class="text-[10px] font-black uppercase tracking-widest opacity-50">${type}</p>
-                <p class="text-sm font-bold text-white">${message}</p>
-            </div>
-        `;
-
-        container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.transform = "translateX(100%)";
-            toast.style.opacity = "0";
-            toast.style.transition = "all 0.5s ease";
-            setTimeout(() => toast.remove(), 500);
-        }, 4000);
-    }
-
-    // 4️⃣ ATTENDANCE & STATUS HANDLER
-    // Listens for clock-in/out results and triggers Voice + Toasts
-    {% comment %} document.body.addEventListener('htmx:afterRequest', function(evt) {
-        const targetId = evt.detail.target.id;
-        
-        // 🔊 Voice Helper
-        const speak = (text) => {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.speak(utterance);
-            }
-        };
-
-        // Handle Worker Actions (Clock In/Out)
-        if (targetId && targetId.startsWith('worker-action-')) {
-            if (evt.detail.xhr.status === 200) {
-                showToast("Attendance Logged!", "success");
-                speak("Success");
-            } else if (evt.detail.xhr.status === 403) {
-                showToast("Access Denied: Distance too far!", "error");
-                speak("Access Denied");
-            }
-        }
-        
-        // Stop NProgress bar
-        NProgress.done();
-    }); {% endcomment %}
-
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-    const targetId = evt.detail.target.id;
-    const responseText = evt.detail.xhr.responseText; // 🔍 Get the message from Django
-    
-    // 🔊 THE INNO-VOICE ENGINE
-    const speak = (text) => {
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9; // 🐢 Slightly slower for authority
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
-        }
-    };
-
-    // 1️⃣ THE SECURITY GATE VOICE
-    // If the response contains our Security Block message
-    if (responseText.includes("SECURITY: Shift already completed")) {
-        showToast("🚨 SECURITY BLOCK: Shift finished!", "error");
-        speak("Security alert. Your shift is already completed for today. Access denied.");
-        return; // Stop here so it doesn't trigger 'Success' toasts
-    }
-
-    // 2️⃣ THE DISTANCE ERROR VOICE
-    if (responseText.includes("Distance Error") || responseText.includes("Too far away")) {
-        showToast("🚨 OUT OF RANGE", "error");
-        speak("Access denied. You are outside the site boundary.");
-        return;
-    }
-
-    // 3️⃣ THE STANDARD ATTENDANCE VOICE
-    if (targetId && targetId.startsWith('worker-action-')) {
-        if (evt.detail.xhr.status === 200) {
-            // Check if it's a Clock-In or Clock-Out based on button text
-            if (responseText.includes("Clock Out")) {
-                showToast("✅ Clocked In Successfully", "success");
-                speak("Clock in successful. Have a productive shift.");
-            } else {
-                showToast("🏁 Clocked Out Successfully", "success");
-                speak("Clock out successful. See you tomorrow.");
-            }
-        } else {
-            showToast("❌ Connection Error", "error");
-            speak("System error. Please check your internet.");
-        }
-    }
-    
-    NProgress.done();
-});
-
-    // 5️⃣ PROGRESS BAR & ERROR HANDLING
-    document.body.addEventListener('htmx:beforeRequest', () => NProgress.start());
-    document.body.addEventListener('htmx:onLoadError', () => {
-        NProgress.done();
-        showToast("Connection Interrupted", "error");
-    });
-
-    // 6️⃣ LOGO UPLOAD SAFETY
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.id === 'logoInput') {
-            const form = document.getElementById('logoForm');
-            if (form && !form.hasAttribute('hx-post')) {
-                form.submit();
-            }
-        }
-    });
-</script>
+            // 6️⃣ LOGO UPLOAD SAFETY
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.id === 'logoInput') {
+                    const form = document.getElementById('logoForm');
+                    if (form && !form.hasAttribute('hx-post')) {
+                        form.submit();
+                    }
+                }
+            });
+        </script>
+   
 {% endblock %}
 
 </body>
-
-
 
 </html>

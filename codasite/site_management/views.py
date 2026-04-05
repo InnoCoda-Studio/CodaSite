@@ -43,6 +43,11 @@ from django.http import HttpResponse
 
 @login_required
 def index(request):
+    # 🧼 CLEANUP: If the boss goes back to the main list, kill the Live Ops link
+    if 'active_site_id' in request.session:
+        del request.session['active_site_id']
+        request.session.modified = True  # Force Django to save the change
+
     today = timezone.now().date()
 
     # 🏢 1. Identify the Company
@@ -106,6 +111,7 @@ def dashboard_feed_component(request):
 @login_required
 @transaction.atomic
 def site_dashboard(request, site_id):
+    request.session['active_site_id'] = site_id
     # 🏢 1. Identify the Company
     user_company = request.user.company
 
@@ -204,6 +210,7 @@ def site_dashboard(request, site_id):
         'total_spent': monthly_data['total_payroll'],
         'weekly_total': weekly_data['total_payroll'],
         'total_workers': weekly_data['total_workers'],
+
     })
 
 

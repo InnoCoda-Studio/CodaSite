@@ -1,4 +1,3 @@
-
 import os  # Make sure this is at the top of settings.py
 from pathlib import Path
 import os
@@ -84,14 +83,17 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+                # 🎯 YOUR NEW CONTEXT PROCESSOR (The Live Ops Anchor)
+                'site_management.context_processors.active_site_processor',
             ],
         },
     },
 ]
-
 WSGI_APPLICATION = 'codasite.wsgi.application'
 
 
