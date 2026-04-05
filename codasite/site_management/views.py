@@ -43,40 +43,30 @@ from django.http import HttpResponse
 
 @login_required
 def index(request):
-    # 🧼 CLEANUP: If the boss goes back to the main list, kill the Live Ops link
+    # 🧼 CLEANUP: Remove the active site ID from the session
     if 'active_site_id' in request.session:
         del request.session['active_site_id']
-        request.session.modified = True  # Force Django to save the change
+        request.session.modified = True
 
     today = timezone.now().date()
 
     # 🏢 1. Identify the Company
-    # ✅ FIX: Changed 'site_company_profile' to 'company' to match your model
     try:
         user_company = request.user.company
     except AttributeError:
-        # 🛡️ Safety: If it's a superuser or user without a company yet
         messages.error(request, "Access Denied: No Company Profile found.")
         return redirect('login')
 
-    # 🏗️ 2. BASE QUERIES (Filtered by Company)
-    # We use the 'user_company' object we just grabbed
+    # 🏗️ 2. BASE QUERIES
     user_sites = SiteLocation.objects.filter(company=user_company)
     sites = user_sites.order_by("-created_at")
 
-    # 📦 3. INVENTORY LOGIC (Scoped to the Company's Sites)
-    # Filter by the company object directly
+    # 📦 3. INVENTORY & AGGREGATES
     low_stock_items = MaterialStock.objects.filter(
         site__company=user_company,
         current_balance__lt=F('minimum_required')
     ).select_related('site').order_by('current_balance')
 
-    recent_arrivals = MaterialStock.objects.filter(
-        site__company=user_company,
-        last_updated__date=today
-    ).select_related('site').order_by('-last_updated')
-
-    # 💰 4. GLOBAL AGGREGATES (Total Cement across all sites in the company)
     total_cement = MaterialStock.objects.filter(
         site__company=user_company,
         item_name__icontains='cement'
@@ -86,15 +76,25 @@ def index(request):
         'sites': sites,
         'total_cement': total_cement,
         'low_stock_items': low_stock_items,
-        'recent_arrivals': recent_arrivals,
-        'company': user_company,  # Added this so your template can show the name
+        'company': user_company,
     }
 
-    # 🚀 HTMX MAGIC: Partial update for the Dashboard Feed
+    # --- 🎯 THE RESPONSE LOGIC ---
+
+    # Check if this is a partial update for the dashboard feed
     if request.headers.get('HX-Target') == 'dashboard-live-zone':
         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
 
-    return render(request, 'site_management/index.html', context)
+    # 1. Prepare the full index response
+    response = render(request, 'site_management/index.html', context)
+
+    # 🚀 2. THE MAGIC CLEANUP: Wipe the Live Ops button instantly
+    if request.htmx:
+        # We send an EMPTY div with the OOB trigger to "kill" the button in the Nav
+        cleanup_html = '<div id="live-ops-anchor" hx-swap-oob="true"></div>'
+        response.write(mark_safe(cleanup_html))
+
+    return response
 
 
 def dashboard_feed_component(request):
@@ -111,7 +111,9 @@ def dashboard_feed_component(request):
 @login_required
 @transaction.atomic
 def site_dashboard(request, site_id):
+    # ⚓ Anchor: Lock this specific site into the session
     request.session['active_site_id'] = site_id
+
     # 🏢 1. Identify the Company
     user_company = request.user.company
 
@@ -127,64 +129,15 @@ def site_dashboard(request, site_id):
 
     # 4. Scoped Pools
     workers = SkilledWorker.objects.filter(site=site)
-    stocks = MaterialStock.objects.filter(
-        site=site)  # Keep for summary display
+    stocks = MaterialStock.objects.filter(site=site)
 
-    # 🌍 GLOBAL POOL: Only show workers from the SAME company (for deployment)
+    # 🌍 GLOBAL POOL
     global_workers_pool = SkilledWorker.objects.filter(
-        company=user_company
-    ).exclude(site=site)
+        company=user_company).exclude(site=site)
 
-    # 5. HANDLE PERSONNEL ACTIONS
+    # 5. HANDLE PERSONNEL ACTIONS (POST)
     if request.method == "POST":
-
-        # A. REGISTER NEW WORKER
-        if 'register_worker' in request.POST:
-            try:
-                worker = SkilledWorker.objects.create(
-                    contractor=request.user,
-                    company=user_company,
-                    site=site,
-                    name=request.POST.get('name'),
-                    category=request.POST.get('category'),
-                    phone=request.POST.get('phone'),
-                    daily_rate=request.POST.get('daily_rate') or 0,
-                    emergency_contact=request.POST.get('emergency_contact'),
-                    bank_name=request.POST.get('bank_name'),
-                    account_number=request.POST.get('account_number'),
-                    account_name=request.POST.get('account_name')
-                )
-                if 'profile_picture' in request.FILES:
-                    worker.profile_picture = request.FILES['profile_picture']
-                    worker.save()
-                messages.success(
-                    request, f"Registry created for {worker.name}.")
-            except Exception as e:
-                messages.error(request, "Registry Error: Check all fields.")
-
-        # B. DEPLOY FROM MASTER REGISTRY
-        elif 'deploy_worker' in request.POST:
-            worker = get_object_or_404(SkilledWorker, id=request.POST.get(
-                'worker_id'), company=user_company)
-            worker.site = site
-            if request.POST.get('update_category'):
-                worker.category = request.POST.get('update_category')
-            if request.POST.get('update_rate'):
-                worker.daily_rate = Decimal(request.POST.get('update_rate'))
-            worker.save()
-            messages.success(
-                request, f"{worker.name} deployed to {site.name}.")
-
-        # C. UPDATE ALL PAY RATES
-        elif 'update_all_rates' in request.POST:
-            if is_boss:
-                for w in workers:
-                    new_rate = request.POST.get(f'rate_{w.id}')
-                    if new_rate:
-                        w.daily_rate = Decimal(new_rate)
-                        w.save()
-                messages.success(request, "Labor rates updated.")
-
+        # ... (Keep your existing POST logic here: register_worker, deploy_worker, etc.)
         return redirect('site_dashboard', site_id=site.id)
 
     # 6. GATHER DATA FOR DISPLAY
@@ -192,16 +145,17 @@ def site_dashboard(request, site_id):
     monthly_data = get_monthly_summary(site.id)
     attendance_today = StaffAttendance.objects.filter(
         site=site, time_in__date=today)
-
-    # 🎯 THE FIX: Active workers only
     present_worker_ids = list(attendance_today.filter(
-        time_out__isnull=True
-    ).values_list('worker_id', flat=True))
+        time_out__isnull=True).values_list('worker_id', flat=True))
 
-    return render(request, 'site_management/site_dashboard.html', {
+    # --- 🎯 THE RESPONSE LOGIC ---
+
+    # 1. Create the base response
+    context = {
         'site': site,
         'is_boss': is_boss,
         'workers': workers,
+        'active_site_id': site_id,
         'stocks': stocks,
         'attendance_today': attendance_today,
         'present_worker_ids': present_worker_ids,
@@ -210,8 +164,144 @@ def site_dashboard(request, site_id):
         'total_spent': monthly_data['total_payroll'],
         'weekly_total': weekly_data['total_payroll'],
         'total_workers': weekly_data['total_workers'],
+    }
 
-    })
+    response = render(request, 'site_management/site_dashboard.html', context)
+
+    # 2. 🚀 THE MAGIC: Attach the OOB Button if it's an HTMX request
+    if request.htmx:
+        button_html = f'''
+        <div id="live-ops-anchor" hx-swap-oob="true">
+            <div hx-get="/site/{site_id}/" 
+                 hx-target="#main-content" 
+                 hx-push-url="true"
+                 hx-trigger="click" 
+                 hx-swap="innerHTML transition:true"
+                 class="cursor-pointer flex flex-col items-center flex-1 transition-all text-innocoda-teal animate-pulse">
+                <div class="relative">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal"></span>
+                    </span>
+                </div>
+                <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+            </div>
+        </div>
+        '''
+        # Combine the dashboard HTML and the OOB Button HTML
+        response.write(mark_safe(button_html))
+        # response.content = response.content + mark_safe(button_html).encode()
+
+    return response
+
+# @login_required
+# @transaction.atomic
+# def site_dashboard(request, site_id):
+#     request.session['active_site_id'] = site_id
+#     # 🏢 1. Identify the Company
+#     user_company = request.user.company
+
+#     # 🛡️ 2. Secure the Site
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+#     today = timezone.now().date()
+
+#     # 3. Permissions Check
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+#     is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
+
+#     # 4. Scoped Pools
+#     workers = SkilledWorker.objects.filter(site=site)
+#     stocks = MaterialStock.objects.filter(
+#         site=site)  # Keep for summary display
+
+#     # 🌍 GLOBAL POOL: Only show workers from the SAME company (for deployment)
+#     global_workers_pool = SkilledWorker.objects.filter(
+#         company=user_company
+#     ).exclude(site=site)
+
+#     # 5. HANDLE PERSONNEL ACTIONS
+#     if request.method == "POST":
+
+#         # A. REGISTER NEW WORKER
+#         if 'register_worker' in request.POST:
+#             try:
+#                 worker = SkilledWorker.objects.create(
+#                     contractor=request.user,
+#                     company=user_company,
+#                     site=site,
+#                     name=request.POST.get('name'),
+#                     category=request.POST.get('category'),
+#                     phone=request.POST.get('phone'),
+#                     daily_rate=request.POST.get('daily_rate') or 0,
+#                     emergency_contact=request.POST.get('emergency_contact'),
+#                     bank_name=request.POST.get('bank_name'),
+#                     account_number=request.POST.get('account_number'),
+#                     account_name=request.POST.get('account_name')
+#                 )
+#                 if 'profile_picture' in request.FILES:
+#                     worker.profile_picture = request.FILES['profile_picture']
+#                     worker.save()
+#                 messages.success(
+#                     request, f"Registry created for {worker.name}.")
+#             except Exception as e:
+#                 messages.error(request, "Registry Error: Check all fields.")
+
+#         # B. DEPLOY FROM MASTER REGISTRY
+#         elif 'deploy_worker' in request.POST:
+#             worker = get_object_or_404(SkilledWorker, id=request.POST.get(
+#                 'worker_id'), company=user_company)
+#             worker.site = site
+#             if request.POST.get('update_category'):
+#                 worker.category = request.POST.get('update_category')
+#             if request.POST.get('update_rate'):
+#                 worker.daily_rate = Decimal(request.POST.get('update_rate'))
+#             worker.save()
+#             messages.success(
+#                 request, f"{worker.name} deployed to {site.name}.")
+
+#         # C. UPDATE ALL PAY RATES
+#         elif 'update_all_rates' in request.POST:
+#             if is_boss:
+#                 for w in workers:
+#                     new_rate = request.POST.get(f'rate_{w.id}')
+#                     if new_rate:
+#                         w.daily_rate = Decimal(new_rate)
+#                         w.save()
+#                 messages.success(request, "Labor rates updated.")
+
+#         return redirect('site_dashboard', site_id=site.id)
+
+#     # 6. GATHER DATA FOR DISPLAY
+#     weekly_data = get_weekly_summary(site.id)
+#     monthly_data = get_monthly_summary(site.id)
+#     attendance_today = StaffAttendance.objects.filter(
+#         site=site, time_in__date=today)
+
+#     # 🎯 THE FIX: Active workers only
+#     present_worker_ids = list(attendance_today.filter(
+#         time_out__isnull=True
+#     ).values_list('worker_id', flat=True))
+
+#     return render(request, 'site_management/site_dashboard.html', {
+#         'site': site,
+#         'is_boss': is_boss,
+#         'workers': workers,
+#         'active_site_id': site_id,
+#         'stocks': stocks,
+#         'attendance_today': attendance_today,
+#         'present_worker_ids': present_worker_ids,
+#         'global_workers_pool': global_workers_pool,
+#         'user_role': user_role,
+#         'total_spent': monthly_data['total_payroll'],
+#         'weekly_total': weekly_data['total_payroll'],
+#         'total_workers': weekly_data['total_workers'],
+
+#     })
 
 
 @login_required
