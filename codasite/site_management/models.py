@@ -342,10 +342,21 @@ class MaterialDeduction(models.Model):
         User, on_delete=models.SET_NULL, null=True)
 
     def clean(self):
-        # 🛡️ PRO SAFETY CHECK: Prevent taking more than available
-        if self.quantity_taken > self.stock_item.current_balance:
+        from django.core.exceptions import ValidationError
+
+        # 🛰️ 1. Get the REAL-TIME truth from the database
+        # We look at the actual row to avoid any "Ghost Data" bugs
+        db_entry = self.stock_item.__class__.objects.get(id=self.stock_item.id)
+        actual_balance = db_entry.current_balance
+
+        # 🛡️ 2. The Modern Security Gate
+        if self.quantity_taken > actual_balance:
             raise ValidationError(
-                f"Insufficient stock! Only {self.stock_item.current_balance} {self.stock_item.unit} available.")
+                f"🚨 LOGISTICS ALERT: INSUFFICIENT {self.stock_item.item_name.upper()} | "
+                f"REQUESTED: {self.quantity_taken} {self.stock_item.unit} | "
+                f"AVAILABLE: {actual_balance} {self.stock_item.unit}. "
+                f"ACTION DENIED."
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Force the safety check before saving
