@@ -119,6 +119,24 @@
                 <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
             </div>
 
+            {% comment %} {% if site.id %}
+                <div id="finance-cards-container" 
+                    class="md:col-span-2"
+                    hx-get="{% url 'htmx_finance_summary' site.id %}" 
+                    hx-trigger="load, every 30s, financeUpdate from:body" 
+                    hx-swap="innerHTML">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
+                    <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
+                    <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a project to enable site-specific financial auditing.</p>
+                </div>
+            {% endif %} {% endcomment %}
             {% if site.id %}
     <div id="finance-cards-container" 
          class="md:col-span-2"
@@ -134,7 +152,7 @@
 {% else %}
     <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
         <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
-        <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a project to enable site-specific financial auditing.</p>
+        <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a site to view local financial metrics.</p>
     </div>
 {% endif %}
         </div>

@@ -25,9 +25,11 @@
     {{ present_worker_ids|length }} <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
 </h3>
 
+{% if site.id %}
 <div hx-get="{% url 'htmx_finance_summary' site.id %}" 
      hx-trigger="load" 
      hx-target="#finance-cards-container" 
      hx-swap="innerHTML" 
      class="hidden">
 </div>
+{% endif %}
