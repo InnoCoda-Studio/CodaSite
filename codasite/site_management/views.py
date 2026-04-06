@@ -962,39 +962,47 @@ def update_company_logo(request):
     if request.method == "POST":
         logo_file = request.FILES.get('logo')
 
-        # 🛡️ 1. CRITICAL: Check if the file actually exists and has a size
+        # 1. 🛡️ Quick Validation
         if not logo_file or logo_file.size == 0:
             if request.htmx:
-                return HttpResponse("No valid image selected.", status=400)
-            messages.error(request, "Please select a valid image file.")
+                return HttpResponse("Invalid Image", status=400)
             return redirect('profile')
 
+        # 2. 🏢 Find Company (Cleaner Logic)
         user = request.user
-        invitation = Invitation.objects.filter(
-            email=user.email, is_used=True).last()
-        company = Company.objects.filter(owner=invitation.invited_by).first(
-        ) if invitation else Company.objects.filter(owner=user).first()
+        # We check if they are the owner OR if they were invited by the owner
+        company = Company.objects.filter(owner=user).first()
+        if not company:
+            invitation = Invitation.objects.filter(
+                email=user.email, is_used=True).last()
+            if invitation:
+                company = Company.objects.filter(
+                    owner=invitation.invited_by).first()
 
+        # 3. 🚀 Save & Respond
         if company:
             try:
-                # 🚀 2. Only save if we are sure it's an image
                 company.logo = logo_file
-                company.save()  # This is where Cloudinary upload happens
+                company.save()
 
                 if request.htmx:
-                    response = render(
-                        request, 'site_management/partials/logo_partial.html', {'company_profile': company})
+                    # ✅ THIS IS THE KEY: Return ONLY the partial
+                    response = render(request, 'site_management/partials/logo_partial.html', {
+                        'company_profile': company
+                    })
                     response['HX-Trigger'] = json.dumps(
                         {"showMessage": "Logo updated!"})
                     return response
 
                 messages.success(request, "Logo updated!")
             except Exception as e:
-                # 🕵️‍♂️ Catch Cloudinary errors specifically
                 print(f"Cloudinary Error: {e}")
+                if request.htmx:
+                    return HttpResponse("Cloudinary Timeout", status=500)
                 messages.error(
-                    request, "Cloudinary upload failed. Check your connection.")
+                    request, "Upload failed. Check your connection.")
 
+    # 🔄 Safety Fallback
     return redirect('profile')
 
 
