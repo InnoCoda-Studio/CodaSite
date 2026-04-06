@@ -180,9 +180,20 @@
                                 </button>
                             {% else %}
                                 <button 
-                                    onclick="clockInWithGPS('{{ worker.id }}', '{{ site.id }}')" 
-                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg hover:scale-105 transition-transform">
-                                    ⚡ Quick Clock-In
+                                    x-data="{ clicking: false }"
+                                    @click="clicking = true; clockInWithGPS('{{ worker.id }}', '{{ site.id }}')"
+                                    :disabled="clicking"
+                                    :class="clicking ? 'opacity-50 cursor-wait' : 'hover:scale-105'"
+                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center justify-center gap-2">
+                                    
+                                    <template x-if="clicking">
+                                        <svg class="animate-spin h-3 w-3 text-innocoda-navy" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </template>
+
+                                    <span x-text="clicking ? 'Verifying...' : '⚡ Quick Clock-In'"></span>
                                 </button>
                             {% endif %}
                         </div>
@@ -370,38 +381,40 @@ function speakMessage(text) {
 // 🛰️ 2. The GPS Clock-In Function
 function clockInWithGPS(workerId, siteId) {
     if (navigator.geolocation) {
-        speakMessage("Verifying location...");
+        speakMessage("Scanning site coordinates...");
         
+        // 🛰️ Add Options for "Real" GPS Hardware
+        const gpsOptions = {
+            enableHighAccuracy: true, // 🚀 FORCE THE GPS CHIP (Not just Wi-Fi)
+            timeout: 10000,           // ⏳ Stop waiting after 10 seconds
+            maximumAge: 0             // 🔄 Don't use an old location from 5 mins ago
+        };
+
         navigator.geolocation.getCurrentPosition(function(position) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-
-            {% comment %} htmx.ajax('POST', `/htmx/clock-in/${siteId}/`, {
+            
+            // 🚀 Your Ajax call stays here (It's already perfect)
+            const cleanUrl = "/htmx/clock-in/" + siteId + "/";
+            htmx.ajax('POST', cleanUrl, {
                 values: { 'worker_id': workerId, 'lat': lat, 'lng': lng },
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                target: `#worker-action-${workerId}`,
-                swap: 'outerHTML' 
-            }); {% endcomment %}
-
-            // Replace the htmx.ajax line with this "Bulletproof" version:
-            const cleanUrl = "/htmx/clock-in/" + siteId + "/";
-
-            htmx.ajax('POST', cleanUrl, {
-                values: { 
-                    'worker_id': workerId, 
-                    'lat': lat, 
-                    'lng': lng 
-                },
-                headers: { 
-                    'X-CSRFToken': '{{ csrf_token }}' 
-                },
                 target: '#worker-action-' + workerId,
                 swap: 'outerHTML' 
             });
+
         }, function(error) {
-            showToast("🚨 Please enable GPS to clock in!", "error");
-            speakMessage("GPS Error.");
-        });
+            // 🕵️‍♂️ Precise Error Handling
+            let msg = "GPS Error.";
+            if (error.code === 1) msg = "Permission Denied. Enable Location.";
+            if (error.code === 3) msg = "Signal too weak. Move to an open area.";
+            
+            showToast(`🚨 ${msg}`, "error");
+            speakMessage(msg);
+            
+            // 🔄 If you're using a loading spinner, reset it here
+            if (window.Alpine) { window.location.reload(); } 
+        }, gpsOptions); // 👈 Pass the options here
     } else {
         showToast("❌ Browser does not support GPS", "error");
     }

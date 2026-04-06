@@ -330,6 +330,33 @@
 
     {% block extra_script %}
         <script>
+            {% comment %} function clockInWithGPS(workerId, siteId) {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        // 📍 We grab the exact spot
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        // 🚀 Send it to Django via HTMX
+                        htmx.ajax('POST', `/clock-in/${siteId}/`, {
+                            target: `#worker-action-${workerId}`,
+                            values: {
+                                'worker_id': workerId,
+                                'latitude': lat,
+                                'longitude': lng
+                            }
+                        });
+                    }, function(error) {
+                        alert("🛑 LOCATION REQUIRED: Please enable GPS to Clock-In.");
+                    });
+                }
+            }
+            document.body.addEventListener('htmx:beforeOnLoad', function (evt) {
+            if (evt.detail.xhr.status === 404 || evt.detail.xhr.status === 500) {
+                // If the PWA glitches, force a full reload to save the UI
+                window.location.reload();
+            }
+        }); {% endcomment %}
             // 1️⃣ HTMX + ALPINE SYNC
             // Fixes 'Alpine is not defined' or 'dead components' after HTMX swaps content
             document.body.addEventListener('htmx:afterSwap', function(evt) {

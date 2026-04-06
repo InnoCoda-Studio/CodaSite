@@ -40,7 +40,7 @@
             {% include 'site_management/htmx_components/dashboard_feed.html' %}
             </div> {% endcomment %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
+        {% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
             {% for site in sites %}
             <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-3xl border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden">
                 {% for item in low_stock_items %}
@@ -60,7 +60,52 @@
                 </div>
             </a>
             {% endfor %}
+        </div> {% endcomment %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
+    {% for site in sites %}
+    <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-[2.5rem] border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden flex flex-col justify-between">
+        
+        {% for item in low_stock_items %}
+            {% if item.site_id == site.id %}
+                <div class="absolute top-6 right-6 flex items-center gap-2 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                    <span class="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                    <span class="text-[8px] font-black text-orange-400 uppercase tracking-widest">Low Stock</span>
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        <div>
+            <h2 class="text-3xl font-black text-white group-hover:text-innocoda-teal transition-colors tracking-tighter uppercase">{{ site.name }}</h2>
+            <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black">
+                {{ site.address|default:"Location not set" }}
+            </p>
         </div>
+
+        <div class="mt-8 pt-6 border-t border-white/5">
+            <div class="flex flex-wrap gap-2">
+                {% for stock in site.stocks.all|dictsort:"item_name" %}
+                <div class="bg-white/5 px-3 py-2 rounded-xl border border-white/5 flex items-center gap-2 group-hover:border-innocoda-teal/20 transition-all">
+                    <span class="text-white font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
+                    <span class="text-[8px] text-gray-500 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
+                </div>
+                {% empty %}
+                <p class="text-[9px] text-gray-700 italic font-bold uppercase tracking-widest">No Materials Assigned</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-8 flex items-center justify-between">
+            <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.3em]">Enter Site Dashboard</span>
+            <div class="bg-white/5 p-2 rounded-lg group-hover:bg-innocoda-teal group-hover:text-innocoda-navy transition-all transform group-hover:translate-x-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
 
         {% if recent_arrivals %}
         <div class="mt-16 space-y-4">

@@ -61,22 +61,31 @@ def index(request):
     user_sites = SiteLocation.objects.filter(company=user_company)
     sites = user_sites.order_by("-created_at")
 
-    # 📦 3. INVENTORY & AGGREGATES
-    low_stock_items = MaterialStock.objects.filter(
-        site__company=user_company,
-        current_balance__lt=F('minimum_required')
-    ).select_related('site').order_by('current_balance')
-
+    # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
+    # This groups every material by name and unit, then adds up the total balance
     total_cement = MaterialStock.objects.filter(
         site__company=user_company,
         item_name__icontains='cement'
     ).aggregate(total=Sum('current_balance'))['total'] or 0
 
+    global_inventory = MaterialStock.objects.filter(
+        site__company=user_company
+    ).values('item_name', 'unit').annotate(
+        total_balance=Sum('current_balance')
+    ).order_by('item_name')
+
+    # 🚨 CRITICAL LOW STOCK (Across all sites)
+    low_stock_items = MaterialStock.objects.filter(
+        site__company=user_company,
+        current_balance__lt=F('minimum_required')
+    ).select_related('site').order_by('current_balance')
+
     context = {
         'sites': sites,
-        'total_cement': total_cement,
+        'global_inventory': global_inventory,  # ⬅️ This is the "Know Everything" data
         'low_stock_items': low_stock_items,
         'company': user_company,
+        'total_cement': total_cement,
     }
 
     # --- 🎯 THE RESPONSE LOGIC ---
@@ -197,159 +206,6 @@ def site_dashboard(request, site_id):
 
     return response
 
-
-# @login_required
-# def site_warehouse(request, site_id):
-#     user_company = request.user.company
-#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
-
-#     if request.method == "POST":
-#         print("SIGNAL RECEIVED!")
-#         # --- A. ADD STOCK ---
-#         if 'add_stock' in request.POST:
-#             print("ADDING STOCK...")
-#             try:
-#                 with transaction.atomic():  # 🛡️ Keep it atomic!
-#                     qty = Decimal(request.POST.get('quantity') or '0.00')
-#                     item_name = request.POST.get(
-#                         'item_name', '').strip().upper()
-#                     unit = request.POST.get('unit', '').strip()
-
-#                     img_file = request.FILES.get('evidence_image')
-#                     vid_file = request.FILES.get('evidence_video')
-
-#                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-#                         site=site, item_name=item_name, defaults={'unit': unit}
-#                     )
-
-#                     stock.current_balance += qty
-#                     if img_file:
-#                         stock.evidence_image = img_file
-#                     if vid_file:
-#                         stock.evidence_video = vid_file
-#                     stock.save()
-
-#                     if img_file:
-#                         img_file.seek(0)
-#                     if vid_file:
-#                         vid_file.seek(0)
-
-#                     MaterialRestockLog.objects.create(
-#                         stock_item=stock, site=site, quantity_added=qty,
-#                         evidence_image=img_file, evidence_video=vid_file
-#                     )
-
-#                 # ✨ HTMX CHECK HERE
-#                # --- Inside ADD STOCK logic ---
-#                 if request.htmx:
-#                     # 1. Grab the latest stocks
-#                     stocks = MaterialStock.objects.filter(site=site)
-
-#                     # 2. Define the response using the PARTIAL template
-#                     # 🎯 This ensures NO "mini-site" loops inside your card
-#                     response = render(request, 'site_management/partials/stock_list_partial.html', {
-#                         'stocks': stocks,
-#                         'messages': messages.get_messages(request)
-#                     })
-
-#                     # 3. 🚦 TO STOP THE POPPING: Keep this line commented out!
-#                     # If you want the teal toast back later, uncomment the lines below:
-#                     msg = f"Received {qty} {unit} of {item_name}."
-#                     response['HX-Trigger'] = json.dumps({"showMessage": msg})
-
-#                     # 4. Finally, return the actual response object
-#                     return response
-
-#                 messages.success(
-#                     request, f"Received {qty} {unit} of {item_name}.")
-#                 return redirect('site_warehouse', site_id=site.id)
-
-#             except Exception as e:
-#                 messages.error(request, f"Intake Error: {e}")
-#                 return redirect('site_warehouse', site_id=site.id)
-
-#         # --- B. ISSUE MATERIAL ---
-#         elif 'issue_material' in request.POST:
-#             stock_id = request.POST.get('stock_item')
-#             worker_id = request.POST.get('worker_id')
-#             qty_input = request.POST.get('quantity')
-
-#             try:
-#                 qty = Decimal(qty_input or 0)
-#                 with transaction.atomic():
-#                     stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
-#                     worker = get_object_or_404(SkilledWorker, id=worker_id)
-
-#                     # Duplicate check
-#                     if MaterialDeduction.objects.filter(
-#                         stock_item=stock, worker=worker, quantity_taken=qty,
-#                         timestamp__gte=timezone.now() - timedelta(seconds=10)
-#                     ).exists():
-#                         return redirect('site_warehouse', site_id=site.id)
-
-#                     if stock.current_balance >= qty:
-#                         stock.current_balance -= qty
-#                         stock.save()
-
-#                         MaterialDeduction.objects.create(
-#                             stock_item=stock, worker=worker,
-#                             quantity_taken=qty, purpose=request.POST.get(
-#                                 'purpose', 'General'),
-#                             authorized_by=request.user,
-#                         )
-
-#                         # ✨ HTMX CHECK HERE TOO
-#                         # --- Inside B. ISSUE MATERIAL ---
-#                         if request.htmx:
-#                             msg = f"Deducted {qty}. New Balance: {stock.current_balance}"
-#                             messages.success(request, msg)
-
-#                             stocks = MaterialStock.objects.filter(site=site)
-#                             response = render(request, 'site_management/partials/stock_list_partial.html', {
-#                                 'stocks': stocks,
-#                                 'messages': messages.get_messages(request)
-#                             })
-
-#                             # response['HX-Trigger'] = json.dumps(
-#                             #     {"showMessage": msg})
-#                             return response
-#                         messages.success(
-#                             request, f"Deducted {qty}. New Balance: {stock.current_balance}")
-#                     else:
-#                         messages.error(request, "Insufficient Stock.")
-
-#             except Exception as e:
-#                 messages.error(request, f"Error: {e}")
-
-#             return redirect('site_warehouse', site_id=site.id)
-
-#     # 📋 Normal Page Load - Data Gathering
-#     stocks = MaterialStock.objects.filter(site=site)
-#     workers = SkilledWorker.objects.filter(site=site)
-
-#     # Check user role/permissions
-#     invitation = Invitation.objects.filter(
-#         email=request.user.email,
-#         site=site,
-#         is_used=True
-#     ).last()
-
-#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-#     is_boss = (site.company.owner == request.user) or (
-#         user_role == 'PROJECT_MANAGER')
-
-#     # 📦 THE FIX: Define the context dictionary here
-#     context = {
-#         'site': site,
-#         'stocks': stocks,
-#         'workers': workers,
-#         'is_boss': is_boss,
-#         'user_role': user_role,
-#         'messages': messages.get_messages(request)
-#     }
-
-#     # Now 'context' is found and passed to the template
-#     return render(request, 'site_management/site_warehouse.html', context)
 
 @login_required
 def site_warehouse(request, site_id):
