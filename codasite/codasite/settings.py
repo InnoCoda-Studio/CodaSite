@@ -30,7 +30,7 @@ ALLOWED_HOSTS = [
     'codasite.onrender.com',
     'localhost',
     '127.0.0.1',
-    # '.yourdomain.com', # 👈 Add this once you buy your domain
+    'codasite.com.ng',  # 👈 Add this once you buy your domain
 ]
 
 
