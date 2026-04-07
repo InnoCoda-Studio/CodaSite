@@ -137,16 +137,16 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-# LANGUAGE_CODE = 'en-us'
+# settings.py
+
+LANGUAGE_CODE = 'en-us'
+
+# 🌍 ONLY ONE TIME_ZONE DEFINITION
 TIME_ZONE = 'Africa/Lagos'
-
-
-TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
-# USE_TZ = True
-
+# 🛰️ SET THIS TO TRUE
 USE_TZ = True
 
 
@@ -179,24 +179,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # //////////////////////
 
 # 📧 FORCED RESEND SETTINGS (No .env for now)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.resend.com'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_USE_TLS = False
-EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = 're_Dvd1hz2b_CRQpQkPoLKftvVCWyqx969ai'
-DEFAULT_FROM_EMAIL = 'onboarding@resend.dev'
+
 # /////////////////////////////////////////////////
 
-# EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-# EMAIL_HOST = os.getenv('EMAIL_HOST')
-# EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))
-# EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS') == 'True'
-# EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL') == 'True'  # Add this for Resend
-# EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-# DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+# settings.py
+
+# 🚀 1. The Master Key (Pulls from your Render Env or .env file)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+
+# 📧 2. The Official "From" Address
+# Make sure this matches your verified domain!
+DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 
 # //////////////////////////

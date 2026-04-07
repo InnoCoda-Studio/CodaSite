@@ -238,6 +238,11 @@
 #     }
 # site_management/reports.py
 
+from django.template.loader import render_to_string
+
+import os
+import base64
+import resend
 from .models import (
     MaterialDeduction,
     StaffAttendance,
@@ -252,6 +257,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.template.loader import get_template
 from io import BytesIO
+
 from account.models import Company
 
 # 🛡️ SAFE IMPORT
@@ -302,10 +308,7 @@ def get_daily_summary(site_id):
 
 
 def get_aggregated_report(site_id, start_date, end_date):
-    """The 'Master' Engine: Uses the rate saved AT THE TIME of clock-in."""
     site = SiteLocation.objects.get(id=site_id)
-
-    # ✅ FIX 3: Get company from site
     company = site.company
     stocks = MaterialStock.objects.filter(site=site)
 
@@ -320,20 +323,30 @@ def get_aggregated_report(site_id, start_date, end_date):
     for record in attendance_records:
         if not record.worker:
             continue
+
         worker_id = record.worker.id
+
+        # 🕒 CALCULATE HOURS
+        duration_hours = 0
+        if record.time_in and record.time_out:
+            diff = record.time_out - record.time_in
+            duration_hours = round(diff.total_seconds() / 3600, 1)
+
         if worker_id not in staff_summary_map:
             staff_summary_map[worker_id] = {
                 'name': record.worker.name,
                 'category': record.worker.category,
                 'days_present': 0,
                 'total_pay': 0,
+                'total_hours': 0,  # 👈 Initialize Hours
                 'daily_rate': record.daily_rate_at_time
             }
+
         staff_summary_map[worker_id]['days_present'] += 1
         staff_summary_map[worker_id]['total_pay'] += record.daily_rate_at_time
+        # 👈 Add Hours
+        staff_summary_map[worker_id]['total_hours'] += duration_hours
         total_payroll += record.daily_rate_at_time
-
-    # ✅ FIX 4: Contractor email path
 
     contractor_email = site.company.owner.email if site.company and site.company.owner else None
 
@@ -374,3 +387,52 @@ def get_live_site_spend(site_id):
     ).order_by('-amount')
 
     return {'total_spent': total_spent, 'worker_details': worker_details}
+
+
+# 🔑 Add RESEND_API_KEY to your Render Environment Variables
+resend.api_key = os.environ.get("RESEND_API_KEY")
+
+
+def send_resend_audit_email(data, report_type="DAILY"):
+    """
+    The High-End Dispatcher: 
+    Now handles both DAILY and WEEKLY audit types.
+    """
+    try:
+        from .reports import generate_pdf_report
+
+        # 📂 1. Pick the right template for the PDF
+        pdf_template = 'reports/pdf_template.html' if report_type == "DAILY" else 'reports/weekly_pdf_template.html'
+
+        pdf_content = generate_pdf_report(data, pdf_template)
+        if not pdf_content:
+            return False
+
+        # 📧 2. Pick the right template for the Email Body
+        email_template = 'site_management/daily_report_email.html' if report_type == "DAILY" else 'site_management/weekly_report_email.html'
+        html_body = render_to_string(email_template, data)
+
+        # 🛡️ 3. Encoding
+        attachment_content = base64.b64encode(pdf_content).decode()
+
+        # 🚀 4. The Dispatch
+        subject_label = "DAILY SITE AUDIT" if report_type == "DAILY" else "WEEKLY EXECUTIVE SUMMARY"
+
+        params = {
+            "from": "CodaSite Audit <reports@codasite.com.ng>",
+            "to": data['recipients'],
+            "subject": f"🏗️ {subject_label}: {data['site'].name}",
+            "html": html_body,
+            "attachments": [
+                {
+                    "filename": f"{report_type}_Report_{data['site'].name}.pdf",
+                    "content": attachment_content,
+                }
+            ],
+        }
+
+        resend.Emails.send(params)
+        return True
+    except Exception as e:
+        print(f"RESEND ERROR: {e}")
+        return False

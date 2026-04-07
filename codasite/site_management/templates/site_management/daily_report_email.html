@@ -1,5 +1,42 @@
 <!DOCTYPE html>
 <html>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#050505">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <table width="650" border="0" cellspacing="0" cellpadding="0" style="background: #0f0f0f; border-radius: 20px; border: 1px solid #222; overflow: hidden;">
+                    <tr>
+                        <td bgcolor="#1a1a1a" style="padding: 30px; border-bottom: 2px solid #00ffcc;">
+                            <h1 style="margin: 0; color: #00ffcc; text-transform: uppercase; font-size: 22px; letter-spacing: 2px;">Daily Site Audit</h1>
+                            <p style="margin: 5px 0 0; color: #666; font-size: 11px; text-transform: uppercase;">{{ site.name }} | {{ today|date:"d M Y" }}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px;">
+                            <p style="color: #888; font-size: 14px; line-height: 1.6;">Hello Boss, today's operations at <strong>{{ site.name }}</strong> have been finalized. The inventory levels and worker attendance have been logged into the digital ledger.</p>
+                            
+                            <div style="background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; margin: 20px 0; text-align: center;">
+                                <p style="margin: 0; color: #444; font-size: 9px; text-transform: uppercase;">Personnel On-Site</p>
+                                <p style="margin: 5px 0 0; color: #fff; font-size: 24px; font-weight: bold;">{{ total_workers }}</p>
+                            </div>
+
+                            <p style="color: #666; font-size: 12px;">Please find the detailed PDF attachment for material usage and time logs.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px; text-align: center; background: #0a0a0a; border-top: 1px solid #222;">
+                            <p style="font-size: 10px; color: #333; text-transform: uppercase; letter-spacing: 2px;">CodaSite Logistics Engine &copy; 2026</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+
+{% comment %} <!DOCTYPE html>
+<html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -109,4 +146,4 @@
         </tr>
     </table>
 </body>
-</html>
+</html> {% endcomment %}

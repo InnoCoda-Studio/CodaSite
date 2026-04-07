@@ -6,7 +6,8 @@ import uuid
 from django.utils.text import slugify
 from cloudinary.models import CloudinaryField
 from account.models import Company
-
+from django.db import transaction
+from django.db.models import F
 User = get_user_model()
 
 # 1. Site Infrastructure
@@ -359,9 +360,18 @@ class MaterialDeduction(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # Force the safety check before saving
+        # 1. Run the safety check (requested qty vs available)
+        self.full_clean()
 
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            # 2. Subtract directly in the Database (Atomic Update)
+            # This prevents "Ghost Inventory" if two people click at once
+            self.stock_item.current_balance = F(
+                'current_balance') - self.quantity_taken
+            self.stock_item.save()
+
+            # 3. Save the actual log
+            super().save(*args, **kwargs)
 
 
 class CategoryPay(models.Model):

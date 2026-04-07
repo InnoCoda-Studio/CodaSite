@@ -1,3 +1,4 @@
+from .reports import get_weekly_summary, generate_pdf_report, send_resend_audit_email
 from django.shortcuts import get_object_or_404, render
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
@@ -8,7 +9,7 @@ from .models import SiteLocation, StaffAttendance, MaterialDeduction
 from django.conf import settings
 # Ensure these are at the top
 #
-from .reports import get_weekly_summary, generate_pdf_report, get_monthly_summary
+
 from decimal import Decimal, InvalidOperation
 from django.template.loader import render_to_string
 import uuid
@@ -24,7 +25,16 @@ from .models import SiteLocation, MaterialStock, Company, MaterialDeduction, Inv
 from django.db.models import Sum
 # 👈 Import your new file
 from django.core.mail import send_mail
-from .reports import get_daily_summary, generate_pdf_report
+
+# site_management/views.py (Top of the file)
+
+from .reports import (
+    get_daily_summary,
+    get_weekly_summary,
+    get_monthly_summary,
+    generate_pdf_report,
+    send_resend_audit_email  # 🚀 THIS IS THE ONE WE NEED!
+)
 from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
@@ -48,7 +58,7 @@ def index(request):
         del request.session['active_site_id']
         request.session.modified = True
 
-    today = timezone.now().date()
+        today = timezone.now().date()
 
     # 🏢 1. Identify the Company
     try:
@@ -252,41 +262,34 @@ def site_warehouse(request, site_id):
             qty_input = request.POST.get('quantity')
 
             try:
+                # 1. 📏 Minimal Prep
                 qty = Decimal(qty_input or 0)
-                with transaction.atomic():
-                    stock = MaterialStock.objects.select_for_update().get(id=stock_id, site=site)
-                    worker = get_object_or_404(SkilledWorker, id=worker_id)
+                worker = get_object_or_404(SkilledWorker, id=worker_id)
+                stock = get_object_or_404(
+                    MaterialStock, id=stock_id, site=site)
 
-                    # 🛡️ THE MATH: We do it here, but the Model .save() will also check
-                    if stock.current_balance >= qty:
-                        stock.current_balance -= qty
-                        # 🚀 .full_clean() triggers the model validation before saving
-                        stock.full_clean()
-                        stock.save()
+                # 2. 🚀 THE POWER MOVE: Just Create the Deduction.
+                # The Model's .save() will handle the subtraction and the ValidationError
+                # if there isn't enough stock. No manual math needed here!
+                MaterialDeduction.objects.create(
+                    stock_item=stock,
+                    worker=worker,
+                    quantity_taken=qty,
+                    purpose=request.POST.get('purpose', 'General Site Use'),
+                    authorized_by=request.user,
+                )
 
-                        MaterialDeduction.objects.create(
-                            stock_item=stock,
-                            worker=worker,
-                            quantity_taken=qty,
-                            purpose=request.POST.get('purpose', 'General'),
-                            authorized_by=request.user,
-                        )
-                        messages.success(
-                            request, f"Deducted {qty} {stock.unit} successfully!")
-                    else:
+                messages.success(
+                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
 
-                        messages.error(
-                            request, f"🚫 STOCK LOW: {stock.current_balance} {stock.unit} {stock.item_name.upper()} REMAINING."
-                        )
             except ValidationError as e:
-                # 🛑 This catches the 'Insufficient stock' error from your model
+                # 🛑 This catches the exact error message we wrote in models.py
                 error_msg = e.message_dict.get('__all__', [str(e)])[0]
-                messages.error(request, f"Logistics Error: {error_msg}")
+                messages.error(request, error_msg)
             except Exception as e:
                 print(f"DEDUCTION CRASH: {e}")
                 messages.error(
-                    request, "A system error occurred. Check terminal.")
-
+                    request, "A system error occurred. Inventory remains unchanged.")
         # ✨ HTMX RESPONSE (Keep this outside the if/elif)
         if request.htmx:
             stocks = MaterialStock.objects.filter(site=site)
@@ -1046,43 +1049,64 @@ def update_company_name(request):
 @login_required
 def close_site_day(request, site_id):
     if request.method == "POST":
-        # 1. Get the data
+        # 1. Get the data summary
         summary = get_daily_summary(site_id)
 
-        # 2. FIXED: Pass the specific template path for daily reports
-        pdf_content = generate_pdf_report(summary, 'reports/pdf_template.html')
+        # 2. 🚀 DISPATCH VIA RESEND
+        # We only pass 'summary'. The function in reports.py handles
+        # the PDF generation, the HTML rendering, and the Subject line!
+        success = send_resend_audit_email(summary, report_type="DAILY")
 
-        # 3. Build the HTML body for the email
-        html_message = render_to_string(
-            'site_management/daily_report_email.html', summary)
-
-        # 4. Prepare the EmailMessage
-        email = EmailMessage(
-            subject=f"OFFICIAL REPORT: {summary['site'].name} - {summary['today']}",
-            body="Please view the attached PDF and HTML report for today's site activities.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=summary['recipients'],
-        )
-
-        email.content_subtype = "html"
-        email.body = html_message
-
-        # 5. Attach the PDF
-        if pdf_content:
-            email.attach(
-                f"Report_{summary['site'].name}_{summary['today']}.pdf",
-                pdf_content,
-                'application/pdf'
-            )
-
-        try:
-            email.send()
+        if success:
             messages.success(
-                request, f"Daily reports for {summary['site'].name} dispatched!")
-        except Exception as e:
-            messages.error(request, f"Report failed to send: {e}")
+                request, f"Daily report for {summary['site'].name} dispatched via Resend!")
+        else:
+            messages.error(
+                request, "Resend Dispatch Failed. Check Render Environment Variables.")
 
         return redirect('site_dashboard', site_id=site_id)
+
+
+# @login_required
+# def close_site_day(request, site_id):
+#     if request.method == "POST":
+#         # 1. Get the data
+#         summary = get_daily_summary(site_id)
+
+#         # 2. FIXED: Pass the specific template path for daily reports
+#         pdf_content = generate_pdf_report(summary, 'reports/pdf_template.html')
+
+#         # 3. Build the HTML body for the email
+#         html_message = render_to_string(
+#             'site_management/daily_report_email.html', summary)
+
+#         # 4. Prepare the EmailMessage
+#         email = EmailMessage(
+#             subject=f"OFFICIAL REPORT: {summary['site'].name} - {summary['today']}",
+#             body="Please view the attached PDF and HTML report for today's site activities.",
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             to=summary['recipients'],
+#         )
+
+#         email.content_subtype = "html"
+#         email.body = html_message
+
+#         # 5. Attach the PDF
+#         if pdf_content:
+#             email.attach(
+#                 f"Report_{summary['site'].name}_{summary['today']}.pdf",
+#                 pdf_content,
+#                 'application/pdf'
+#             )
+
+#         try:
+#             email.send()
+#             messages.success(
+#                 request, f"Daily reports for {summary['site'].name} dispatched!")
+#         except Exception as e:
+#             messages.error(request, f"Report failed to send: {e}")
+
+#         return redirect('site_dashboard', site_id=site_id)
 
 
 # Weekly report
@@ -1122,26 +1146,31 @@ def send_weekly_report(request, site_id):
 
 
 def send_weekly_report_logic(site_id):
-    """The core engine that builds and sends the PDF."""
+    """The core engine that builds and sends the PDF via Resend."""
     try:
+        # 1. Get the 7-day snapshot data
         summary = get_weekly_summary(site_id)
+
+        # 2. Generate the binary PDF content
         pdf_content = generate_pdf_report(
             summary, 'reports/weekly_pdf_template.html')
 
-        email = EmailMessage(
-            subject=f"WEEKLY EXECUTIVE AUDIT: {summary['site'].name}",
-            body=f"Automated weekly summary attached.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=summary['recipients'],
+        if not pdf_content:
+            print(f"Error: PDF content for site {site_id} is empty.")
+            return False
+
+        # 3. 🚀 DISPATCH VIA RESEND
+        # We pass the report_type="WEEKLY" to use the correct email body and subject
+        success = send_resend_audit_email(
+            data=summary,
+            report_type="WEEKLY"
         )
-        if pdf_content:
-            email.attach(
-                f"Weekly_Audit_{summary['site'].name}.pdf", pdf_content, 'application/pdf')
-            email.send()
-            return True
+
+        return success
+
     except Exception as e:
-        print(f"Error sending automated report: {e}")
-    return False
+        print(f"Error in weekly report logic: {e}")
+        return False
 
 # Your existing view now just calls the logic
 
