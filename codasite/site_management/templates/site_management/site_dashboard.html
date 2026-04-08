@@ -365,6 +365,34 @@
         </div>
     </div>
 
+{% comment %} Active Stafe {% endcomment %}
+    <div class="glass p-6 rounded-[2.5rem] mt-8 border border-white/10">
+    <h3 class="text-white font-black uppercase text-xs mb-4 tracking-widest">Site Personnel</h3>
+    <div class="space-y-4">
+        {% for member in site.invitation_set.all %}
+            <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl">
+                <div>
+                    <p class="text-white font-bold text-sm">{{ member.email }}</p>
+                    <p class="text-innocoda-teal text-[10px] uppercase font-black">{{ member.role_assigned }}</p>
+                </div>
+                
+                {% if is_boss %}
+                    <form action="{% url 'manage_staff_access' member.id %}" method="POST">
+                        {% csrf_token %}
+                        {% if member.is_used %}
+                            <input type="hidden" name="action" value="block">
+                            <button class="text-red-400 text-[10px] font-black uppercase tracking-widest">Block</button>
+                        {% else %}
+                            <input type="hidden" name="action" value="unblock">
+                            <button class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Unblock</button>
+                        {% endif %}
+                    </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
 </div>
 {% comment %} Dispaying workers cloing message  {% endcomment %}
 <div id="toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>

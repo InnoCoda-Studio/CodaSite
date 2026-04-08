@@ -22,6 +22,9 @@ urlpatterns = [
          name='update_company_logo'),
     path('profile/update-name/', views.update_company_name,
          name='update_company_name'),
+    path('block-staff/<int:invite_id>/', views.block_staff, name='block_staff'),
+    path('manage-staff/<int:invitation_id>/',
+         views.manage_staff_access, name='manage_staff_access'),
 
     # PDF JENERATOR
     path('site/<int:site_id>/close-day/',
@@ -38,6 +41,7 @@ urlpatterns = [
 
     path('attendance/<int:attendance_id>/pay/',
          views.mark_as_paid, name='mark_as_paid'),
+
 
     #
     path('site/<int:site_id>/deploy/', views.deploy_worker, name='deploy_worker'),

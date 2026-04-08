@@ -25,7 +25,7 @@ from .models import SiteLocation, MaterialStock, Company, MaterialDeduction, Inv
 from django.db.models import Sum
 # 👈 Import your new file
 from django.core.mail import send_mail
-
+import resend
 # site_management/views.py (Top of the file)
 
 from .reports import (
@@ -54,35 +54,95 @@ from django.http import HttpResponse
 @login_required
 def index(request):
     # 🧼 CLEANUP: Remove the active site ID from the session
+    # if 'active_site_id' in request.session:
+    #     del request.session['active_site_id']
+    #     request.session.modified = True
+
+    #     today = timezone.now().date()
+
+    # 🏢 1. Identify the Company
+
+    # 🧼 Session Cleanup
     if 'active_site_id' in request.session:
         del request.session['active_site_id']
         request.session.modified = True
 
-        today = timezone.now().date()
+    # 🏢 1. Identify the Company (The Safe Way)
+    # Check if they own a company
+    user_company = getattr(request.user, 'company', None)
 
-    # 🏢 1. Identify the Company
-    try:
-        user_company = request.user.company
-    except AttributeError:
-        messages.error(request, "Access Denied: No Company Profile found.")
-        return redirect('login')
+    # If they DON'T own one, they might be an invited staff member
+    if not user_company:
+        invitation = Invitation.objects.filter(
+            email=request.user.email, is_used=True).first()
+        if invitation:
+            user_company = invitation.site.company
 
-    # 🏗️ 2. BASE QUERIES
-    user_sites = SiteLocation.objects.filter(company=user_company)
+    # 🔥 Still no company? They haven't set up anything yet.
+    if not user_company:
+        # If it's a fresh Contractor, they need to create a company first
+        return redirect('profile')  # Or wherever you handle company creation
+
+    # 🏗️ 2. BASE QUERIES (Now works for everyone!)
+    # If it's a staff member, they should only see the sites they are invited to
+    if hasattr(request.user, 'company'):
+        user_sites = SiteLocation.objects.filter(company=user_company)
+    else:
+        # Storekeepers only see their assigned site(s)
+        assigned_site_ids = Invitation.objects.filter(
+            email=request.user.email, is_used=True
+        ).values_list('site_id', flat=True)
+        user_sites = SiteLocation.objects.filter(id__in=assigned_site_ids)
+
     sites = user_sites.order_by("-created_at")
+
+    # try:
+    #     user_company = request.user.company
+    # except AttributeError:
+    #     messages.error(request, "Access Denied: No Company Profile found.")
+    #     return redirect('login')
+
+    # # 🏗️ 2. BASE QUERIES
+    # user_sites = SiteLocation.objects.filter(company=user_company)
+    # sites = user_sites.order_by("-created_at")
 
     # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
     # This groups every material by name and unit, then adds up the total balance
-    total_cement = MaterialStock.objects.filter(
-        site__company=user_company,
-        item_name__icontains='cement'
-    ).aggregate(total=Sum('current_balance'))['total'] or 0
+    # total_cement = MaterialStock.objects.filter(
+    #     site__company=user_company,
+    #     item_name__icontains='cement'
+    # ).aggregate(total=Sum('current_balance'))['total'] or 0
+    # global_inventory = MaterialStock.objects.filter(
+    #     site__company=user_company
+    # ).values('item_name', 'unit').annotate(
+    #     total_balance=Sum('current_balance')
+    # ).order_by('item_name')
 
-    global_inventory = MaterialStock.objects.filter(
-        site__company=user_company
-    ).values('item_name', 'unit').annotate(
-        total_balance=Sum('current_balance')
-    ).order_by('item_name')
+    # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
+    # Only calculate global stats if the user IS the company owner
+    if hasattr(request.user, 'company'):
+        # The Boss sees everything across all sites
+        total_cement = MaterialStock.objects.filter(
+            site__company=user_company,
+            item_name__icontains='cement'
+        ).aggregate(total=Sum('current_balance'))['total'] or 0
+
+        global_inventory = MaterialStock.objects.filter(
+            site__company=user_company
+        ).values('item_name', 'unit').annotate(
+            total_balance=Sum('current_balance')
+        ).order_by('item_name')
+
+        # Critical low stock (Full Business View)
+        low_stock_items = MaterialStock.objects.filter(
+            site__company=user_company,
+            current_balance__lt=F('minimum_required')
+        ).select_related('site').order_by('current_balance')
+    else:
+        # Storekeepers see 0/None for global stats to keep data private
+        total_cement = 0
+        global_inventory = None
+        low_stock_items = None
 
     # 🚨 CRITICAL LOW STOCK (Across all sites)
     low_stock_items = MaterialStock.objects.filter(
@@ -130,36 +190,52 @@ def dashboard_feed_component(request):
 @login_required
 @transaction.atomic
 def site_dashboard(request, site_id):
-    # ⚓ Anchor: Lock this specific site into the session
+    # ⚓ Anchor: Session locking
     request.session['active_site_id'] = site_id
+    today = timezone.now().date()  # 📅 Added this back so Step 6 doesn't crash
 
-    # 🏢 1. Identify the Company
-    user_company = request.user.company
+    # 🏢 1. Identify the Site & Company
+    site = get_object_or_404(SiteLocation, id=site_id)
+    # 🎯 Get the company through the site, not the user!
+    company = site.company
 
-    # 🛡️ 2. Secure the Site
-    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
-    today = timezone.now().date()
-
-    # 3. Permissions Check
+    # 🛡️ 2. THE PERMISSION GATE
+    is_owner = (company.owner == request.user)
     invitation = Invitation.objects.filter(
-        email=request.user.email, site=site).last()
+        email=request.user.email, site=site, is_used=True).last()
+
+    if not is_owner and not invitation:
+        messages.error(
+            request, "Access Denied: You are not assigned to this site.")
+        return redirect('profile')
+
+    # 3. Determine Role
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-    is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
+
+    # 🛡️ If they own the company OR their typed role is PM, they are the boss
+    is_boss = is_owner or user_role == 'PROJECT_MANAGER'
+    # user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+    # is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
 
     # 4. Scoped Pools
     workers = SkilledWorker.objects.filter(site=site)
     stocks = MaterialStock.objects.filter(site=site)
 
-    # 🌍 GLOBAL POOL
+    # 🌍 GLOBAL POOL (Safe for everyone)
+    # We use 'company' (the one owning the site) instead of 'request.user.company'
     global_workers_pool = SkilledWorker.objects.filter(
-        company=user_company).exclude(site=site)
+        company=company).exclude(site=site)
 
+    # ... (Keep your existing POST logic here)
     # 5. HANDLE PERSONNEL ACTIONS (POST)
+
     if request.method == "POST":
+
         # ... (Keep your existing POST logic here: register_worker, deploy_worker, etc.)
+
         return redirect('site_dashboard', site_id=site.id)
 
-    # 6. GATHER DATA FOR DISPLAY
+    # 6. GATHER DATA
     weekly_data = get_weekly_summary(site.id)
     monthly_data = get_monthly_summary(site.id)
     attendance_today = StaffAttendance.objects.filter(
@@ -167,11 +243,10 @@ def site_dashboard(request, site_id):
     present_worker_ids = list(attendance_today.filter(
         time_out__isnull=True).values_list('worker_id', flat=True))
 
-    # --- 🎯 THE RESPONSE LOGIC ---
-
-    # 1. Create the base response
+    # --- 🎯 THE RESPONSE ---
     context = {
         'site': site,
+        'company': company,
         'is_boss': is_boss,
         'workers': workers,
         'active_site_id': site_id,
@@ -187,40 +262,142 @@ def site_dashboard(request, site_id):
 
     response = render(request, 'site_management/site_dashboard.html', context)
 
-    # 2. 🚀 THE MAGIC: Attach the OOB Button if it's an HTMX request
     if request.htmx:
-        button_html = f'''
-        <div id="live-ops-anchor" hx-swap-oob="true">
-            <div hx-get="/site/{site_id}/" 
-                 hx-target="#main-content" 
-                 hx-push-url="true"
-                 hx-trigger="click" 
-                 hx-swap="innerHTML transition:true"
-                 class="cursor-pointer flex flex-col items-center flex-1 transition-all text-innocoda-teal animate-pulse">
-                <div class="relative">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal"></span>
-                    </span>
-                </div>
-                <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
-            </div>
-        </div>
-        '''
-        # Combine the dashboard HTML and the OOB Button HTML
+        # (Keep your Live Ops Button logic here)
+        button_html = f'''...'''
         response.write(mark_safe(button_html))
-        # response.content = response.content + mark_safe(button_html).encode()
 
     return response
 
 
+# @login_required
+# def site_warehouse(request, site_id):
+#     user_company = request.user.company
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+#     if request.method == "POST":
+#         # --- A. ADD STOCK (RECEIVE DELIVERY) ---
+#         if 'add_stock' in request.POST:
+#             try:
+#                 with transaction.atomic():
+#                     qty = Decimal(request.POST.get('quantity') or '0.00')
+#                     item_name = request.POST.get(
+#                         'item_name', '').strip().upper()
+#                     unit = request.POST.get('unit', '').strip()
+#                     img_file = request.FILES.get('evidence_image')
+#                     vid_file = request.FILES.get('evidence_video')
+
+#                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+#                         site=site, item_name=item_name, defaults={'unit': unit}
+#                     )
+
+#                     stock.current_balance += qty
+#                     if img_file:
+#                         stock.evidence_image = img_file
+#                     if vid_file:
+#                         stock.evidence_video = vid_file
+#                     stock.save()
+
+#                     MaterialRestockLog.objects.create(
+#                         stock_item=stock, site=site, quantity_added=qty,
+#                         evidence_image=img_file, evidence_video=vid_file
+#                     )
+#                     messages.success(
+#                         request, f"Received {qty} {unit} of {item_name}.")
+
+#             except Exception as e:
+#                 messages.error(request, f"Intake Error: {e}")
+
+#         # --- B. ISSUE MATERIAL (DEDUCTION) ---
+#         elif 'issue_material' in request.POST:
+#             stock_id = request.POST.get('stock_item')
+#             worker_id = request.POST.get('worker_id')
+#             qty_input = request.POST.get('quantity')
+
+#             try:
+#                 # 1. 📏 Minimal Prep
+#                 qty = Decimal(qty_input or 0)
+#                 worker = get_object_or_404(SkilledWorker, id=worker_id)
+#                 stock = get_object_or_404(
+#                     MaterialStock, id=stock_id, site=site)
+
+#                 # 2. 🚀 THE POWER MOVE: Just Create the Deduction.
+#                 # The Model's .save() will handle the subtraction and the ValidationError
+#                 # if there isn't enough stock. No manual math needed here!
+#                 MaterialDeduction.objects.create(
+#                     stock_item=stock,
+#                     worker=worker,
+#                     quantity_taken=qty,
+#                     purpose=request.POST.get('purpose', 'General Site Use'),
+#                     authorized_by=request.user,
+#                 )
+
+#                 messages.success(
+#                     request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
+
+#             except ValidationError as e:
+#                 # 🛑 This catches the exact error message we wrote in models.py
+#                 error_msg = e.message_dict.get('__all__', [str(e)])[0]
+#                 messages.error(request, error_msg)
+#             except Exception as e:
+#                 print(f"DEDUCTION CRASH: {e}")
+#                 messages.error(
+#                     request, "A system error occurred. Inventory remains unchanged.")
+#         # ✨ HTMX RESPONSE (Keep this outside the if/elif)
+#         if request.htmx:
+#             stocks = MaterialStock.objects.filter(site=site)
+#             return render(request, 'site_management/partials/stock_list_partial.html', {
+#                 'stocks': stocks,
+#                 'site': site,
+#                 'messages': messages.get_messages(request)
+#             })
+
+#         return redirect('site_warehouse', site_id=site.id)
+
+#     # 📋 Normal Page Load
+#     stocks = MaterialStock.objects.filter(site=site)
+#     workers = SkilledWorker.objects.filter(site=site)
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site, is_used=True).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+#     is_boss = (site.company.owner == request.user) or (
+#         user_role == 'PROJECT_MANAGER')
+
+#     context = {
+#         'site': site,
+#         'stocks': stocks,
+#         'workers': workers,
+#         'is_boss': is_boss,
+#         'user_role': user_role,
+#     }
+#     return render(request, 'site_management/site_warehouse.html', context)
 @login_required
 def site_warehouse(request, site_id):
-    user_company = request.user.company
-    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+    # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
+    site = get_object_or_404(SiteLocation, id=site_id)
+
+    # 🛡️ 2. THE PERMISSION GATE
+    # Check if the user is the Boss
+    is_owner = (site.company.owner == request.user)
+
+    # Check if the user is an invited staff member for THIS site
+    invitation = Invitation.objects.filter(
+        email=request.user.email,
+        site=site,
+        is_used=True
+    ).last()
+
+    # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
+    if not is_owner and not invitation:
+        messages.error(
+            request, "Access Denied: You are not assigned to this warehouse.")
+        return redirect('profile')
+
+    # 3. Determine the User's Role for the UI
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+    is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
+
+    # --- THE LOGIC ENGINE ---
 
     if request.method == "POST":
         # --- A. ADD STOCK (RECEIVE DELIVERY) ---
@@ -234,6 +411,7 @@ def site_warehouse(request, site_id):
                     img_file = request.FILES.get('evidence_image')
                     vid_file = request.FILES.get('evidence_video')
 
+                    # 🎯 We use 'site=site' directly now
                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
                         site=site, item_name=item_name, defaults={'unit': unit}
                     )
@@ -251,7 +429,6 @@ def site_warehouse(request, site_id):
                     )
                     messages.success(
                         request, f"Received {qty} {unit} of {item_name}.")
-
             except Exception as e:
                 messages.error(request, f"Intake Error: {e}")
 
@@ -262,15 +439,11 @@ def site_warehouse(request, site_id):
             qty_input = request.POST.get('quantity')
 
             try:
-                # 1. 📏 Minimal Prep
                 qty = Decimal(qty_input or 0)
                 worker = get_object_or_404(SkilledWorker, id=worker_id)
                 stock = get_object_or_404(
                     MaterialStock, id=stock_id, site=site)
 
-                # 2. 🚀 THE POWER MOVE: Just Create the Deduction.
-                # The Model's .save() will handle the subtraction and the ValidationError
-                # if there isn't enough stock. No manual math needed here!
                 MaterialDeduction.objects.create(
                     stock_item=stock,
                     worker=worker,
@@ -278,19 +451,14 @@ def site_warehouse(request, site_id):
                     purpose=request.POST.get('purpose', 'General Site Use'),
                     authorized_by=request.user,
                 )
-
                 messages.success(
-                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
-
+                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
             except ValidationError as e:
-                # 🛑 This catches the exact error message we wrote in models.py
                 error_msg = e.message_dict.get('__all__', [str(e)])[0]
                 messages.error(request, error_msg)
             except Exception as e:
-                print(f"DEDUCTION CRASH: {e}")
-                messages.error(
-                    request, "A system error occurred. Inventory remains unchanged.")
-        # ✨ HTMX RESPONSE (Keep this outside the if/elif)
+                messages.error(request, "A system error occurred.")
+
         if request.htmx:
             stocks = MaterialStock.objects.filter(site=site)
             return render(request, 'site_management/partials/stock_list_partial.html', {
@@ -304,11 +472,6 @@ def site_warehouse(request, site_id):
     # 📋 Normal Page Load
     stocks = MaterialStock.objects.filter(site=site)
     workers = SkilledWorker.objects.filter(site=site)
-    invitation = Invitation.objects.filter(
-        email=request.user.email, site=site, is_used=True).last()
-    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-    is_boss = (site.company.owner == request.user) or (
-        user_role == 'PROJECT_MANAGER')
 
     context = {
         'site': site,
@@ -833,33 +996,41 @@ def invite_staff(request):
         invite_link = f"{domain}/account/register/?token={token}"
 
         # 5. The Dispatch
-        subject = f"Invitation to join {site.name} on CodaSite"
-        message = f"""
-        Hello,
-        
-        You have been invited by {request.user.username} to join the project at {site.name} 
-        as a {role.replace('_', ' ').title()}.
-        
-        Please click the link below to set up your account:
-        {invite_link}
-        
-        Best regards,
-        InnoCoda Team
-        """
+        # 5. THE DISPATCH (Using Resend SDK to bypass Django's local SMTP)
+
+        from django.conf import settings
+
+        resend.api_key = settings.RESEND_API_KEY
+
+        # We use HTML here to make the invite look like a "Super App"
+        params = {
+            "from": settings.DEFAULT_FROM_EMAIL,
+            "to": [email],
+            "subject": f"🏗️ Invitation: Join {site.name} on CodaSite",
+            "html": f"""
+                <div style="font-family: sans-serif; padding: 20px; color: #1a202c; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <h2 style="color: #0d9488;">InnoCoda Studio</h2>
+                    <p>Hello,</p>
+                    <p>You have been invited by <strong>{request.user.username}</strong> to join the project at <strong>{site.name}</strong> 
+                    as a <strong>{role.replace('_', ' ').title()}</strong>.</p>
+                    <p>Click the button below to set up your account and start managing site materials:</p>
+                    <div style="margin: 30px 0;">
+                        <a href="{invite_link}" style="display: inline-block; padding: 14px 28px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Accept Invitation</a>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 12px; color: #718096;">If the button doesn't work, copy this link into your browser: <br>{invite_link}</p>
+                    <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
+                    <p style="font-size: 10px; color: #a0aec0;">CodaSite - Construction Management simplified.</p>
+                </div>
+            """
+        }
 
         try:
-            from django.core.mail import send_mail
-            from django.conf import settings
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
-            )
+            # 🚀 This calls Resend directly, ignoring the 'WinError 10061' error
+            resend.Emails.send(params)
             messages.success(
                 request, f"Invitation sent successfully to {email}!")
         except Exception as e:
+            # If the API key is missing or internet is down, we catch it here
             messages.error(request, f"Email failed to send. Error: {e}")
 
         return redirect('profile')
@@ -867,24 +1038,48 @@ def invite_staff(request):
 # Restock
 
 
+# @login_required
+# def restock_history(request, site_id):
+#     """View the full visual proof log for all materials on a specific site."""
+#     site = get_object_or_404(SiteLocation, id=site_id)
+
+#     # 🛡️ ONE SECURITY CHECK: Is this user allowed to be here?
+#     is_pm = Invitation.objects.filter(
+#         email=request.user.email, site=site).exists()
+#     # ✅ NEW (Through the Company)
+#     if site.company.owner != request.user and not request.user.is_superuser:
+#         raise PermissionDenied()
+
+#     # 🟢 THE HISTORY LOGS (Every delivery event)
+#     # We use select_related to get the name and unit from the Stock model
+#     history = MaterialRestockLog.objects.filter(
+#         site=site).select_related('stock_item').order_by('-timestamp')
+
+#     # 🟢 THE CURRENT TOTALS (For the top of the page if needed)
+#     stocks = MaterialStock.objects.filter(site=site).order_by('-last_updated')
+
+#     return render(request, 'site_management/restock_history.html', {
+#         'site': site,
+#         'history': history,
+#         'stocks': stocks
+#     })
 @login_required
 def restock_history(request, site_id):
     """View the full visual proof log for all materials on a specific site."""
     site = get_object_or_404(SiteLocation, id=site_id)
 
-    # 🛡️ ONE SECURITY CHECK: Is this user allowed to be here?
-    is_pm = Invitation.objects.filter(
-        email=request.user.email, site=site).exists()
-    # ✅ NEW (Through the Company)
-    if site.company.owner != request.user and not request.user.is_superuser:
+    # 🛡️ THE PERMISSION GATE
+    is_owner = (site.company.owner == request.user)
+    # Check if user is an invited staff member (PM, Storekeeper, etc.)
+    invitation = Invitation.objects.filter(
+        email=request.user.email, site=site, is_used=True).exists()
+
+    if not is_owner and not invitation and not request.user.is_superuser:
         raise PermissionDenied()
 
-    # 🟢 THE HISTORY LOGS (Every delivery event)
-    # We use select_related to get the name and unit from the Stock model
+    # 🟢 THE HISTORY LOGS
     history = MaterialRestockLog.objects.filter(
         site=site).select_related('stock_item').order_by('-timestamp')
-
-    # 🟢 THE CURRENT TOTALS (For the top of the page if needed)
     stocks = MaterialStock.objects.filter(site=site).order_by('-last_updated')
 
     return render(request, 'site_management/restock_history.html', {
@@ -893,41 +1088,66 @@ def restock_history(request, site_id):
         'stocks': stocks
     })
 
+# @login_required
+# def material_usage_report(request, site_id):
+#     user_company = request.user.company
+#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+
+#     # 🛡️ Permission Check (Including Project Managers)
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email, site=site, is_used=True).last()
+#     is_authorized = (site.company.owner == request.user) or (
+#         invitation and invitation.role_assigned == 'PROJECT_MANAGER')
+
+#     if not is_authorized and not request.user.is_superuser:
+#         from django.core.exceptions import PermissionDenied
+#         raise PermissionDenied()
+
+#     # 🟢 THE OPTIMIZED QUERY
+#     usage_logs = MaterialDeduction.objects.filter(
+#         stock_item__site=site
+#     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
+
+#     context = {
+#         'site': site,
+#         'usage_logs': usage_logs,
+#         'company': site.company,
+#     }
+
+#     # 🎯 THE HTMX SWITCH (The Engine)
+#     if request.htmx:
+#         # This returns ONLY the table content, no navbar, no sidebar.
+#         return render(request, 'site_management/partials/usage_report_partial.html', context)
+
+#     # Normal full page load if they refresh or type the URL
+#     return render(request, 'site_management/material_usage_report.html', context)
+
 
 @login_required
 def material_usage_report(request, site_id):
-    user_company = request.user.company
-    site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
+    """View detailed usage and deductions."""
+    site = get_object_or_404(SiteLocation, id=site_id)
 
-    # 🛡️ Permission Check (Including Project Managers)
+    # 🛡️ Permission Gate
+    is_owner = (site.company.owner == request.user)
     invitation = Invitation.objects.filter(
-        email=request.user.email, site=site, is_used=True).last()
-    is_authorized = (site.company.owner == request.user) or (
-        invitation and invitation.role_assigned == 'PROJECT_MANAGER')
+        email=request.user.email, site=site, is_used=True).exists()
 
-    if not is_authorized and not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
+    if not is_owner and not invitation:
         raise PermissionDenied()
 
-    # 🟢 THE OPTIMIZED QUERY
+    # 🟢 Syncing usage_logs for your template
     usage_logs = MaterialDeduction.objects.filter(
         stock_item__site=site
     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
 
-    context = {
+    # 🎯 FIX THE FILENAME HERE:
+    # It must match the file C:\...\site_management\material_usage_report.html
+    return render(request, 'site_management/material_usage_report.html', {
         'site': site,
         'usage_logs': usage_logs,
-        'company': site.company,
-    }
-
-    # 🎯 THE HTMX SWITCH (The Engine)
-    if request.htmx:
-        # This returns ONLY the table content, no navbar, no sidebar.
-        return render(request, 'site_management/partials/usage_report_partial.html', context)
-
-    # Normal full page load if they refresh or type the URL
-    return render(request, 'site_management/material_usage_report.html', context)
-
+        'company': site.company
+    })
 
 # Profiles
 
@@ -981,11 +1201,15 @@ def profile_view(request):
         user_role = "CONTRACTOR"
         company_profile = Company.objects.filter(owner=user).first()
         assigned_site = None
-
+    #
+    my_invitations = Invitation.objects.filter(
+        invited_by=user
+    ).select_related('site').order_by('-created_at')
     context = {
         'user_role': user_role,  # ✍️ This is now "Foreman", "Engineer", etc.
         'invitation': invitation,
         'company': company_profile,
+        'my_invitations': my_invitations,
         'assigned_site': assigned_site,
         'sites_count': SiteLocation.objects.filter(company=company_profile).count() if company_profile else 0,
     }
@@ -1075,6 +1299,74 @@ def update_company_name(request):
             messages.success(request, f"Business name updated successfully!")
         else:
             messages.error(request, "Could not update business name.")
+
+    return redirect('profile')
+
+
+@login_required
+def manage_staff_access(request, invitation_id):
+    invite = get_object_or_404(Invitation, id=invitation_id)
+    site = invite.site
+
+    # 🛡️ 1. THE PERMISSION GATE
+    # The Boss (Owner) always has access
+    is_owner = (site.company.owner == request.user)
+
+    # Check if the current user is a PM for THIS specific site
+    is_pm = Invitation.objects.filter(
+        email=request.user.email,
+        site=site,
+        role_assigned='PROJECT_MANAGER',
+        is_used=True
+    ).exists()
+
+    if not (is_owner or is_pm):
+        messages.error(
+            request, "Access Denied: Only the Boss or PM can manage staff.")
+        return redirect('profile')
+
+    # 🛠️ 2. THE ACTIONS
+    if request.method == "POST":
+        action = request.POST.get('action')
+
+        if action == "update_role":
+            new_role = request.POST.get('new_role')
+            invite.role_assigned = new_role
+            invite.save()
+            messages.success(request, f"Staff role updated to {new_role}.")
+
+        elif action == "block":
+            invite.is_used = False
+            invite.save()
+            messages.success(
+                request, "Access revoked. User is now blocked from this site.")
+
+        elif action == "unblock":
+            invite.is_used = True
+            invite.save()
+            messages.success(request, "Access restored for this staff member.")
+
+    return redirect('profile')
+
+
+@login_required
+def block_staff(request, invite_id):
+    invite = get_object_or_404(Invitation, id=invite_id)
+    site = invite.site
+
+    # 🛡️ Security Check
+    # Find the PM email for this site (if any)
+    pm_invite = Invitation.objects.filter(
+        site=site, role_assigned='PROJECT_MANAGER', is_used=True).first()
+    site_pm_email = pm_invite.email if pm_invite else None
+
+    if site.company.owner == request.user or request.user.email == site_pm_email:
+        invite.is_used = False
+        invite.save()
+        messages.success(request, f"Access revoked for {invite.email}.")
+    else:
+        messages.error(
+            request, "Access Denied: Only the Boss or PM can block staff.")
 
     return redirect('profile')
 

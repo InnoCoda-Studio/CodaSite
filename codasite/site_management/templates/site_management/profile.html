@@ -129,14 +129,69 @@
     </div>
 {% endif %}
 
+<div class="glass p-6 rounded-[2.5rem] border border-white/10 mt-8">
+    <h3 class="text-white font-black uppercase text-[10px] mb-6 tracking-[0.3em]">Site Team Management</h3>
+    
+    <div class="space-y-3">
+        {% for invite in my_invitations %}
+            <div class="flex items-center justify-between bg-white/5 p-4 rounded-3xl border border-white/5">
+                <div class="flex flex-col">
+                    <span class="text-white text-xs font-bold">{{ invite.email }}</span>
+                    <span class="text-innocoda-teal text-[9px] font-black uppercase mt-1">
+                        {{ invite.role_assigned }} @ {{ invite.site.name }}
+                    </span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <span class="{% if invite.is_used %}text-emerald-400{% else %}text-amber-400{% endif %} text-[8px] font-black uppercase">
+                        {% if invite.is_used %}Active{% else %}Pending{% endif %}
+                    </span>
 
-        <div class="glass p-6 rounded-[2.5rem] border border-white/10 md:col-span-2">
-            <h3 class="text-white font-black uppercase text-xs mb-4 tracking-widest">Security</h3>
-            <form action="{% url 'logout' %}" method="post" class="w-full">
-                {% csrf_token %}
-                <button type="submit" class="w-full p-4 bg-red-500/10 rounded-2xl text-xs font-black text-red-400 text-center border border-red-500/20 uppercase">Sign Out</button>
-            </form>
-        </div>
+                    {% if invite.is_used %}
+                    <form hx-post="{% url 'block_staff' invite.id %}" hx-confirm="Are you sure you want to block this user?" hx-target="closest div">
+                        {% csrf_token %}
+                        <button type="submit" class="p-2 bg-red-500/10 rounded-xl">
+                           <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-gray-500 text-[10px] text-center uppercase tracking-widest italic">No staff invited yet</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% if invitation %}
+    <form action="{% url 'block_staff' invitation.id %}" method="POST">
+        {% csrf_token %}
+        <button type="submit" class="text-red-500 font-bold uppercase text-[10px]">
+            Revoke Access
+        </button>
+    </form>
+{% endif %}
+
+
+
+
+            {% comment %} <div class="glass p-6 rounded-[2.5rem] border border-white/10 md:col-span-2">
+                <h3 class="text-white font-black uppercase text-xs mb-4 tracking-widest">Security</h3>
+                <form action="{% url 'logout' %}" method="post" class="w-full">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full p-4 bg-red-500/10 rounded-2xl text-xs font-black text-red-400 text-center border border-red-500/20 uppercase">Sign Out</button>
+                </form>
+            </div> {% endcomment %}
+
+            <div class="glass p-6 rounded-[2.5rem] border border-white/10 mt-8 md:col-span-2">
+    <h3 class="text-white font-black uppercase text-xs mb-4 tracking-widest">Security</h3>
+    <form action="{% url 'logout' %}" method="post" class="w-full">
+        {% csrf_token %}
+        <button type="submit" class="w-full p-4 bg-red-500/10 rounded-2xl text-xs font-black text-red-400 text-center border border-red-500/20 uppercase">
+            Sign Out
+        </button>
+    </form>
+</div>
     </div>
 </div>
 {% comment %} <script>
