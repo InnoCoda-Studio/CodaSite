@@ -73,23 +73,50 @@ class SiteLocation(models.Model):
 # 2. Access Control
 
 
+# class Invitation(models.Model):
+#     ROLE_CHOICES = [
+#         ('PROJECT_MANAGER', 'Project Manager'),
+#         ('STOREKEEPER', 'Storekeeper'),
+#     ]
+#     email = models.EmailField()
+#     site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
+#     token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+#     invited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+#     role_assigned = models.CharField(
+#         max_length=20, db_index=True, choices=ROLE_CHOICES)
+#     is_used = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return f"Invite for {self.email} to {self.site.name}"
+
+
 class Invitation(models.Model):
+    # 🛑 1. You can keep these as 'suggestions' for your UI,
+    # but we remove them from the field itself to allow custom typing.
     ROLE_CHOICES = [
         ('PROJECT_MANAGER', 'Project Manager'),
         ('STOREKEEPER', 'Storekeeper'),
     ]
+
     email = models.EmailField()
     site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     invited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    # ✍️ 2. REMOVE 'choices=ROLE_CHOICES' to unlock the field
+    # Also increased max_length to 50 just in case they type a long title.
     role_assigned = models.CharField(
-        max_length=20, db_index=True, choices=ROLE_CHOICES)
+        max_length=50,
+        db_index=True,
+        help_text="The custom title for this staff member"
+    )
+
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Invite for {self.email} to {self.site.name}"
-
+        return f"Invite for {self.email} as {self.role_assigned} at {self.site.name}"
 # 3. Staff & Skilled Workers
 
 

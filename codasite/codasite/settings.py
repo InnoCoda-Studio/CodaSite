@@ -185,12 +185,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # settings.py
 
 # 🚀 1. The Master Key (Pulls from your Render Env or .env file)
+# settings.py
+
+# 🚀 1. The Master Key
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 
 # 📧 2. The Official "From" Address
-# Make sure this matches your verified domain!
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
+# 🛑 3. Add this to prevent WinError 10061
+# This tells Django: "Don't look for a local SMTP server; we are using the Resend SDK instead."
+EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 
 # //////////////////////////
 # // Tailwind 👇🏻

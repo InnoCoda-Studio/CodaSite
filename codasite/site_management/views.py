@@ -932,29 +932,62 @@ def material_usage_report(request, site_id):
 # Profiles
 
 
+# @login_required
+# def profile_view(request):
+#     user = request.user
+
+#     # 1. Determine Role & Site Assignment
+#     invitation = Invitation.objects.filter(
+#         email=user.email, is_used=True).last()
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#     # 2. Get branding (Using the Invitation logic we synced)
+#     if invitation:
+#         company_profile = Company.objects.filter(
+#             owner=invitation.invited_by).first()
+#     else:
+#         company_profile = Company.objects.filter(owner=user).first()
+
+#     context = {
+#         'user_role': user_role,
+#         'invitation': invitation,
+#         'company_profile': company_profile,
+#         'company': company_profile,  # 🎯 Keep both for template safety
+#         'sites_count': SiteLocation.objects.filter(company=company_profile).count() if company_profile else 0,
+#         'assigned_site': invitation.site if invitation else None,
+#     }
+
+#     return render(request, 'site_management/profile.html', context)
 @login_required
 def profile_view(request):
     user = request.user
 
-    # 1. Determine Role & Site Assignment
+    # 1. Look for the 'Accepted' invitation for this specific email
+    # We use .filter().last() to get the most recent one if they've been invited twice
     invitation = Invitation.objects.filter(
-        email=user.email, is_used=True).last()
-    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+        email=user.email,
+        is_used=True
+    ).select_related('site', 'invited_by').last()
 
-    # 2. Get branding (Using the Invitation logic we synced)
+    # 2. Determine the Role Title
+    # If they have an invitation, use whatever the Boss typed (e.g., "Site Surveyor")
+    # If no invitation, they are the "COMPANY OWNER / CONTRACTOR"
     if invitation:
+        user_role = invitation.role_assigned
         company_profile = Company.objects.filter(
             owner=invitation.invited_by).first()
+        assigned_site = invitation.site
     else:
+        user_role = "CONTRACTOR"
         company_profile = Company.objects.filter(owner=user).first()
+        assigned_site = None
 
     context = {
-        'user_role': user_role,
+        'user_role': user_role,  # ✍️ This is now "Foreman", "Engineer", etc.
         'invitation': invitation,
-        'company_profile': company_profile,
-        'company': company_profile,  # 🎯 Keep both for template safety
+        'company': company_profile,
+        'assigned_site': assigned_site,
         'sites_count': SiteLocation.objects.filter(company=company_profile).count() if company_profile else 0,
-        'assigned_site': invitation.site if invitation else None,
     }
 
     return render(request, 'site_management/profile.html', context)
