@@ -204,6 +204,12 @@ def site_dashboard(request, site_id):
     invitation = Invitation.objects.filter(
         email=request.user.email, site=site, is_used=True).last()
 
+    # 🎯 THE FIX: Fetch workers that belong to this company but are not on THIS site
+    # This allows you to "redeploy" workers from other sites or your general pool
+    global_workers_pool = SkilledWorker.objects.filter(
+        company=company
+    ).exclude(site=site)
+
     if not is_owner and not invitation:
         messages.error(
             request, "Access Denied: You are not assigned to this site.")
@@ -226,12 +232,60 @@ def site_dashboard(request, site_id):
     global_workers_pool = SkilledWorker.objects.filter(
         company=company).exclude(site=site)
 
-    # ... (Keep your existing POST logic here)
     # 5. HANDLE PERSONNEL ACTIONS (POST)
 
     if request.method == "POST":
+        # --- 1. DEPLOY FROM GLOBAL POOL ---
+        if 'deploy_worker' in request.POST:
+            worker_id = request.POST.get('worker_id')
+            # 🛡️ SECURITY: Ensure worker belongs to the company
+            worker = get_object_or_404(
+                SkilledWorker, id=worker_id, company=company)
 
-        # ... (Keep your existing POST logic here: register_worker, deploy_worker, etc.)
+            # Optional: Override role/rate for this specific site
+            new_role = request.POST.get('update_category')
+            new_rate = request.POST.get('update_rate')
+
+            worker.site = site  # 🏗️ Move them to this site
+            if new_role:
+                worker.category = new_role
+            if new_rate:
+                worker.daily_rate = Decimal(new_rate)
+
+            worker.save()
+            messages.success(request, f"{worker.name} deployed to {site.name}")
+
+        # --- 2. REGISTER NEW WORKER DIRECTLY TO SITE ---
+        elif 'register_worker' in request.POST:
+            id_num = request.POST.get('id_number', '').strip()
+
+            # 🛡️ GHOST CHECK: Prevent duplicate IDs in the company
+            if SkilledWorker.objects.filter(company=company, id_number=id_num).exists():
+                messages.error(
+                    request, "Identity Error: Personnel already exists in registry.")
+            else:
+                SkilledWorker.objects.create(
+                    company=company,
+                    site=site,  # 📍 Direct deployment
+                    name=request.POST.get('name'),
+                    category=request.POST.get('category'),
+                    id_number=id_num,
+                    phone=request.POST.get('phone'),
+                    daily_rate=Decimal(request.POST.get(
+                        'pay_frequency') or '0.00'),
+                    profile_picture=request.FILES.get('profile_picture')
+                )
+                messages.success(
+                    request, f"New Personnel enrolled and deployed to {site.name}.")
+
+        # --- 3. MASS RATE UPDATE ---
+        elif 'update_all_rates' in request.POST:
+            for worker in workers:
+                rate_key = f"rate_{worker.id}"
+                if rate_key in request.POST:
+                    worker.daily_rate = Decimal(request.POST.get(rate_key))
+                    worker.save()
+            messages.success(request, "Labor rates synchronized.")
 
         return redirect('site_dashboard', site_id=site.id)
 
@@ -371,6 +425,7 @@ def site_dashboard(request, site_id):
 #         'user_role': user_role,
 #     }
 #     return render(request, 'site_management/site_warehouse.html', context)
+
 @login_required
 def site_warehouse(request, site_id):
     # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
@@ -1305,48 +1360,32 @@ def update_company_name(request):
 
 @login_required
 def manage_staff_access(request, invitation_id):
+    # Fetch the invitation
     invite = get_object_or_404(Invitation, id=invitation_id)
     site = invite.site
 
-    # 🛡️ 1. THE PERMISSION GATE
-    # The Boss (Owner) always has access
-    is_owner = (site.company.owner == request.user)
+    # 🛡️ Permission Gate: Only the Boss or PM can do this
+    pm_invite = Invitation.objects.filter(
+        site=site, role_assigned='PROJECT_MANAGER', is_used=True).first()
+    is_pm = (request.user.email == pm_invite.email) if pm_invite else False
 
-    # Check if the current user is a PM for THIS specific site
-    is_pm = Invitation.objects.filter(
-        email=request.user.email,
-        site=site,
-        role_assigned='PROJECT_MANAGER',
-        is_used=True
-    ).exists()
+    if request.user != site.company.owner and not is_pm:
+        messages.error(request, "Access Denied.")
+        return redirect('site_dashboard', site_id=site.id)
 
-    if not (is_owner or is_pm):
-        messages.error(
-            request, "Access Denied: Only the Boss or PM can manage staff.")
-        return redirect('profile')
-
-    # 🛠️ 2. THE ACTIONS
     if request.method == "POST":
         action = request.POST.get('action')
 
-        if action == "update_role":
-            new_role = request.POST.get('new_role')
-            invite.role_assigned = new_role
-            invite.save()
-            messages.success(request, f"Staff role updated to {new_role}.")
+        if action == 'block':
+            invite.is_used = False  # This blocks them from accessing the site
+            messages.warning(request, f"Access revoked for {invite.email}")
+        elif action == 'unblock':
+            invite.is_used = True  # This restores access
+            messages.success(request, f"Access restored for {invite.email}")
 
-        elif action == "block":
-            invite.is_used = False
-            invite.save()
-            messages.success(
-                request, "Access revoked. User is now blocked from this site.")
+        invite.save()
 
-        elif action == "unblock":
-            invite.is_used = True
-            invite.save()
-            messages.success(request, "Access restored for this staff member.")
-
-    return redirect('profile')
+    return redirect('site_dashboard', site_id=site.id)
 
 
 @login_required
