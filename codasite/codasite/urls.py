@@ -22,7 +22,7 @@ from django.views.static import serve  # Add this import
 import re
 
 urlpatterns = [
-    path('ojibo-ogala!/', admin.site.urls),
+    path('admin/', admin.site.urls),
     path('account/', include('account.urls')),
     path('', include('site_management.urls')),
 ]
