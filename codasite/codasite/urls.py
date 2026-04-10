@@ -21,7 +21,7 @@ from django.conf.urls.static import static
 
 
 urlpatterns = [
-    path('ojibo/ogala!/', admin.site.urls),
+    path('ojibo-ogala!/', admin.site.urls),
     path('account/', include('account.urls')),
     path('', include('site_management.urls')),
 ]
