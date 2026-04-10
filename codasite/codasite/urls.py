@@ -18,7 +18,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-
+from django.views.static import serve  # Add this import
+import re
 
 urlpatterns = [
     path('ojibo-ogala!/', admin.site.urls),
@@ -26,6 +27,8 @@ urlpatterns = [
     path('', include('site_management.urls')),
 ]
 # 📸 This allows you to see the photos/videos while you are developing
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+if not settings.DEBUG:
+    urlpatterns += [
+        path('static/<path:path>', serve,
+             {'document_root': settings.STATIC_ROOT}),
+    ]
