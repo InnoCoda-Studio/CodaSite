@@ -21,16 +21,17 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = False  # os.getenv('DEBUG', 'False') == 'True'
 
 # settings.py
 
 # 🟢 Only allow your official Render URL and your future domain
 ALLOWED_HOSTS = [
     'codasite.onrender.com',
+    'codasite.com.ng',
+    'www.codasite.com.ng',
     'localhost',
     '127.0.0.1',
-    'codasite.com.ng',  # 👈 Add this once you buy your domain
 ]
 
 
@@ -39,18 +40,17 @@ ALLOWED_HOSTS = [
 INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
     # Cloudinary
-    'cloudinary_storage',
     'django.contrib.staticfiles',
-    'cloudinary',
-    # Cloudinary
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-
-    'django_htmx',
+    # Cloudinary
+    'cloudinary_storage',
+    'cloudinary',
     # Tailwind down 👇🏻
+    'django_htmx',
     'tailwind',
 
     'theme',
@@ -153,39 +153,37 @@ USE_TZ = True
 # // Static files (CSS, JavaScript, Images)
 # // https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-# /////////////////////// --- STATIC FILES (CSS, JavaScript, Images) ---
-# Static Files (CSS, JavaScript, Images)
-
-
-# settings.py
 # settings.py
 
-# 📂 Media Files (User Uploads) go to Cloudinary
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        # 🛡️ Switch to this - it's the most stable for Windows/Python 3.14
+        "BACKEND": "whitenoise.storage.StaticFilesStorage",
+    },
+}
 
-# 🎨 Static Files (CSS/JS) go to WhiteNoise
-# Note: Use this exact string for WhiteNoise 6.0+
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# 🏁 Match the legacy setting as well
 
-# // --- STATIC FILES CONFIG ---
-STATIC_URL = 'static/'
+# 2. Paths Configuration
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
-    BASE_DIR / 'theme' / 'static',  # 👈 This is where Tailwind puts the CSS
+    BASE_DIR / 'theme' / 'static',
 ]
 
-# WhiteNoise for efficient static file serving on Render
-
-# Media Files (Uploaded Photos & Videos)
+# 3. Media Files (User Uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# // Custom acout
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
+# --- 📧 INNOCODA EMAIL CONFIGURATION (RESEND) ---
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
+EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 # // password reset email
 # // settings.py - INNOCODA EMAIL CONFIGURATION
 
@@ -232,6 +230,10 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
     'SECURE': True,  # 🟢 This forces HTTPS for all images
 }
+
+
+# This explicit config fixes the "Must supply cloud_name" error
+
 # /// Cound
 
 # /// Tell Django where your custom login page is
@@ -240,3 +242,6 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'login'
 AUTH_USER_MODEL = 'account.User'
+
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
+WHITENOISE_KEEP_ONLY_HASHED_FILES = True
