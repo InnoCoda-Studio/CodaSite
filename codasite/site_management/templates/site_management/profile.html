@@ -4,22 +4,24 @@
     
     <div class="glass p-8 rounded-[3rem] border border-white/10 text-center mb-8 relative overflow-hidden">
         <div class="absolute -top-10 -right-10 w-40 h-40 bg-innocoda-teal/10 rounded-full blur-3xl"></div>
-<div id="company-logo-wrapper" class="relative inline-block group" x-data="{ uploading: false }">
+            
+            <div id="company-logo-wrapper" class="relative inline-block group" x-data="{ uploading: false }">
     <form hx-post="{% url 'update_company_logo' %}" 
           hx-target="#company-logo-wrapper" 
           hx-swap="outerHTML" 
           hx-encoding="multipart/form-data"
+          hx-trigger="change from:#logoInput" 
           @htmx:before-request="uploading = true">
         {% csrf_token %}
         
         <label for="logoInput" class="cursor-pointer block relative">
-            <div x-show="uploading" class="absolute inset-0 z-10 flex items-center justify-center bg-innocoda-navy/60 rounded-3xl backdrop-blur-sm">
+            <div x-show="uploading" class="absolute inset-0 z-10 flex items-center justify-center bg-innocoda-navy/60 rounded-3xl backdrop-blur-sm" x-cloak>
                 <span class="animate-spin h-6 w-6 border-2 border-innocoda-teal border-t-transparent rounded-full"></span>
             </div>
 
-            {% if company_profile.logo %}
-                <img src="{{ company_profile.logo.url }}" 
-                     class="w-28 h-28 object-cover mx-auto mb-4 rounded-3xl shadow-2xl border border-white/10 group-hover:opacity-40 transition-all">
+            {% if user.company.logo %}
+                <img src="{{ user.company.logo.url }}" 
+                     class="w-28 h-28 object-cover mx-auto mb-4 rounded-3xl shadow-[0_0_15px_rgba(0,210,210,0.3)] border border-white/10 group-hover:opacity-40 transition-all">
             {% else %}
                 <div class="w-28 h-28 bg-gradient-to-tr from-innocoda-teal to-emerald-500 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:opacity-40 transition-all">
                     <span class="text-4xl font-black text-innocoda-navy">{{ user.username|slice:":1"|upper }}</span>
@@ -34,8 +36,7 @@
             </div>
         </label>
 
-        <input type="file" name="logo" id="logoInput" class="hidden" 
-               @change="$el.form.dispatchEvent(new Event('submit'))">
+        <input type="file" name="logo" id="logoInput" class="hidden" accept="image/*">
     </form>
 </div>
         
