@@ -287,28 +287,28 @@
             </a>
 
             <div id="live-ops-anchor" class="flex flex-1 justify-center">
-    {% if active_site_id %}
-    <div hx-get="/site/{{ active_site_id }}/" 
-        hx-target="#main-content" 
-        hx-push-url="true"
-        hx-trigger="click" 
-        hx-swap="innerHTML transition:true"
-        hx-indicator=".htmx-progress"
-        class="cursor-pointer flex flex-col items-center transition-all group {% if '/site/' in request.path %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %}">
-        
-        <div class="relative">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            
-            <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal shadow-[0_0_8px_#00D2D2]"></span>
-            </span>
-        </div>
-        
-        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
-    </div>
-    {% endif %}
-</div>
+                {% if active_site_id %}
+                <div hx-get="/site/{{ active_site_id }}/" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    hx-trigger="click" 
+                    hx-swap="innerHTML transition:true"
+                    hx-indicator=".htmx-progress"
+                    class="cursor-pointer flex flex-col items-center transition-all group {% if '/site/' in request.path %}text-innocoda-teal{% else %}text-gray-500 hover:text-white{% endif %}">
+                    
+                    <div class="relative">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        
+                        <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal shadow-[0_0_8px_#00D2D2]"></span>
+                        </span>
+                    </div>
+                    
+                    <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+                </div>
+                {% endif %}
+            </div>
 
 
             <div hx-get="{% url 'all_workers' %}" 
