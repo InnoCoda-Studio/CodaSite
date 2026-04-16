@@ -531,4 +531,27 @@ document.body.addEventListener('htmx:configRequest', (event) => {
     event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
 });
 </script>
+
+{% comment %} lifop {% endcomment %}
+<div id="live-ops-anchor" class="flex flex-1 justify-center" hx-swap-oob="true">
+    <div hx-get="/site/{{ site.id }}/" 
+        hx-target="#main-content" 
+        hx-push-url="true"
+        hx-trigger="click" 
+        hx-swap="innerHTML transition:true"
+        hx-indicator=".htmx-progress"
+        class="cursor-pointer flex flex-col items-center transition-all group text-innocoda-teal">
+        
+        <div class="relative">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            
+            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal shadow-[0_0_8px_#00D2D2]"></span>
+            </span>
+        </div>
+        
+        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+    </div>
+</div>
 {% endblock %}
