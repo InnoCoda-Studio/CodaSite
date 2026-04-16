@@ -45,13 +45,26 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
+    
+    <meta name="htmx-config" content='{"refreshOnHistoryMiss":true}'>
+    {% comment %} <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.0.1"> {% endcomment %}
 
     <script src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css">
 
     {% comment %} HTMX link {% endcomment %}
         <script>
+            tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          'innocoda-navy': '#001F3F',
+          'innocoda-teal': '#00D2D2',
+          'innocoda-slate': '#94a3b8',
+        }
+      }
+    }
+  }
             document.body.addEventListener('htmx:configRequest', (event) => {
                 event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
             });
