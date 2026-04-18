@@ -277,12 +277,7 @@
                 <form method="POST" class="space-y-6">
                     {% csrf_token %}
                     <input type="hidden" name="deploy_worker" value="true">
-                    {% comment %} <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
-                        <option value="" disabled selected>Search Available Workers...</option>
-                        {% for reg_worker in global_workers_pool %}
-                            <option value="{{ reg_worker.id }}">{{ reg_worker.name }} | {{ reg_worker.category }}</option>
-                        {% endfor %}
-                    </select> {% endcomment %}
+                    
                     <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
                         <option value="" disabled selected>Search Available Workers...</option>
                         {% for reg_worker in global_workers_pool %}

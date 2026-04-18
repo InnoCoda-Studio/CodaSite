@@ -230,8 +230,13 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
     'SECURE': True,  # 🟢 This forces HTTPS for all images
 }
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
+# 🚀 SECURITY GUARDS (Only active in Production)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 🚨 This forces HTTPS permanently. Keep it here!
+else:
+    SECURE_SSL_REDIRECT = False
 
 # This explicit config fixes the "Must supply cloud_name" error
 

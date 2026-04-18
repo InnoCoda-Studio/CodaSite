@@ -230,7 +230,7 @@ def site_dashboard(request, site_id):
     # 🌍 GLOBAL POOL (Safe for everyone)
     # We use 'company' (the one owning the site) instead of 'request.user.company'
     global_workers_pool = SkilledWorker.objects.filter(
-        company=company).exclude(site=site)
+        contractor=company.owner).exclude(site=site)
 
     # 5. HANDLE PERSONNEL ACTIONS (POST)
 
@@ -238,9 +238,10 @@ def site_dashboard(request, site_id):
         # --- 1. DEPLOY FROM GLOBAL POOL ---
         if 'deploy_worker' in request.POST:
             worker_id = request.POST.get('worker_id')
-            # 🛡️ SECURITY: Ensure worker belongs to the company
+
+            # 🛡️ THE FIX: Look for 'contractor=company.owner' instead of 'company=company'
             worker = get_object_or_404(
-                SkilledWorker, id=worker_id, company=company)
+                SkilledWorker, id=worker_id, contractor=company.owner)
 
             # Optional: Override role/rate for this specific site
             new_role = request.POST.get('update_category')
