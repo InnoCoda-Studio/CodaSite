@@ -457,6 +457,36 @@ def site_warehouse(request, site_id):
 
     if request.method == "POST":
         # --- A. ADD STOCK (RECEIVE DELIVERY) ---
+        # if 'add_stock' in request.POST:
+        #     try:
+        #         with transaction.atomic():
+        #             qty = Decimal(request.POST.get('quantity') or '0.00')
+        #             item_name = request.POST.get(
+        #                 'item_name', '').strip().upper()
+        #             unit = request.POST.get('unit', '').strip()
+        #             img_file = request.FILES.get('evidence_image')
+        #             vid_file = request.FILES.get('evidence_video')
+
+        #             # 🎯 We use 'site=site' directly now
+        #             stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+        #                 site=site, item_name=item_name, defaults={'unit': unit}
+        #             )
+
+        #             stock.current_balance += qty
+        #             if img_file:
+        #                 stock.evidence_image = img_file
+        #             if vid_file:
+        #                 stock.evidence_video = vid_file
+        #             stock.save()
+
+        #             MaterialRestockLog.objects.create(
+        #                 stock_item=stock, site=site, quantity_added=qty,
+        #                 evidence_image=img_file, evidence_video=vid_file
+        #             )
+        #             messages.success(
+        #                 request, f"Received {qty} {unit} of {item_name}.")
+        #     except Exception as e:
+        #         messages.error(request, f"Intake Error: {e}")
         if 'add_stock' in request.POST:
             try:
                 with transaction.atomic():
@@ -467,6 +497,26 @@ def site_warehouse(request, site_id):
                     img_file = request.FILES.get('evidence_image')
                     vid_file = request.FILES.get('evidence_video')
 
+                    # 🚀 THE CLOUDINARY WATERMARK INTERCEPTOR
+                    processed_vid = None
+                    if vid_file:
+                        import cloudinary.uploader
+                        # Upload to Cloudinary manually with the watermark transformation
+                        upload_result = cloudinary.uploader.upload(
+                            vid_file,
+                            resource_type="video",
+                            folder="codasite_audits",
+                            transformation=[
+                                # Stamps 'codasite_logo' in the bottom right corner (south_east)
+                                # {"overlay": "codasite_logo", "gravity": "south_east",
+                                #     "x": 20, "y": 20, "width": 80, "opacity": 90},
+                                {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
+                                 "x": 20, "y": 20, "width": 80, "opacity": 90}
+                            ]
+                        )
+                        # Grab the Cloudinary public_id so Django can save it securely
+                        processed_vid = upload_result['public_id']
+
                     # 🎯 We use 'site=site' directly now
                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
                         site=site, item_name=item_name, defaults={'unit': unit}
@@ -475,19 +525,22 @@ def site_warehouse(request, site_id):
                     stock.current_balance += qty
                     if img_file:
                         stock.evidence_image = img_file
-                    if vid_file:
-                        stock.evidence_video = vid_file
+
+                    # Save the newly watermarked video!
+                    if processed_vid:
+                        stock.evidence_video = processed_vid
+
                     stock.save()
 
                     MaterialRestockLog.objects.create(
                         stock_item=stock, site=site, quantity_added=qty,
-                        evidence_image=img_file, evidence_video=vid_file
+                        evidence_image=img_file,
+                        evidence_video=processed_vid if processed_vid else None
                     )
                     messages.success(
                         request, f"Received {qty} {unit} of {item_name}.")
             except Exception as e:
                 messages.error(request, f"Intake Error: {e}")
-
         # --- B. ISSUE MATERIAL (DEDUCTION) ---
         elif 'issue_material' in request.POST:
             stock_id = request.POST.get('stock_item')
