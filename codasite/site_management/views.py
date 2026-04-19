@@ -325,108 +325,6 @@ def site_dashboard(request, site_id):
     return response
 
 
-# @login_required
-# def site_warehouse(request, site_id):
-#     user_company = request.user.company
-#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
-
-#     if request.method == "POST":
-#         # --- A. ADD STOCK (RECEIVE DELIVERY) ---
-#         if 'add_stock' in request.POST:
-#             try:
-#                 with transaction.atomic():
-#                     qty = Decimal(request.POST.get('quantity') or '0.00')
-#                     item_name = request.POST.get(
-#                         'item_name', '').strip().upper()
-#                     unit = request.POST.get('unit', '').strip()
-#                     img_file = request.FILES.get('evidence_image')
-#                     vid_file = request.FILES.get('evidence_video')
-
-#                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-#                         site=site, item_name=item_name, defaults={'unit': unit}
-#                     )
-
-#                     stock.current_balance += qty
-#                     if img_file:
-#                         stock.evidence_image = img_file
-#                     if vid_file:
-#                         stock.evidence_video = vid_file
-#                     stock.save()
-
-#                     MaterialRestockLog.objects.create(
-#                         stock_item=stock, site=site, quantity_added=qty,
-#                         evidence_image=img_file, evidence_video=vid_file
-#                     )
-#                     messages.success(
-#                         request, f"Received {qty} {unit} of {item_name}.")
-
-#             except Exception as e:
-#                 messages.error(request, f"Intake Error: {e}")
-
-#         # --- B. ISSUE MATERIAL (DEDUCTION) ---
-#         elif 'issue_material' in request.POST:
-#             stock_id = request.POST.get('stock_item')
-#             worker_id = request.POST.get('worker_id')
-#             qty_input = request.POST.get('quantity')
-
-#             try:
-#                 # 1. 📏 Minimal Prep
-#                 qty = Decimal(qty_input or 0)
-#                 worker = get_object_or_404(SkilledWorker, id=worker_id)
-#                 stock = get_object_or_404(
-#                     MaterialStock, id=stock_id, site=site)
-
-#                 # 2. 🚀 THE POWER MOVE: Just Create the Deduction.
-#                 # The Model's .save() will handle the subtraction and the ValidationError
-#                 # if there isn't enough stock. No manual math needed here!
-#                 MaterialDeduction.objects.create(
-#                     stock_item=stock,
-#                     worker=worker,
-#                     quantity_taken=qty,
-#                     purpose=request.POST.get('purpose', 'General Site Use'),
-#                     authorized_by=request.user,
-#                 )
-
-#                 messages.success(
-#                     request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} issued to {worker.name}.")
-
-#             except ValidationError as e:
-#                 # 🛑 This catches the exact error message we wrote in models.py
-#                 error_msg = e.message_dict.get('__all__', [str(e)])[0]
-#                 messages.error(request, error_msg)
-#             except Exception as e:
-#                 print(f"DEDUCTION CRASH: {e}")
-#                 messages.error(
-#                     request, "A system error occurred. Inventory remains unchanged.")
-#         # ✨ HTMX RESPONSE (Keep this outside the if/elif)
-#         if request.htmx:
-#             stocks = MaterialStock.objects.filter(site=site)
-#             return render(request, 'site_management/partials/stock_list_partial.html', {
-#                 'stocks': stocks,
-#                 'site': site,
-#                 'messages': messages.get_messages(request)
-#             })
-
-#         return redirect('site_warehouse', site_id=site.id)
-
-#     # 📋 Normal Page Load
-#     stocks = MaterialStock.objects.filter(site=site)
-#     workers = SkilledWorker.objects.filter(site=site)
-#     invitation = Invitation.objects.filter(
-#         email=request.user.email, site=site, is_used=True).last()
-#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-#     is_boss = (site.company.owner == request.user) or (
-#         user_role == 'PROJECT_MANAGER')
-
-#     context = {
-#         'site': site,
-#         'stocks': stocks,
-#         'workers': workers,
-#         'is_boss': is_boss,
-#         'user_role': user_role,
-#     }
-#     return render(request, 'site_management/site_warehouse.html', context)
-
 @login_required
 def site_warehouse(request, site_id):
     # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
@@ -456,80 +354,39 @@ def site_warehouse(request, site_id):
     # --- THE LOGIC ENGINE ---
 
     if request.method == "POST":
-        # --- A. ADD STOCK (RECEIVE DELIVERY) ---
-        # if 'add_stock' in request.POST:
-        #     try:
-        #         with transaction.atomic():
-        #             qty = Decimal(request.POST.get('quantity') or '0.00')
-        #             item_name = request.POST.get(
-        #                 'item_name', '').strip().upper()
-        #             unit = request.POST.get('unit', '').strip()
-        #             img_file = request.FILES.get('evidence_image')
-        #             vid_file = request.FILES.get('evidence_video')
-
-        #             # 🎯 We use 'site=site' directly now
-        #             stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-        #                 site=site, item_name=item_name, defaults={'unit': unit}
-        #             )
-
-        #             stock.current_balance += qty
-        #             if img_file:
-        #                 stock.evidence_image = img_file
-        #             if vid_file:
-        #                 stock.evidence_video = vid_file
-        #             stock.save()
-
-        #             MaterialRestockLog.objects.create(
-        #                 stock_item=stock, site=site, quantity_added=qty,
-        #                 evidence_image=img_file, evidence_video=vid_file
-        #             )
-        #             messages.success(
-        #                 request, f"Received {qty} {unit} of {item_name}.")
-        #     except Exception as e:
-        #         messages.error(request, f"Intake Error: {e}")
         if 'add_stock' in request.POST:
             try:
+                qty = Decimal(request.POST.get('quantity') or '0.00')
+                item_name = request.POST.get('item_name', '').strip().upper()
+                unit = request.POST.get('unit', '').strip()
+                img_file = request.FILES.get('evidence_image')
+                vid_file = request.FILES.get('evidence_video')
+
+                # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
+                processed_vid = None
+                if vid_file:
+                    import cloudinary.uploader
+                    upload_result = cloudinary.uploader.upload(
+                        vid_file,
+                        resource_type="video",
+                        folder="codasite_audits",
+                        transformation=[
+                            {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
+                                "x": 20, "y": 20, "width": 80, "opacity": 90}
+                        ]
+                    )
+                    processed_vid = upload_result['public_id']
+
+                # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
                 with transaction.atomic():
-                    qty = Decimal(request.POST.get('quantity') or '0.00')
-                    item_name = request.POST.get(
-                        'item_name', '').strip().upper()
-                    unit = request.POST.get('unit', '').strip()
-                    img_file = request.FILES.get('evidence_image')
-                    vid_file = request.FILES.get('evidence_video')
-
-                    # 🚀 THE CLOUDINARY WATERMARK INTERCEPTOR
-                    processed_vid = None
-                    if vid_file:
-                        import cloudinary.uploader
-                        # Upload to Cloudinary manually with the watermark transformation
-                        upload_result = cloudinary.uploader.upload(
-                            vid_file,
-                            resource_type="video",
-                            folder="codasite_audits",
-                            transformation=[
-                                # Stamps 'codasite_logo' in the bottom right corner (south_east)
-                                # {"overlay": "codasite_logo", "gravity": "south_east",
-                                #     "x": 20, "y": 20, "width": 80, "opacity": 90},
-                                {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
-                                 "x": 20, "y": 20, "width": 80, "opacity": 90}
-                            ]
-                        )
-                        # Grab the Cloudinary public_id so Django can save it securely
-                        processed_vid = upload_result['public_id']
-
-                    # 🎯 We use 'site=site' directly now
                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
                         site=site, item_name=item_name, defaults={'unit': unit}
                     )
-
                     stock.current_balance += qty
                     if img_file:
                         stock.evidence_image = img_file
-
-                    # Save the newly watermarked video!
                     if processed_vid:
                         stock.evidence_video = processed_vid
-
                     stock.save()
 
                     MaterialRestockLog.objects.create(
@@ -537,10 +394,12 @@ def site_warehouse(request, site_id):
                         evidence_image=img_file,
                         evidence_video=processed_vid if processed_vid else None
                     )
-                    messages.success(
-                        request, f"Received {qty} {unit} of {item_name}.")
+
+                messages.success(
+                    request, f"Received {qty} {unit} of {item_name}.")
             except Exception as e:
                 messages.error(request, f"Intake Error: {e}")
+
         # --- B. ISSUE MATERIAL (DEDUCTION) ---
         elif 'issue_material' in request.POST:
             stock_id = request.POST.get('stock_item')
