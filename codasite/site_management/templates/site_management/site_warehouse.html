@@ -330,7 +330,7 @@
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
     });
 
-    // 🚀 THE LOCAL RAM-TO-DJANGO CAPTURE ENGINE (WITH WATERMARK)
+    // 🚀 THE LOCAL RAM-TO-DJANGO CAPTURE ENGINE (WITH WATERMARK & 60s LIMIT)
     function liveCaptureEngine() {
         return {
             stream: null,
@@ -381,7 +381,7 @@
                 ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
                 ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
 
-                // 3. Add the Security Text (shifted right to make room for logo)
+                // 3. Add the Security Text
                 ctx.font = "bold 22px Arial";
                 ctx.fillStyle = "#2DD4BF"; // Tailwind Teal-400
                 ctx.fillText("🔒 CodaSite SECURE AUDIT", 75, canvas.height - 45);
@@ -418,6 +418,7 @@
                 }, 'image/jpeg', 0.8);
             },
 
+            // ⏱️ THE 60-SECOND VIDEO LIMIT ENGINE
             startRecording() {
                 this.chunks = [];
                 this.mediaRecorder = new MediaRecorder(this.stream);
@@ -428,6 +429,14 @@
 
                 this.mediaRecorder.start();
                 this.isRecording = true;
+
+                // 🚨 TIER-1 STABILITY: AUTO-STOP AFTER 60 SECONDS
+                setTimeout(() => {
+                    if (this.isRecording) {
+                        this.stopRecording();
+                        alert("Maximum video length reached (60 seconds). Evidence secured.");
+                    }
+                }, 60000); 
             },
 
             stopRecording() {
@@ -446,5 +455,4 @@
         } // End of Alpine Object
     } // End of liveCaptureEngine
 </script>
-
 {% endblock %}
