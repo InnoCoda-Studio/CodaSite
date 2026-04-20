@@ -1,3 +1,5 @@
+import cloudinary.uploader  # Make sure this is imported!
+from django.db.models import Q
 from .reports import get_weekly_summary, generate_pdf_report, send_resend_audit_email
 from django.shortcuts import get_object_or_404, render
 from django.utils.safestring import mark_safe
@@ -811,44 +813,86 @@ def worker_search(request):
 
 
 @login_required
-@transaction.atomic
+# 🚨 REMOVED @transaction.atomic from here so Cloudinary doesn't crash the database!
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
+    company = site.company
+
+    is_owner = (company.owner == request.user)
+    is_invited_pm = Invitation.objects.filter(
+        email=request.user.email, site=site, is_used=True, role_assigned='PROJECT_MANAGER'
+    ).exists()
+
+    if not (is_owner or is_invited_pm):
+        messages.error(
+            request, "SECURITY ALERT: You are not authorized to enroll personnel on this site.")
+        return redirect('profile')  # Kick them completely out of the site
+
     if request.method == "POST":
         id_num = request.POST.get('id_number', '').strip()
         phone_num = request.POST.get('phone', '').strip()
 
-        # Gatekeeper Check (Make sure Q is imported from django.db.models)
+        # --- 🛑 1. THE SECURITY VAULT: FRONT DOOR CHECKS ---
+        profile_picture = request.FILES.get('profile_picture')
+        lat = request.POST.get('enrollment_lat')
+        lon = request.POST.get('enrollment_long')
+
+        if not profile_picture:
+            messages.error(
+                request, "CRITICAL: Live Biometric photo is missing. Request rejected.")
+            return redirect('site_dashboard', site_id=site_id)
+
+        if not lat or not lon:
+            messages.error(
+                request, "CRITICAL: GPS Coordinates missing. Ghost worker registration blocked.")
+            return redirect('site_dashboard', site_id=site_id)
+
+        # Gatekeeper Check (Prevent Duplicates)
         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
-                request, "Personnel already exists in Global Registry.")
+                request, "Identity Error: Personnel already exists in Global Registry.")
             return redirect('site_dashboard', site_id=site_id)
 
         try:
-            # 🟢 CAPTURE DAILY RATE FROM HTML
-            # Note: We take it from the input named 'daily_rate'
-            raw_rate = request.POST.get('daily_rate')
+            # 🟢 CAPTURE DAILY RATE (Matching your HTML input name 'pay_frequency')
+            raw_rate = request.POST.get('pay_frequency')
             daily_rate = Decimal(raw_rate) if raw_rate else Decimal('0.00')
 
-            SkilledWorker.objects.create(
-                contractor=request.user,
-                site=site,
-                name=request.POST.get('name'),
-                category=request.POST.get('category'),
-                id_number=id_num,
-                phone=phone_num,
-                emergency_contact=request.POST.get('emergency_contact'),
-                bank_name=request.POST.get('bank_name'),
-                account_number=request.POST.get('account_number'),
-                account_name=request.POST.get('account_name'),
-                pay_frequency=request.POST.get(
-                    'pay_frequency', 'Daily'),  # Default to Daily
-                daily_rate=daily_rate,  # 👈 THIS WAS MISSING
-                profile_picture=request.FILES.get('profile_picture')
+            # --- ⚡ 2. TIER-1 OPTIMIZATION: UPLOAD TO CLOUDINARY OUTSIDE THE LOCK ---
+            # We do the heavy lifting before touching the database
+            upload_result = cloudinary.uploader.upload(
+                profile_picture,
+                resource_type="image",
+                folder="codasite_personnel",
             )
-            messages.success(request, "New Personnel enrolled and deployed.")
+            # Get the Cloudinary ID
+            secure_image_url = upload_result['public_id']
+
+            # --- 🔒 3. NOW LOCK THE DATABASE FOR 0.01 SECONDS TO SAVE ---
+            with transaction.atomic():
+                worker = SkilledWorker.objects.create(
+                    contractor=request.user,
+                    site=site,
+                    name=request.POST.get('name'),
+                    category=request.POST.get('category'),
+                    id_number=id_num,
+                    phone=phone_num,
+                    emergency_contact=request.POST.get('emergency_contact'),
+                    bank_name=request.POST.get('bank_name'),
+                    account_number=request.POST.get('account_number'),
+                    account_name=request.POST.get('account_name'),
+                    pay_frequency="Daily",  # Hardcoded since the HTML input was used for the rate
+                    daily_rate=daily_rate,
+                    profile_picture=secure_image_url  # Save the secure Cloudinary image!
+                )
+
+                # NOTE: If you ever add gps_lat and gps_long to your SkilledWorker model,
+                # you can save `lat` and `lon` variables right here!
+
+            messages.success(
+                request, f"New Personnel '{worker.name}' enrolled securely with Biometrics and GPS.")
+
         except Exception as e:
-            # THIS PRINT IS FOR YOU: Look at your black terminal to see the exact error
             print(f"CRITICAL ERROR: {e}")
             messages.error(request, f"Registry Error: {e}")
 

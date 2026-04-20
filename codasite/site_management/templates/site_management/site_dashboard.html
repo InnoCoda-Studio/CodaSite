@@ -258,8 +258,8 @@
         </div>
     </div>
 
-    <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-        <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select' }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+  <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+        <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
             
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Personnel Management</h2>
@@ -274,14 +274,13 @@
             </div>
 
             <div x-show="enrollmentMode === 'select'">
-                <form method="POST" class="space-y-6">
+                <form method="POST" class="space-y-6" @submit="loading = true">
                     {% csrf_token %}
                     <input type="hidden" name="deploy_worker" value="true">
                     
                     <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
                         <option value="" disabled selected>Search Available Workers...</option>
                         {% for reg_worker in global_workers_pool %}
-                            {% comment %} <option value="{{ reg_worker.id }}">{{ reg_worker.name }} | {{ reg_worker.category }}</option> {% endcomment %}
                             <option value="{{ reg_worker.id }}">
                                 {{ reg_worker.name }} — {{ reg_worker.category }} 
                                 {% if reg_worker.site %}(at {{ reg_worker.site.name }}){% else %}(General Pool){% endif %}
@@ -292,21 +291,45 @@
                     </select>
                     <div class="grid grid-cols-2 gap-4">
                         <input type="text" name="update_category" placeholder="Role (e.g. Lead Mason)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
-                        <input type="number" name="update_rate" placeholder="Daily Rate (₦)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
+                        <input type="number" min="0" step="100" name="update_rate" placeholder="Daily Rate (₦)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
                     </div>
-                    <button type="submit" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest">Deploy to Site</button>
+                    <button type="submit" :disabled="loading" :class="{'opacity-50 cursor-not-allowed': loading}" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest transition-all">
+                        <span x-text="loading ? 'Deploying...' : 'Deploy to Site'"></span>
+                    </button>
                 </form>
             </div>
+            
 
-            <div x-show="enrollmentMode === 'new'" x-transition>
-                <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6">
+             <div x-show="enrollmentMode === 'new'" x-transition>
+               
+                {% comment %} <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6" 
+                      x-data="{ lat: '', long: '', gettingLocation: false }"
+                      @submit.prevent="
+                          gettingLocation = true;
+                          navigator.geolocation.getCurrentPosition(
+                              (pos) => {
+                                  lat = pos.coords.latitude;
+                                  long = pos.coords.longitude;
+                                  loading = true;
+                                  $el.submit();
+                              },
+                              (err) => {
+                                  alert('SECURITY: GPS location is required to register a new worker.');
+                                  gettingLocation = false;
+                                  loading = false;
+                              },
+                              { enableHighAccuracy: true, timeout: 10000 }
+                          )
+                      ">
                     {% csrf_token %}
+                    <input type="hidden" name="enrollment_lat" :value="lat">
+                    <input type="hidden" name="enrollment_long" :value="long">
                     
                     <div class="space-y-2">
                         <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
-                        <label class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed border-white/20 rounded-[2rem] cursor-pointer hover:border-innocoda-teal transition-all group">
-                            <span class="text-[10px] text-gray-400 uppercase font-black">Snap Identity Photo</span>
-                            <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden">
+                        <label :class="photoAttached ? 'border-innocoda-teal bg-innocoda-teal/10' : 'border-white/20 hover:border-innocoda-teal'" class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed rounded-[2rem] cursor-pointer transition-all group">
+                            <span x-text="photoAttached ? 'Identity Captured ✅' : 'Snap Identity Photo'" :class="photoAttached ? 'text-innocoda-teal' : 'text-gray-400'" class="text-[10px] uppercase font-black"></span>
+                            <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden" @change="photoAttached = $event.target.files.length > 0" required>
                         </label>
                     </div>
 
@@ -315,9 +338,9 @@
                         <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                         <div class="grid grid-cols-2 gap-3">
                             <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                             <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
                         </div>
-                        <input type="text" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        <input type="tel" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
                         <input type="text" name="emergency_contact" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                     </div>
 
@@ -325,21 +348,169 @@
                         <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
                         <div class="grid grid-cols-2 gap-3">
                             <input type="text" name="bank_name" placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="number" name="pay_frequency" placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="number" min="0" step="100" name="pay_frequency" placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                         </div>
                         <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="text" pattern="\d{10}" title="Please enter exactly 10 digits for a Nigerian bank account" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                             <input type="text" name="account_name" placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                         </div>
                     </div>
 
-                    <button type="submit" @click="loading = true" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
-                        <span x-text="loading ? 'Authenticating...' : 'Authenticate & Enroll'"></span>
+                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
+                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
+                    </button>
+
+                   
+                </form> {% endcomment %}
+                {% comment %} <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6" 
+                      x-data="workerEnrollmentEngine()"
+                      @submit.prevent="secureSubmit($event)">
+                    {% csrf_token %}
+                    <input type="hidden" name="enrollment_lat" :value="lat">
+                    <input type="hidden" name="enrollment_long" :value="long">
+                    
+                    <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
+
+                    <div class="space-y-2">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
+                        
+                        <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
+                            
+                            <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
+                                <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
+                            </div>
+
+                            <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4">
+                                <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
+                                <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse">
+                                    Capture
+                                </button>
+                            </div>
+
+                            <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
+                                <img :src="photoPreview" class="w-full h-auto">
+                                <button type="button" @click="photoAttached = false; photoPreview = null; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
+                                    Retake
+                                </button>
+                            </div>
+
+                            <canvas x-ref="canvas" class="hidden"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                        <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        </div>
+                        <input type="tel" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        <input type="text" name="emergency_contact" required placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="bank_name" required placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="number" min="0" step="100" name="pay_frequency" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" pattern="\d{10}" title="Please enter exactly 10 digits for a Nigerian bank account" name="account_number" required maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            <input type="text" name="account_name" required placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                    </div>
+
+                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
+                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
+                    </button>
+                </form> {% endcomment %}
+
+               <form 
+                      hx-post="{% url 'add_worker' site.id %}" 
+                      hx-encoding="multipart/form-data" 
+                      hx-trigger="htmx-secure-submit" 
+                      hx-target="body"
+                      @htmx:before-request="loading = true"
+                      @htmx:after-request="if($event.detail.successful) { workerModal = false; loading = false; gettingLocation = false; }"
+                      x-data="workerEnrollmentEngine()"
+                      @submit.prevent="secureSubmit($event)"
+                      class="space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="enrollment_lat" :value="lat">
+                    <input type="hidden" name="enrollment_long" :value="long">
+                    
+                    <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
+
+                    <div class="space-y-2">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
+                        
+                        <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
+                            
+                            <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
+                                <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
+                            </div>
+
+                            <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4">
+                                <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
+                                <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse">
+                                    Capture
+                                </button>
+                            </div>
+
+                            <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
+                                <img :src="photoPreview" class="w-full h-auto">
+                                <button type="button" @click="photoAttached = false; photoPreview = null; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
+                                    Retake
+                                </button>
+                            </div>
+
+                            <canvas x-ref="canvas" class="hidden"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                        
+                        <input type="text" name="name" required maxlength="100" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only. No numbers or symbols." placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="category" required maxlength="50" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only." placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="text" name="id_number" required maxlength="20" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" title="Letters and numbers only. No symbols." placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        </div>
+                        
+                        <input type="tel" name="phone" required maxlength="15" oninput="this.value = this.value.replace(/[^0-9+]/g, '')" title="Valid phone numbers only." placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        
+                        <input type="text" name="emergency_contact" required maxlength="100" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="bank_name" required maxlength="50" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="number" min="0" max="1000000" step="100" name="pay_frequency" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="account_number" required maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="Exactly 10 digits required for Nigerian bank accounts." placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="text" name="account_name" required maxlength="100" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                    </div>
+
+                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
+                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
                     </button>
                 </form>
-            </div>
+            </div> 
+
+
         </div>
     </div>
+
 
     <div x-show="payModal" x-cloak class="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
         <div @click.away="payModal = false" class="glass w-full max-w-2xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl">
@@ -404,6 +575,182 @@
 {% comment %} Dispaying workers cloing message  {% endcomment %}
 <div id="toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>
 <script>
+    {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
+   
+  
+    function workerEnrollmentEngine() {
+        return {
+            lat: '',
+            long: '',
+            gettingLocation: false,
+            loading: false,
+            stream: null,
+            photoAttached: false,
+            photoPreview: null,
+
+            // 1. Turn on the Front Camera
+            startCamera() {
+                // 'user' forces the front-facing selfie camera
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+                    .then(s => {
+                        this.stream = s;
+                        this.$refs.videoFeed.srcObject = s;
+                        this.$refs.videoFeed.play();
+                    }).catch(err => {
+                        console.error(err);
+                        alert("SECURITY: Camera access is required to register a worker.");
+                    });
+            },
+
+            // 2. Snap, Watermark, and Lock
+           // {% comment %} snapPhoto() {
+                const canvas = this.$refs.canvas;
+                const video = this.$refs.videoFeed;
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Draw the live face
+                ctx.drawImage(video, 0, 0);
+
+                // Add the Security Watermark Banner
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+                ctx.font = "bold 20px Arial";
+                ctx.fillStyle = "#2DD4BF"; // Teal
+                ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 45);
+                
+                ctx.font = "14px Arial";
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 20);
+
+                // Shut down the camera hardware to save battery
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+
+                // Convert canvas to a hidden File and lock it in the form
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    this.$refs.hiddenFileInput.files = dt.files;
+                    
+                    this.photoAttached = true;
+                    this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
+                }, 'image/jpeg', 0.8);
+            }, {% endcomment %}
+
+
+            // 3. The Ultimate Submit Gatekeeper (WITH GPS FIX!)
+            // 3. The Ultimate Submit Gatekeeper (HTMX UPGRADE)
+            secureSubmit(event) {
+                if (!this.photoAttached) {
+                    alert("SECURITY: You must snap a live biometric photo of the worker.");
+                    return;
+                }
+
+                this.gettingLocation = true;
+                
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        this.lat = pos.coords.latitude;
+                        this.long = pos.coords.longitude;
+                        
+                        document.querySelector('input[name="enrollment_lat"]').value = this.lat;
+                        document.querySelector('input[name="enrollment_long"]').value = this.long;
+
+                        // ⚡ THE HTMX HANDOFF: Instead of standard submit, we pull the HTMX trigger!
+                        event.target.dispatchEvent(new Event('htmx-secure-submit')); 
+                    },
+                    (err) => {
+                        alert('SECURITY: GPS location is required to register a new worker.');
+                        this.gettingLocation = false;
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            }
+            //{% comment %} secureSubmit(event) {
+                // Backend-level validation on the frontend: Stop them if no photo
+                if (!this.photoAttached) {
+                    alert("SECURITY: You must snap a live biometric photo of the worker.");
+                    return;
+                }
+
+                this.gettingLocation = true;
+                
+                // Grab GPS, then fire the form to Django
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        this.lat = pos.coords.latitude;
+                        this.long = pos.coords.longitude;
+                        this.loading = true;
+                        
+                        // ⚡ FORCE THE GPS INTO THE HTML INPUTS BEFORE SUBMITTING
+                        document.querySelector('input[name="enrollment_lat"]').value = this.lat;
+                        document.querySelector('input[name="enrollment_long"]').value = this.long;
+
+                        event.target.submit(); // Send it to Django!
+                    },
+                    (err) => {
+                        alert('SECURITY: GPS location is required to register a new worker.');
+                        this.gettingLocation = false;
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+           // } {% endcomment %}
+
+           // 2. Snap, Compress, Watermark, and Lock
+            snapPhoto() {
+                const canvas = this.$refs.canvas;
+                const video = this.$refs.videoFeed;
+                const ctx = canvas.getContext('2d');
+                
+                // ⚡ THE COMPRESSION ENGINE: Force the image down to a lightweight 480px width
+                const MAX_WIDTH = 480;
+                const scale = MAX_WIDTH / video.videoWidth;
+                
+                canvas.width = MAX_WIDTH;
+                canvas.height = video.videoHeight * scale;
+
+                // Draw the live face, but mathematically shrunk down
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Add the Security Watermark Banner (Adjusted for the smaller canvas)
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+                ctx.font = "bold 16px Arial";
+                ctx.fillStyle = "#2DD4BF"; // Teal
+                ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
+                
+                ctx.font = "12px Arial";
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
+
+                // Shut down the camera hardware to save battery
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+
+                // ⚡ THE CRUSH: Convert to Blob with heavy JPEG compression (0.6 instead of 0.8)
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    this.$refs.hiddenFileInput.files = dt.files;
+                    
+                    this.photoAttached = true;
+                    this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
+                }, 'image/jpeg', 0.6); // 👈 Dropped quality to 60% for lightning-fast uploads
+            },
+            
+        }
+    }
+
+
+    
+{% comment %} The utimat pictur security ☝🏻 {% endcomment %}
 // 🔊 1. The Voice Function (Missing in your snippet)
 function speakMessage(text) {
     if ('speechSynthesis' in window) {
