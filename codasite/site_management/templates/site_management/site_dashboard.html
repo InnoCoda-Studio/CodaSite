@@ -506,8 +506,6 @@
                     </button>
                 </form>
             </div> 
-
-
         </div>
     </div>
 
@@ -577,177 +575,107 @@
 <script>
     {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
    
-  
-    function workerEnrollmentEngine() {
-        return {
-            lat: '',
-            long: '',
-            gettingLocation: false,
-            loading: false,
-            stream: null,
-            photoAttached: false,
-            photoPreview: null,
+function workerEnrollmentEngine() {
+    return {
+        lat: '',
+        long: '',
+        gettingLocation: false,
+        loading: false,
+        stream: null,
+        photoAttached: false,
+        photoPreview: null,
 
-            // 1. Turn on the Front Camera
-            startCamera() {
-                // 'user' forces the front-facing selfie camera
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-                    .then(s => {
-                        this.stream = s;
-                        this.$refs.videoFeed.srcObject = s;
-                        this.$refs.videoFeed.play();
-                    }).catch(err => {
-                        console.error(err);
-                        alert("SECURITY: Camera access is required to register a worker.");
-                    });
-            },
+        // 1. Turn on the Front Camera
+        startCamera() {
+            // 'user' forces the front-facing selfie camera
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+                .then(s => {
+                    this.stream = s;
+                    this.$refs.videoFeed.srcObject = s;
+                    this.$refs.videoFeed.play();
+                }).catch(err => {
+                    console.error(err);
+                    alert("SECURITY: Camera access is required to register a worker.");
+                });
+        },
 
-            // 2. Snap, Watermark, and Lock
-           // {% comment %} snapPhoto() {
-                const canvas = this.$refs.canvas;
-                const video = this.$refs.videoFeed;
-                const ctx = canvas.getContext('2d');
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-
-                // Draw the live face
-                ctx.drawImage(video, 0, 0);
-
-                // Add the Security Watermark Banner
-                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-                ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
-
-                ctx.font = "bold 20px Arial";
-                ctx.fillStyle = "#2DD4BF"; // Teal
-                ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 45);
-                
-                ctx.font = "14px Arial";
-                ctx.fillStyle = "#FFFFFF";
-                ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 20);
-
-                // Shut down the camera hardware to save battery
-                this.stream.getTracks().forEach(t => t.stop());
-                this.stream = null;
-
-                // Convert canvas to a hidden File and lock it in the form
-                canvas.toBlob((blob) => {
-                    const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    this.$refs.hiddenFileInput.files = dt.files;
-                    
-                    this.photoAttached = true;
-                    this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
-                }, 'image/jpeg', 0.8);
-            }, {% endcomment %}
-
-
-            // 3. The Ultimate Submit Gatekeeper (WITH GPS FIX!)
-            // 3. The Ultimate Submit Gatekeeper (HTMX UPGRADE)
-            secureSubmit(event) {
-                if (!this.photoAttached) {
-                    alert("SECURITY: You must snap a live biometric photo of the worker.");
-                    return;
-                }
-
-                this.gettingLocation = true;
-                
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        this.lat = pos.coords.latitude;
-                        this.long = pos.coords.longitude;
-                        
-                        document.querySelector('input[name="enrollment_lat"]').value = this.lat;
-                        document.querySelector('input[name="enrollment_long"]').value = this.long;
-
-                        // ⚡ THE HTMX HANDOFF: Instead of standard submit, we pull the HTMX trigger!
-                        event.target.dispatchEvent(new Event('htmx-secure-submit')); 
-                    },
-                    (err) => {
-                        alert('SECURITY: GPS location is required to register a new worker.');
-                        this.gettingLocation = false;
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            }
-            //{% comment %} secureSubmit(event) {
-                // Backend-level validation on the frontend: Stop them if no photo
-                if (!this.photoAttached) {
-                    alert("SECURITY: You must snap a live biometric photo of the worker.");
-                    return;
-                }
-
-                this.gettingLocation = true;
-                
-                // Grab GPS, then fire the form to Django
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        this.lat = pos.coords.latitude;
-                        this.long = pos.coords.longitude;
-                        this.loading = true;
-                        
-                        // ⚡ FORCE THE GPS INTO THE HTML INPUTS BEFORE SUBMITTING
-                        document.querySelector('input[name="enrollment_lat"]').value = this.lat;
-                        document.querySelector('input[name="enrollment_long"]').value = this.long;
-
-                        event.target.submit(); // Send it to Django!
-                    },
-                    (err) => {
-                        alert('SECURITY: GPS location is required to register a new worker.');
-                        this.gettingLocation = false;
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-           // } {% endcomment %}
-
-           // 2. Snap, Compress, Watermark, and Lock
-            snapPhoto() {
-                const canvas = this.$refs.canvas;
-                const video = this.$refs.videoFeed;
-                const ctx = canvas.getContext('2d');
-                
-                // ⚡ THE COMPRESSION ENGINE: Force the image down to a lightweight 480px width
-                const MAX_WIDTH = 480;
-                const scale = MAX_WIDTH / video.videoWidth;
-                
-                canvas.width = MAX_WIDTH;
-                canvas.height = video.videoHeight * scale;
-
-                // Draw the live face, but mathematically shrunk down
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                // Add the Security Watermark Banner (Adjusted for the smaller canvas)
-                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-                ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
-                ctx.font = "bold 16px Arial";
-                ctx.fillStyle = "#2DD4BF"; // Teal
-                ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
-                
-                ctx.font = "12px Arial";
-                ctx.fillStyle = "#FFFFFF";
-                ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
-
-                // Shut down the camera hardware to save battery
-                this.stream.getTracks().forEach(t => t.stop());
-                this.stream = null;
-
-                // ⚡ THE CRUSH: Convert to Blob with heavy JPEG compression (0.6 instead of 0.8)
-                canvas.toBlob((blob) => {
-                    const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    this.$refs.hiddenFileInput.files = dt.files;
-                    
-                    this.photoAttached = true;
-                    this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
-                }, 'image/jpeg', 0.6); // 👈 Dropped quality to 60% for lightning-fast uploads
-            },
+        // 2. Snap, Compress, Watermark, and Lock
+        snapPhoto() {
+            const canvas = this.$refs.canvas;
+            const video = this.$refs.videoFeed;
+            const ctx = canvas.getContext('2d');
             
+            // ⚡ THE COMPRESSION ENGINE: Force the image down to a lightweight 480px width
+            const MAX_WIDTH = 480;
+            const scale = MAX_WIDTH / video.videoWidth;
+            
+            canvas.width = MAX_WIDTH;
+            canvas.height = video.videoHeight * scale;
+
+            // Draw the live face, but mathematically shrunk down
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Add the Security Watermark Banner (Adjusted for the smaller canvas)
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+            ctx.font = "bold 16px Arial";
+            ctx.fillStyle = "#2DD4BF"; // Deep Teal Accent
+            ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
+            
+            ctx.font = "12px Arial";
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
+
+            // Shut down the camera hardware to save battery
+            this.stream.getTracks().forEach(t => t.stop());
+            this.stream = null;
+
+            // ⚡ THE CRUSH: Convert to Blob with heavy JPEG compression (0.6)
+            canvas.toBlob((blob) => {
+                const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                this.$refs.hiddenFileInput.files = dt.files;
+                
+                this.photoAttached = true;
+                this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
+            }, 'image/jpeg', 0.6); 
+        },
+
+        // 3. The Ultimate Submit Gatekeeper (HTMX UPGRADE + GPS FIX)
+        secureSubmit(event) {
+            // Backend-level validation on the frontend: Stop them if no photo
+            if (!this.photoAttached) {
+                alert("SECURITY: You must snap a live biometric photo of the worker.");
+                return;
+            }
+
+            this.gettingLocation = true;
+            this.loading = true; // Lock the UI button so they don't double-click
+            
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    this.lat = pos.coords.latitude;
+                    this.long = pos.coords.longitude;
+                    
+                    // Force GPS into the hidden HTML inputs
+                    document.querySelector('input[name="enrollment_lat"]').value = this.lat;
+                    document.querySelector('input[name="enrollment_long"]').value = this.long;
+
+                    // ⚡ THE HTMX HANDOFF: Instead of standard submit, we pull the HTMX trigger!
+                    event.target.dispatchEvent(new Event('htmx-secure-submit')); 
+                },
+                (err) => {
+                    alert('SECURITY: GPS location is required to register a new worker.');
+                    this.gettingLocation = false;
+                    this.loading = false;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
         }
     }
-
+}
 
     
 {% comment %} The utimat pictur security ☝🏻 {% endcomment %}
