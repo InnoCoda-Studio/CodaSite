@@ -201,19 +201,20 @@
             @htmx:after-request="stockModal = false; $el.reset()"
         > {% endcomment %}
         <form hx-post="{% url 'site_warehouse' site.id %}" 
-    hx-target="#stock-list-container" 
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#inventory-button"
-    @htmx:after-request="stockModal = false; $el.reset()"
-    
-    x-data="liveCaptureEngine()" 
-    x-init="$watch('stockModal', val => val ? startCamera() : stopCamera())"
->
+            hx-target="#stock-list-container" 
+            hx-swap="innerHTML"
+            hx-encoding="multipart/form-data"
+            hx-indicator="#inventory-button"
+            @htmx:after-request="stockModal = false; $el.reset()"
+            
+            x-data="liveCaptureEngine()" 
+            x-init="$watch('stockModal', val => val ? startCamera() : stopCamera())"
+        >
     {% csrf_token %}
      <div class="mt-4 border border-white/10 rounded-2xl p-2 bg-black/40">
-
+        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2 mt-4 mb-2">Evidence & Compliance</p>
         <div class="flex justify-between items-center mb-2 px-2">
+            
             <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest">Live Audit Feed</p>
             <div class="flex gap-2">
                 <span x-show="hasImage" class="text-[8px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded font-black uppercase">✅ Waybill</span>
@@ -230,7 +231,7 @@
             </div>
         </div> {% endcomment %}
 
-        <div class="relative w-full h-feet mx-auto rounded-[2rem] overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-white/10 shadow-2xl group">
+        <div class="relative w-full h-[500px] mx-auto rounded-[2rem] overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-white/10 shadow-2xl group">
             <video x-ref="liveFeed" 
                 class="w-full h-full object-cover grayscale-[0.1] contrast-[1.1]" 
                 autoplay playsinline muted></video>
@@ -280,7 +281,7 @@
         <input type="text" name="unit" required placeholder="Unit (Bags/Trips)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
     </div>
 
-    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2 mt-4 mb-2">Evidence & Compliance</p>
+    
     
    
 
