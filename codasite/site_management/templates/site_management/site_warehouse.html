@@ -211,18 +211,7 @@
     x-init="$watch('stockModal', val => val ? startCamera() : stopCamera())"
 >
     {% csrf_token %}
-    <input type="hidden" name="add_stock" value="true">
-    
-    <input type="text" name="item_name" required placeholder="Material Name (e.g. CEMENT)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal mb-3">
-    
-    <div class="grid grid-cols-2 gap-8">
-        <input type="number" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-        <input type="text" name="unit" required placeholder="Unit (Bags/Trips)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-    </div>
-
-    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2 mt-4 mb-2">Evidence & Compliance</p>
-    
-    <div class="mt-4 border border-white/10 rounded-2xl p-2 bg-black/40">
+     <div class="mt-4 border border-white/10 rounded-2xl p-2 bg-black/40">
 
         <div class="flex justify-between items-center mb-2 px-2">
             <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest">Live Audit Feed</p>
@@ -241,7 +230,7 @@
             </div>
         </div> {% endcomment %}
 
-        <div class="relative w-full rounded-[2rem] overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-white/10 shadow-2xl group">
+        <div class="relative w-full h-feet mx-auto rounded-[2rem] overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-white/10 shadow-2xl group">
             <video x-ref="liveFeed" 
                 class="w-full h-full object-cover grayscale-[0.1] contrast-[1.1]" 
                 autoplay playsinline muted></video>
@@ -280,6 +269,20 @@
         <input type="file" name="evidence_image" x-ref="imageInput" accept="image/*" class="hidden">
         <input type="file" name="evidence_video" x-ref="videoInput" accept="video/*" class="hidden">
     </div>
+
+
+    <input type="hidden" name="add_stock" value="true">
+    
+    <input type="text" name="item_name" required placeholder="Material Name (e.g. CEMENT)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal mb-3">
+    
+    <div class="grid grid-cols-2 gap-8">
+        <input type="number" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+        <input type="text" name="unit" required placeholder="Unit (Bags/Trips)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+    </div>
+
+    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2 mt-4 mb-2">Evidence & Compliance</p>
+    
+   
 
     <button type="submit" 
         id="inventory-button"
