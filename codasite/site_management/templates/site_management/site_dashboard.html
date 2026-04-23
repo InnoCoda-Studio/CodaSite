@@ -98,23 +98,23 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             
-            {% comment %} <div class="glass p-8 rounded-[3rem] border border-white/10 bg-gradient-to-br from-white/5 to-transparent flex flex-col justify-between">
-                <div>
-                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
-                    <h3 class="text-4xl font-black text-white tracking-tighter">
-                        {{ present_worker_ids|length }} <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
-                    </h3>
-                </div>
-                <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
-            </div> {% endcomment %}
+
             <div class="glass p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between">
                 <div>
                     <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
-                    
+                  
                     <h3 id="onsite-counter" class="text-4xl font-black text-white tracking-tighter">
                         {{ present_worker_ids|length }} 
                         <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
-                    </h3>
+                    </h3>  
+
+                     {% comment %} <h3 id="onsite-counter" 
+                        hx-get="{% url 'your_view_to_get_just_the_counter' site.id %}" 
+                        hx-trigger="workerAdded from:body"
+                        class="text-4xl font-black text-white tracking-tighter">
+                        {{ present_worker_ids|length }} 
+                        <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
+                    </h3>  {% endcomment %}
                 </div>
                 <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
             </div>
@@ -202,10 +202,6 @@
                 {% endfor %}
             </div>
         </div>
-
-        
-        
-
          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
             <div class="space-y-4">
                 <h4 class="text-white/40 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Operations</h4>
@@ -302,141 +298,26 @@
 
              <div x-show="enrollmentMode === 'new'" x-transition>
                
-                {% comment %} <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6" 
-                      x-data="{ lat: '', long: '', gettingLocation: false }"
-                      @submit.prevent="
-                          gettingLocation = true;
-                          navigator.geolocation.getCurrentPosition(
-                              (pos) => {
-                                  lat = pos.coords.latitude;
-                                  long = pos.coords.longitude;
-                                  loading = true;
-                                  $el.submit();
-                              },
-                              (err) => {
-                                  alert('SECURITY: GPS location is required to register a new worker.');
-                                  gettingLocation = false;
-                                  loading = false;
-                              },
-                              { enableHighAccuracy: true, timeout: 10000 }
-                          )
-                      ">
-                    {% csrf_token %}
-                    <input type="hidden" name="enrollment_lat" :value="lat">
-                    <input type="hidden" name="enrollment_long" :value="long">
-                    
-                    <div class="space-y-2">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Biometric Enrollment</p>
-                        <label :class="photoAttached ? 'border-innocoda-teal bg-innocoda-teal/10' : 'border-white/20 hover:border-innocoda-teal'" class="flex flex-col items-center justify-center p-6 bg-white/5 border border-dashed rounded-[2rem] cursor-pointer transition-all group">
-                            <span x-text="photoAttached ? 'Identity Captured ✅' : 'Snap Identity Photo'" :class="photoAttached ? 'text-innocoda-teal' : 'text-gray-400'" class="text-[10px] uppercase font-black"></span>
-                            <input type="file" name="profile_picture" accept="image/*" capture="environment" class="hidden" @change="photoAttached = $event.target.files.length > 0" required>
-                        </label>
-                    </div>
 
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
-                        <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        </div>
-                        <input type="tel" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        <input type="text" name="emergency_contact" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
+                    <form 
+                        {% comment %} hx-post="{% url 'add_worker' site.id %}" 
+                        hx-encoding="multipart/form-data" 
+                        hx-trigger="htmx-secure-submit" 
+                        hx-swap="none"  @htmx:before-request="loading = true"
+                        @htmx:after-request="if($event.detail.successful) { workerModal = false; loading = false; gettingLocation = false; }"
+                        x-data="workerEnrollmentEngine()"
+                        @submit.prevent="secureSubmit($event)"
+                        class="space-y-6" {% endcomment %}
 
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="bank_name" placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="number" min="0" step="100" name="pay_frequency" placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" pattern="\d{10}" title="Please enter exactly 10 digits for a Nigerian bank account" name="account_number" maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="account_name" placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                    </div>
-
-                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
-                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
-                    </button>
-
-                   
-                </form> {% endcomment %}
-                {% comment %} <form action="{% url 'add_worker' site.id %}" method="POST" enctype="multipart/form-data" class="space-y-6" 
-                      x-data="workerEnrollmentEngine()"
-                      @submit.prevent="secureSubmit($event)">
-                    {% csrf_token %}
-                    <input type="hidden" name="enrollment_lat" :value="lat">
-                    <input type="hidden" name="enrollment_long" :value="long">
-                    
-                    <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
-
-                    <div class="space-y-2">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
                         
-                        <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
-                            
-                            <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
-                                <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
-                            </div>
-
-                            <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4">
-                                <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
-                                <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse">
-                                    Capture
-                                </button>
-                            </div>
-
-                            <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
-                                <img :src="photoPreview" class="w-full h-auto">
-                                <button type="button" @click="photoAttached = false; photoPreview = null; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
-                                    Retake
-                                </button>
-                            </div>
-
-                            <canvas x-ref="canvas" class="hidden"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
-                        <input type="text" name="name" required placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="category" required placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="id_number" required placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        </div>
-                        <input type="tel" name="phone" required placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        <input type="text" name="emergency_contact" required placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="bank_name" required placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="number" min="0" step="100" name="pay_frequency" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" pattern="\d{10}" title="Please enter exactly 10 digits for a Nigerian bank account" name="account_number" required maxlength="10" placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            <input type="text" name="account_name" required placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                    </div>
-
-                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
-                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
-                    </button>
-                </form> {% endcomment %}
-
-               <form 
-                      hx-post="{% url 'add_worker' site.id %}" 
-                      hx-encoding="multipart/form-data" 
-                      hx-trigger="htmx-secure-submit" 
-                      hx-target="body"
-                      @htmx:before-request="loading = true"
-                      @htmx:after-request="if($event.detail.successful) { workerModal = false; loading = false; gettingLocation = false; }"
-                      x-data="workerEnrollmentEngine()"
-                      @submit.prevent="secureSubmit($event)"
-                      class="space-y-6">
+                         action="{% url 'add_worker' site.id %}" 
+                        method="POST" 
+                        enctype="multipart/form-data" 
+                        x-data="workerEnrollmentEngine()"
+                        @submit.prevent="secureSubmit($event)"
+                        class="space-y-6"
+                        
+                        >
                     {% csrf_token %}
                     <input type="hidden" name="enrollment_lat" :value="lat">
                     <input type="hidden" name="enrollment_long" :value="long">
@@ -453,7 +334,7 @@
                                 <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
                             </div>
 
-                             <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
+                <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
                     <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
                     
                     <button 
@@ -470,6 +351,9 @@
                     </button>
                 </div>
 
+
+
+
                             <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
                                 <img :src="photoPreview" class="w-full h-auto">
                                 <button type="button" @click="photoAttached = false; photoPreview = null; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
@@ -480,22 +364,7 @@
                             <canvas x-ref="canvas" class="hidden"></canvas>
                         </div>
 
-                {% comment %} <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
-                    <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
-                    
-                    <button 
-                        type="button" 
-                        @click="toggleCamera()" 
-                        class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
-
-                    <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10">
-                        Capture
-                    </button>
-                </div> {% endcomment %}
+                
                     </div>
 
                     <div class="space-y-3">
@@ -601,8 +470,9 @@
 <div id="toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>
 <script>
     {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
-   
-{% comment %} function workerEnrollmentEngine() {
+  
+{% comment %} 
+function workerEnrollmentEngine() {
     return {
         lat: '',
         long: '',
@@ -611,141 +481,35 @@
         stream: null,
         photoAttached: false,
         photoPreview: null,
+        facingMode: 'user', // Defaults to selfie/front camera
 
-        // 1. Turn on the Front Camera
+        // 1. Updated Start Camera (Handles dynamic facing mode)
         startCamera() {
-            // 'user' forces the front-facing selfie camera
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-                .then(s => {
-                    this.stream = s;
-                    this.$refs.videoFeed.srcObject = s;
-                    this.$refs.videoFeed.play();
-                }).catch(err => {
-                    console.error(err);
-                    alert("SECURITY: Camera access is required to register a worker.");
-                });
-        },
-
-        // 2. Snap, Compress, Watermark, and Lock
-        snapPhoto() {
-            const canvas = this.$refs.canvas;
-            const video = this.$refs.videoFeed;
-            const ctx = canvas.getContext('2d');
-            
-            // ⚡ THE COMPRESSION ENGINE: Force the image down to a lightweight 480px width
-            const MAX_WIDTH = 480;
-            const scale = MAX_WIDTH / video.videoWidth;
-            
-            canvas.width = MAX_WIDTH;
-            canvas.height = video.videoHeight * scale;
-
-            // Draw the live face, but mathematically shrunk down
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Add the Security Watermark Banner (Adjusted for the smaller canvas)
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
-            ctx.font = "bold 16px Arial";
-            ctx.fillStyle = "#2DD4BF"; // Deep Teal Accent
-            ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
-            
-            ctx.font = "12px Arial";
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
-
-            // Shut down the camera hardware to save battery
-            this.stream.getTracks().forEach(t => t.stop());
-            this.stream = null;
-
-            // ⚡ THE CRUSH: Convert to Blob with heavy JPEG compression (0.6)
-            canvas.toBlob((blob) => {
-                const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files;
-                
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL('image/jpeg'); // Show the stamped photo on screen
-            }, 'image/jpeg', 0.6); 
-        },
-
-        // 3. The Ultimate Submit Gatekeeper (HTMX UPGRADE + GPS FIX)
-        secureSubmit(event) {
-            // Backend-level validation on the frontend: Stop them if no photo
-            if (!this.photoAttached) {
-                alert("SECURITY: You must snap a live biometric photo of the worker.");
-                return;
-            }
-
-            this.gettingLocation = true;
-            this.loading = true; // Lock the UI button so they don't double-click
-            
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    this.lat = pos.coords.latitude;
-                    this.long = pos.coords.longitude;
-                    
-                    // Force GPS into the hidden HTML inputs
-                    document.querySelector('input[name="enrollment_lat"]').value = this.lat;
-                    document.querySelector('input[name="enrollment_long"]').value = this.long;
-
-                    // ⚡ THE HTMX HANDOFF: Instead of standard submit, we pull the HTMX trigger!
-                    event.target.dispatchEvent(new Event('htmx-secure-submit')); 
-                },
-                (err) => {
-                    alert('SECURITY: GPS location is required to register a new worker.');
-                    this.gettingLocation = false;
-                    this.loading = false;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
-    }
-} {% endcomment %}
-
-{% comment %} function workerEnrollmentEngine() {
-    return {
-        lat: '',
-        long: '',
-        gettingLocation: false,
-        loading: false,
-        stream: null,
-        photoAttached: false,
-        photoPreview: null,
-        // Default to 'user' (front), can be switched to 'environment' (back)
-        facingMode: 'user', 
-
-        // 1. Start or Restart the Camera
-        startCamera() {
-            // If a stream is already running, stop it first to switch cleanly
+            // CRITICAL: Stop old tracks before switching or it will error out
             if (this.stream) {
                 this.stream.getTracks().forEach(t => t.stop());
             }
 
-            const constraints = { 
+            navigator.mediaDevices.getUserMedia({ 
                 video: { facingMode: this.facingMode }, 
                 audio: false 
-            };
-
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(s => {
-                    this.stream = s;
-                    this.$refs.videoFeed.srcObject = s;
-                    this.$refs.videoFeed.play();
-                }).catch(err => {
-                    console.error(err);
-                    alert("SECURITY: Camera access is required.");
-                });
+            })
+            .then(s => {
+                this.stream = s;
+                this.$refs.videoFeed.srcObject = s;
+                this.$refs.videoFeed.play();
+            }).catch(err => {
+                console.error(err);
+                alert("SECURITY: Camera access is required.");
+            });
         },
 
-        // 2. The Switcher Function
+        // 2. NEW: Toggle Logic
         toggleCamera() {
             this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
             this.startCamera();
         },
 
-        // 3. Snap, Compress, and Watermark (Keep as we had it)
         snapPhoto() {
             const canvas = this.$refs.canvas;
             const video = this.$refs.videoFeed;
@@ -753,18 +517,18 @@
             
             const MAX_WIDTH = 480;
             const scale = MAX_WIDTH / video.videoWidth;
+            
             canvas.width = MAX_WIDTH;
             canvas.height = video.videoHeight * scale;
 
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+            // Security Watermark
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
             ctx.font = "bold 16px Arial";
             ctx.fillStyle = "#2DD4BF";
             ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
-            
             ctx.font = "12px Arial";
             ctx.fillStyle = "#FFFFFF";
             ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
@@ -793,12 +557,14 @@
             
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    document.querySelector('input[name="enrollment_lat"]').value = pos.coords.latitude;
-                    document.querySelector('input[name="enrollment_long"]').value = pos.coords.longitude;
+                    this.lat = pos.coords.latitude;
+                    this.long = pos.coords.longitude;
+                    document.querySelector('input[name="enrollment_lat"]').value = this.lat;
+                    document.querySelector('input[name="enrollment_long"]').value = this.long;
                     event.target.dispatchEvent(new Event('htmx-secure-submit')); 
                 },
                 (err) => {
-                    alert('SECURITY: GPS location is required.');
+                    alert('SECURITY: GPS location required.');
                     this.gettingLocation = false;
                     this.loading = false;
                 },
@@ -807,25 +573,21 @@
         }
     }
 } {% endcomment %}
+
+
 function workerEnrollmentEngine() {
     return {
         lat: '', long: '', gettingLocation: false, loading: false,
-        stream: null, photoAttached: false, photoPreview: null,
-        facingMode: 'user', // Starts with front camera
+        stream: null, photoAttached: false, photoPreview: null, facingMode: 'user',
 
         startCamera() {
             if (this.stream) this.stream.getTracks().forEach(t => t.stop());
-            
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: this.facingMode }, 
-                audio: false 
-            })
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facingMode }, audio: false })
             .then(s => {
                 this.stream = s;
                 this.$refs.videoFeed.srcObject = s;
                 this.$refs.videoFeed.play();
-            })
-            .catch(err => alert("SECURITY: Camera access required."));
+            }).catch(err => alert("Camera access is required."));
         },
 
         toggleCamera() {
@@ -838,42 +600,75 @@ function workerEnrollmentEngine() {
             const video = this.$refs.videoFeed;
             const ctx = canvas.getContext('2d');
             
-            // Image compression and watermarking (keeping your previous logic)
-            const MAX_WIDTH = 480;
+            const MAX_WIDTH = 640; // Slightly higher quality for the watermark
             const scale = MAX_WIDTH / video.videoWidth;
             canvas.width = MAX_WIDTH;
             canvas.height = video.videoHeight * scale;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // ... Add your watermark drawing code here ...
 
-            this.stream.getTracks().forEach(t => t.stop());
+            // 1. Draw the actual photo
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 2. APPLY THE WATERMARK (This stays on the image forever)
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            
+            ctx.font = "bold 18px sans-serif";
+            ctx.fillStyle = "#2DD4BF"; // Innocoda Teal
+            ctx.fillText("🔒 BIOMETRIC VERIFIED", 20, canvas.height - 20);
+            
+            ctx.font = "12px sans-serif";
+            ctx.fillStyle = "#ffffff";
+            const timestamp = new Date().toLocaleString();
+            ctx.fillText(timestamp, canvas.width - 200, canvas.height - 20);
+
+            // 3. Close the stream
+            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
             this.stream = null;
 
+            // 4. Convert to File for the Database
             canvas.toBlob((blob) => {
-                const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
+                const file = new File([blob], "enrolled_worker.jpg", { type: "image/jpeg" });
                 const dt = new DataTransfer();
                 dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files;
+                this.$refs.hiddenFileInput.files = dt.files; // This puts the watermarked image in the form
+                
                 this.photoAttached = true;
                 this.photoPreview = canvas.toDataURL('image/jpeg');
-            }, 'image/jpeg', 0.6); 
+            }, 'image/jpeg', 0.9); 
         },
 
         secureSubmit(event) {
-            if (!this.photoAttached) return alert("Photo required.");
+            // We use event.target to get the actual HTML Form element
+            const formElement = event.target;
+
+            if (!this.photoAttached) {
+                alert("Please capture a biometric photo first.");
+                return;
+            }
+
             this.gettingLocation = true;
+            this.loading = true;
+            
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    this.lat = pos.coords.latitude;
-                    this.long = pos.coords.longitude;
-                    event.target.dispatchEvent(new Event('htmx-secure-submit')); 
+                    // MANUAL INJECTION: This prevents the "Ghost Worker" error
+                    // We put the GPS data directly into the inputs right before the refresh
+                    formElement.querySelector('input[name="enrollment_lat"]').value = pos.coords.latitude;
+                    formElement.querySelector('input[name="enrollment_long"]').value = pos.coords.longitude;
+
+                    this.gettingLocation = false;
+                    
+                    // THE RELOAD TRIGGER:
+                    // form.submit() is a native browser function. 
+                    // It saves data to the database and forces the page to reload.
+                    formElement.submit(); 
                 },
                 (err) => {
-                    alert('GPS required.');
+                    alert('GPS location is required to verify site presence.');
                     this.gettingLocation = false;
+                    this.loading = false;
                 },
-                { enableHighAccuracy: true }
+                { enableHighAccuracy: true, timeout: 8000 }
             );
         }
     }

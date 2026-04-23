@@ -266,6 +266,7 @@ def site_dashboard(request, site_id):
             if SkilledWorker.objects.filter(company=company, id_number=id_num).exists():
                 messages.error(
                     request, "Identity Error: Personnel already exists in registry.")
+
             else:
                 SkilledWorker.objects.create(
                     company=company,
@@ -895,6 +896,15 @@ def add_worker(request, site_id):
         except Exception as e:
             print(f"CRITICAL ERROR: {e}")
             messages.error(request, f"Registry Error: {e}")
+
+            if request.htmx:
+                # We return a simple "Success" response
+                response = HttpResponse("Registration Successful")
+
+                # This header is the magic. It tells the frontend to fire an event.
+                # Your worker list and counter will 'hear' this and refresh.
+                response['HX-Trigger'] = 'workerUpdated'
+            return response
 
     return redirect('site_dashboard', site_id=site_id)
 

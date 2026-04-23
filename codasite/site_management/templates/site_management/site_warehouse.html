@@ -232,13 +232,35 @@
             </div>
         </div>
 
-        <div class="relative w-full rounded-xl overflow-hidden bg-black h-48 md:h-56 flex items-center justify-center border border-white/5 shadow-inner">
+        {% comment %} <div class="relative w-full rounded-xl overflow-hidden bg-black h-48 md:h-56 flex items-center justify-center border border-white/5 shadow-inner">
             <video x-ref="liveFeed" class="w-full h-full object-cover" autoplay playsinline muted></video>
             <canvas x-ref="canvas" class="hidden"></canvas>
             
             <div x-show="isRecording" class="absolute top-2 right-2 flex items-center gap-1 bg-red-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse shadow-lg z-20">
                 <div class="w-2 h-2 bg-white rounded-full"></div> REC
             </div>
+        </div> {% endcomment %}
+
+        <div class="relative w-full rounded-[2rem] overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-white/10 shadow-2xl group">
+            <video x-ref="liveFeed" 
+                class="w-full h-full object-cover grayscale-[0.1] contrast-[1.1]" 
+                autoplay playsinline muted></video>
+            
+            <canvas x-ref="canvas" class="hidden"></canvas>
+
+            <div class="absolute inset-0 pointer-events-none border-[20px] border-black/20 z-10"></div>
+            
+            <div class="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-innocoda-teal/50 rounded-tl-lg"></div>
+            <div class="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-innocoda-teal/50 rounded-tr-lg"></div>
+            <div class="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-innocoda-teal/50 rounded-bl-lg"></div>
+            <div class="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-innocoda-teal/50 rounded-br-lg"></div>
+
+            <div x-show="isRecording" class="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-red-500/50 text-red-500 text-[10px] px-3 py-1.5 rounded-full font-black tracking-widest animate-pulse z-20">
+                <div class="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div> 
+                1080p HD
+            </div>
+
+            <div class="absolute inset-0 w-full h-[2px] bg-innocoda-teal/20 shadow-[0_0_15px_rgba(45,212,191,0.5)] top-0 animate-scan pointer-events-none"></div>
         </div>
 
         <div class="grid grid-cols-2 gap-2 mt-2">

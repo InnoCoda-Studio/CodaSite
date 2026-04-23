@@ -3,9 +3,9 @@
 <div class="container mx-auto p-4 max-w-xl pb-32">
     <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden mb-6">
         <div class="flex flex-col items-center">
-            <div class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 overflow-hidden mb-4 bg-innocoda-navy flex items-center justify-center shadow-2xl">
+            <div id="img-container" class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 overflow-hidden mb-4 bg-innocoda-navy flex items-center justify-center shadow-2xl transition-all duration-500 cursor-pointer">
                 {% if worker.profile_picture %}
-                    <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover">
+                    <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover" id="imga-whider">
                 {% else %}
                     <span class="text-5xl font-black text-innocoda-teal opacity-40">{{ worker.name|slice:":1" }}</span>
                 {% endif %}
@@ -169,4 +169,22 @@
     </div>
 </div>
 </div>
+
+
+
+<script>
+ const container = document.getElementById("img-container");
+
+container.addEventListener('click', () => {
+    // Toggle container size
+    container.classList.toggle('w-32');
+    container.classList.toggle('h-32');
+    container.classList.toggle('w-64'); // New expanded width
+    container.classList.toggle('h-64'); // New expanded height
+    
+    // Toggle shape (optional: goes from circle to rounded square)
+    container.classList.toggle('rounded-full');
+    container.classList.toggle('rounded-2xl');
+});
+</script>
 {% endblock %}
