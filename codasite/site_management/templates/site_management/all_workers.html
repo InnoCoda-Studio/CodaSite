@@ -188,7 +188,7 @@
                         <span class="text-[10px] text-gray-400 uppercase font-black tracking-[0.3em]">Initialize Camera</span>
                     </div>
 
-                    <div x-show="stream" class="absolute inset-0 w-full h-full bg-black">
+                    <div x-show="stream" class="absolute inset-0 w-full h-1125 bg-black">
                         <video x-ref="liveFeed" class="w-full h-full object-cover grayscale-[0.1] contrast-[1.1]" autoplay playsinline muted></video>
                         <button type="button" @click="snapPhoto()" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-8 py-3 rounded-full font-black text-xs tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.5)] z-20">CAPTURE</button>
                     </div>
