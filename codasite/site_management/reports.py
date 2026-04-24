@@ -312,6 +312,9 @@ def get_aggregated_report(site_id, start_date, end_date):
     company = site.company
     stocks = MaterialStock.objects.filter(site=site)
 
+    category_name = record.worker.get_category_display() if hasattr(
+        record.worker, 'get_category_display') else record.worker.category
+
     attendance_records = StaffAttendance.objects.filter(
         site=site,
         time_in__date__range=[start_date, end_date]
@@ -335,6 +338,7 @@ def get_aggregated_report(site_id, start_date, end_date):
         if worker_id not in staff_summary_map:
             staff_summary_map[worker_id] = {
                 'name': record.worker.name,
+                'category': category_name,
                 'category': record.worker.category,
                 'days_present': 0,
                 'total_pay': 0,

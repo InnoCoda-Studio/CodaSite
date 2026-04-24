@@ -180,15 +180,15 @@
             <tbody>
                 {% for a in attendance %}
                 <tr>
-                    {% comment %} <td>
+                     <td>
                         <strong>{{ a.worker.name }}</strong><br>
                         <span style="font-size: 8px; color: #888;">{{ a.worker.get_category_display }}</span>
-                    </td> {% endcomment %}
+                    </td> 
 
-                    <td>
+                    {% comment %} <td>
                         <strong>{{ a.worker.name }}</strong><br>
                         <span style="font-size: 8px; color: #888;">{{ a.SkilledWorker.category }}</span>
-                    </td>
+                    </td> {% endcomment %}
                     <td class="phone-link">{{ a.worker.phone|default:"No Number" }}</td>
                     <td align="center">{{ a.time_in|time:"H:i" }}</td>
                     <td align="center">
