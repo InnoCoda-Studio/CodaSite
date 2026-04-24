@@ -15,7 +15,10 @@ urlpatterns = [
     # passwod reset
     path('password-reset/',
          auth_views.PasswordResetView.as_view(
-             template_name='account/password_reset.html'),
+             template_name='account/password_reset.html',
+             html_email_template_name='account/password_reset_email_html.html',  # Add this line!
+             subject_template_name='account/password_reset_subject.txt'
+         ),
          name='password_reset'),
 
     path('password-reset/done/',
