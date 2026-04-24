@@ -181,9 +181,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # --- 📧 INNOCODA EMAIL CONFIGURATION (RESEND) ---
-RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+
 # // password reset email
 # // settings.py - INNOCODA EMAIL CONFIGURATION
 
@@ -201,16 +199,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 
 # 🚀 1. The Master Key (Pulls from your Render Env or .env file)
 # settings.py
-
-# 🚀 1. The Master Key
-RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-
-# 📧 2. The Official "From" Address
-DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-
-# 🛑 3. Add this to prevent WinError 10061
-# This tells Django: "Don't look for a local SMTP server; we are using the Resend SDK instead."
-EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 
 # //////////////////////////
 # // Tailwind 👇🏻
@@ -251,3 +239,23 @@ AUTH_USER_MODEL = 'account.User'
 
 STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 WHITENOISE_KEEP_ONLY_HASHED_FILES = True
+
+
+# 🛑 3. Add this to prevent WinError 10061
+# This tells Django: "Don't look for a local SMTP server; we are using the Resend SDK instead."
+
+
+# RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
+# EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# settings.py
+
+# 1. Use the SMTP backend (standard for most email services)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.resend.com'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'resend'
+EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
+DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'

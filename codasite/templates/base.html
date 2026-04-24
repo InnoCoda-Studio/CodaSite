@@ -80,7 +80,8 @@
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
     <meta name="theme-color" content="#1e293b">
     <link rel="stylesheet" href="{% static 'css/output.css' %}">
-    <link rel="stylesheet" href="theme\static_src\src\styles.css">
+
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
     
     {% comment %} <script src="https://cdn.tailwindcss.com"></script> {% endcomment %}
 
@@ -89,6 +90,10 @@
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
     
     <meta name="htmx-config" content='{"refreshOnHistoryMiss":true}'>
+
+
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <link rel="stylesheet" href="/static/css/dist/styles.css">
     {% comment %} <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.0.1"> {% endcomment %}
 
     <script src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
