@@ -180,10 +180,17 @@
             <tbody>
                 {% for a in attendance %}
                 <tr>
-                     <td>
+                     {% comment %} <td>
                         <strong>{{ a.worker.name }}</strong><br>
                         <span style="font-size: 8px; color: #888;">{{ a.worker.get_category_display }}</span>
-                    </td> 
+                    </td>  {% endcomment %}
+
+                    <td>
+                        <div style="font-weight: bold; font-size: 11px; color: #011627;">{{ a.worker.name }}</div>
+                        <div style="font-size: 9px; color: #00897b; text-transform: uppercase; font-weight: bold;">
+                            {{ a.worker.category }}
+                        </div>
+                    </td>
 
                     {% comment %} <td>
                         <strong>{{ a.worker.name }}</strong><br>
