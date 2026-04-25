@@ -1,7 +1,33 @@
 {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
 
 {% block title %}Workforce | Global Registry{% endblock %}
+<style>
+   .scan-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #2DD4BF,
+        transparent
+    );
+    animation: scanMove 2.4s linear infinite;
+    opacity: 0.85;
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.6);
+}
 
+@keyframes scanMove {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(100%);
+    }
+}
+</style>
 {% block content %}
 <div x-data="{ regModal: false, loading: false, search: '' }" class="container mx-auto p-4 md:p-6 pb-32">
 
@@ -82,16 +108,63 @@
                 
                 <div class="space-y-3">
                     <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Secure Biometric Capture</p>
-                    <div class="group relative flex flex-col items-center justify-center aspect-video w-full bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                        
+                    <div class="group relative flex flex-col items-center justify-center w-full min-h-[420px] md:min-h-[520px] lg:min-h-[580px] bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">                        
                         <div x-show="!stream && !photoAttached" class="flex flex-col items-center animate-pulse">
                             <div class="w-12 h-12 border-4 border-innocoda-teal/20 border-t-innocoda-teal rounded-full animate-spin mb-4"></div>
                             <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Connecting Lens...</span>
                         </div>
 
                         <div x-show="stream" class="absolute inset-0 w-full h-full bg-black">
-                            <video x-ref="liveFeed" class="w-full h-full object-cover grayscale-[0.1]" autoplay playsinline muted></video>
-                            
+                           <div class="absolute top-6 left-6 z-20 space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-innocoda-teal rounded-full animate-pulse"></span>
+                                    <span class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">
+                                        biometric core online
+                                    </span>
+                                </div>
+
+                                <template x-if="stream && !photoAttached">
+                                    <p class="text-[9px] font-black text-white/60 uppercase tracking-widest animate-pulse">
+                                        scanning facial geometry...
+                                    </p>
+                                </template>
+
+                                <template x-if="photoAttached">
+                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
+                                        identity sealed ✓
+                                    </p>
+                                </template>
+
+                            </div>
+
+                            <div class="absolute top-6 left-6 z-20">
+                                <template x-if="!stream && !photoAttached">
+                                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                                        system idle
+                                    </p>
+                                </template>
+
+                                <template x-if="stream && !photoAttached">
+                                    <p class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest animate-pulse">
+                                        scanning identity...
+                                    </p>
+                                </template>
+
+                                <template x-if="photoAttached">
+                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
+                                        verified capture locked
+                                    </p>
+                                </template>
+                            </div>
+
+                            <video
+                                    x-ref="liveFeed"
+                                    class="w-full h-full object-cover grayscale-[0.2] contrast-110"
+                                    autoplay
+                                    playsinline
+                                    muted
+                                >
+                            </video>
                             <button type="button" @click="switchCamera()" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full hover:bg-innocoda-teal transition-colors z-30">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             </button>

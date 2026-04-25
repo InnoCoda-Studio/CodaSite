@@ -281,6 +281,9 @@
   .inset-0 {
     inset: calc(var(--spacing) * 0);
   }
+  .inset-6 {
+    inset: calc(var(--spacing) * 6);
+  }
   .inset-y-0 {
     inset-block: calc(var(--spacing) * 0);
   }
@@ -685,6 +688,9 @@
   }
   .min-h-\[90vh\] {
     min-height: 90vh;
+  }
+  .min-h-\[420px\] {
+    min-height: 420px;
   }
   .min-h-screen {
     min-height: 100vh;
@@ -2032,6 +2038,10 @@
     --tw-blur: blur(100px);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
+  .contrast-110 {
+    --tw-contrast: contrast(110%);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
   .contrast-\[1\.1\] {
     --tw-contrast: contrast(1.1);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
@@ -2043,6 +2053,10 @@
   }
   .grayscale-\[0\.1\] {
     --tw-grayscale: grayscale(0.1);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
+  .grayscale-\[0\.2\] {
+    --tw-grayscale: grayscale(0.2);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
   .invert {
@@ -2654,6 +2668,11 @@
       height: calc(var(--spacing) * 56);
     }
   }
+  .md\:min-h-\[520px\] {
+    @media (width >= 48rem) {
+      min-height: 520px;
+    }
+  }
   .md\:w-1\/3 {
     @media (width >= 48rem) {
       width: calc(1 / 3 * 100%);
@@ -2795,6 +2814,11 @@
   .lg\:hidden {
     @media (width >= 64rem) {
       display: none;
+    }
+  }
+  .lg\:min-h-\[580px\] {
+    @media (width >= 64rem) {
+      min-height: 580px;
     }
   }
   .lg\:max-w-screen-xl {
