@@ -180,6 +180,10 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+
+# Add the path to your tailwind theme static folder
+
+
 # --- 📧 INNOCODA EMAIL CONFIGURATION (RESEND) ---
 
 # // password reset email

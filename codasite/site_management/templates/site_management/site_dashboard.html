@@ -306,6 +306,7 @@
                         hx-swap="none"  @htmx:before-request="loading = true"
                         @htmx:after-request="if($event.detail.successful) { workerModal = false; loading = false; gettingLocation = false; }"
                         x-data="workerEnrollmentEngine()"
+                        x-data="workerEnrollmentEngine()" x-init="init()"
                         @submit.prevent="secureSubmit($event)"
                         class="space-y-6" {% endcomment %}
 
@@ -313,7 +314,7 @@
                          action="{% url 'add_worker' site.id %}" 
                         method="POST" 
                         enctype="multipart/form-data" 
-                        x-data="workerEnrollmentEngine()"
+                        x-data="workerEnrollmentEngine()" x-init="init()"
                         @submit.prevent="secureSubmit($event)"
                         class="space-y-6"
                         
@@ -356,7 +357,12 @@
 
                             <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
                                 <img :src="photoPreview" class="w-full h-auto">
-                                <button type="button" @click="photoAttached = false; photoPreview = null; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
+                                <button 
+                               
+                                 type="button" 
+                                @click="photoAttached = false; photoPreview = null; startCamera()" 
+                                 class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500"
+                                >
                                     Retake
                                 </button>
                             </div>
@@ -502,6 +508,11 @@ function workerEnrollmentEngine() {
                 console.error(err);
                 alert("SECURITY: Camera access is required.");
             });
+            .catch(err => {
+                console.error(err);
+                alert("Camera failed. Tap again or refresh.");
+            });
+            
         },
 
         // 2. NEW: Toggle Logic
@@ -545,6 +556,9 @@ function workerEnrollmentEngine() {
                 this.photoAttached = true;
                 this.photoPreview = canvas.toDataURL('image/jpeg');
             }, 'image/jpeg', 0.6); 
+            init() {
+                console.log("Camera component ready");
+            }
         },
 
         secureSubmit(event) {

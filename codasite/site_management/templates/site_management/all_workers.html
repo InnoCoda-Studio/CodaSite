@@ -156,25 +156,60 @@
 </style>
 
 <script>
-function globalEnrollmentEngine() {
+{% comment %} function globalEnrollmentEngine() {
     return {
         gettingLocation: false,
         loading: false,
-        stream: null, 
-        photoAttached: false, 
-        photoPreview: null, 
-        facingMode: 'user', // Starts with front camera
+        stream: null,
+        photoAttached: false,
+        photoPreview: null,
+        facingMode: 'user',
 
-        // THIS RUNS AUTOMATICALLY WHEN THE MODAL OPENS
-        init() {
-            // Watch for modal opening to trigger the camera
+        faceDescriptor: null, // 🔥 future AI feature
+
+        async init() {
+            await this.loadModels();
+
             this.$watch('regModal', (value) => {
                 if (value) {
-                    setTimeout(() => this.startCamera(), 100);
+                    setTimeout(() => this.startCamera(), 200);
                 } else {
-                    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+                    this.stopCamera();
                 }
             });
+        },
+
+        async loadModels() {
+            const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js/weights";
+
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        },
+
+        stopCamera() {
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+            }
+        },
+
+        async startCamera() {
+            this.stopCamera();
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: this.facingMode },
+                    audio: false
+                });
+
+                this.$refs.liveFeed.srcObject = this.stream;
+                await this.$refs.liveFeed.play();
+
+            } catch (err) {
+                console.error(err);
+                alert("Camera permission denied");
+            }
         },
 
         async switchCamera() {
@@ -182,92 +217,266 @@ function globalEnrollmentEngine() {
             await this.startCamera();
         },
 
-        async startCamera() {
-            if (this.stream) {
-                this.stream.getTracks().forEach(t => t.stop());
-            }
-            
-            const constraints = {
-                video: { 
-                    facingMode: { ideal: this.facingMode }, 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 } 
-                },
-                audio: false
-            };
-
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-                if (this.$refs.liveFeed) {
-                    this.$refs.liveFeed.srcObject = this.stream;
-                    this.$refs.liveFeed.play();
-                }
-            } catch (err) {
-                console.error("Camera failed:", err);
-                alert("Security Error: Please ensure you are on HTTPS and have granted camera permissions.");
-            }
-        },
-
-        snapPhoto() {
-            const canvas = this.$refs.canvas;
+        async snapPhoto() {
             const video = this.$refs.liveFeed;
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = 640;
-            canvas.height = video.videoHeight * (640 / video.videoWidth);
 
-            // 1. Draw the Video Frame
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            if (!video.videoWidth || !video.videoHeight) {
+                alert("Camera not ready");
+                return;
+            }
 
-            // 2. Draw Permanent Watermark
-            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
-            ctx.font = "bold 18px sans-serif";
-            ctx.fillStyle = "#2DD4BF"; 
-            ctx.fillText("🔒 BIOMETRIC VERIFIED", 20, canvas.height - 20);
+            // 🔥 FACE DETECTION (REAL MAGIC HERE)
+            const detection = await faceapi
+                .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+            if (!detection) {
+                alert("No face detected. Position face properly.");
+                return;
+            }
+
+            const box = detection.detection.box;
+
+            const canvas = this.$refs.canvas;
+            const ctx = canvas.getContext("2d");
+
+            const SIZE = 640;
+            canvas.width = SIZE;
+            canvas.height = SIZE;
+
+            // crop FACE only (not fake center crop)
+            ctx.drawImage(
+                video,
+                box.x, box.y, box.width, box.height,
+                0, 0, SIZE, SIZE
+            );
+
+            // watermark
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(0, SIZE - 60, SIZE, 60);
+
+            ctx.fillStyle = "#2DD4BF";
+            ctx.font = "bold 16px sans-serif";
+            ctx.fillText("BIOMETRIC FACE CAPTURED", 20, SIZE - 25);
+
+            ctx.fillStyle = "#fff";
             ctx.font = "10px monospace";
-            ctx.fillStyle = "#ffffff";
-            ctx.fillText(new Date().toLocaleString(), canvas.width - 160, canvas.height - 22);
+            ctx.fillText(new Date().toLocaleString(), 20, SIZE - 10);
 
-            // 3. Stop Stream & Prepare File
-            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
-            this.stream = null;
+            // stop camera
+            this.stopCamera();
 
-            canvas.toBlob((blob) => {
-                const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+            // convert to file
+            canvas.toBlob(blob => {
+                const file = new File([blob], "face.jpg", { type: "image/jpeg" });
+
                 const dt = new DataTransfer();
                 dt.items.add(file);
                 this.$refs.hiddenFileInput.files = dt.files;
-                
+
                 this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL('image/jpeg');
-            }, 'image/jpeg', 0.9); 
+                this.photoPreview = canvas.toDataURL("image/jpeg");
+
+                // 🔥 SAVE FACE DATA FOR FUTURE RECOGNITION
+                this.faceDescriptor = Array.from(detection.descriptor);
+
+            }, "image/jpeg", 0.9);
         },
 
         secureHTMXSubmit(event) {
             const form = event.target;
-            if (!this.photoAttached) return alert("Photo required.");
 
-            this.gettingLocation = true;
+            if (!this.photoAttached) {
+                alert("Capture face first");
+                return;
+            }
+
             this.loading = true;
-            
+            this.gettingLocation = true;
+
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    form.querySelector('input[name="enrollment_lat"]').value = pos.coords.latitude;
-                    form.querySelector('input[name="enrollment_long"]').value = pos.coords.longitude;
+                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
+                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
+
+                    // optional: send face vector too (advanced)
+                    if (this.faceDescriptor) {
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = "face_vector";
+                        input.value = JSON.stringify(this.faceDescriptor);
+                        form.appendChild(input);
+                    }
+
                     this.gettingLocation = false;
-                    // Dispatch to HTMX
                     form.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true }));
                 },
                 () => {
-                    alert('GPS location required for registry.');
+                    alert("GPS required");
+                    this.loading = false;
+                    this.gettingLocation = false;
+                }
+            );
+        }
+    }
+} {% endcomment %}
+
+function globalEnrollmentEngine() {
+    return {
+        gettingLocation: false,
+        loading: false,
+        stream: null,
+
+        photoAttached: false,
+        photoPreview: null,
+
+        facingMode: 'user',
+
+        init() {
+            this.$watch('regModal', (value) => {
+                if (value) {
+                    setTimeout(() => this.startCamera(), 150);
+                } else {
+                    this.stopCamera();
+                }
+            });
+        },
+
+        async startCamera() {
+            this.stopCamera();
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: this.facingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+
+                const video = this.$refs.liveFeed;
+                if (video) {
+                    video.srcObject = this.stream;
+                    await video.play();
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Camera access failed. Use HTTPS and allow permissions.");
+            }
+        },
+
+        stopCamera() {
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+            }
+        },
+
+        async switchCamera() {
+            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
+            await this.startCamera();
+        },
+
+        snapPhoto() {
+            const video = this.$refs.liveFeed;
+            const canvas = this.$refs.canvas;
+
+            if (!video || !video.videoWidth) {
+                alert("Camera not ready");
+                return;
+            }
+
+            const ctx = canvas.getContext("2d");
+
+            const SIZE = 640;
+            canvas.width = SIZE;
+            canvas.height = SIZE;
+
+            const size = Math.min(video.videoWidth, video.videoHeight);
+            const startX = (video.videoWidth - size) / 2;
+            const startY = (video.videoHeight - size) / 2;
+
+            ctx.drawImage(
+                video,
+                startX, startY, size, size,
+                0, 0, SIZE, SIZE
+            );
+
+            this.drawWatermark(ctx, canvas);
+
+            this.buildFile(canvas);
+        },
+
+        drawWatermark(ctx, canvas) {
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+            ctx.fillStyle = "#2DD4BF";
+            ctx.font = "bold 14px sans-serif";
+            ctx.fillText("BIOMETRIC VERIFIED", 15, canvas.height - 30);
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "10px monospace";
+            ctx.fillText(
+                new Date().toLocaleString(),
+                canvas.width - 200,
+                canvas.height - 30
+            );
+        },
+
+        buildFile(canvas) {
+            this.stopCamera();
+
+            canvas.toBlob(blob => {
+                const file = new File([blob], "capture.jpg", {
+                    type: "image/jpeg"
+                });
+
+                const dt = new DataTransfer();
+                dt.items.add(file);
+
+                this.$refs.hiddenFileInput.files = dt.files;
+
+                this.photoAttached = true;
+                this.photoPreview = canvas.toDataURL("image/jpeg");
+
+            }, "image/jpeg", 0.9);
+        },
+
+        secureHTMXSubmit(event) {
+            const form = event.target;
+
+            if (!this.photoAttached) {
+                alert("Photo required.");
+                return;
+            }
+
+            this.gettingLocation = true;
+            this.loading = true;
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
+                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
+
+                    this.gettingLocation = false;
+
+                    form.dispatchEvent(
+                        new Event('confirmedHTMXSubmit', { bubbles: true })
+                    );
+                },
+                () => {
                     this.gettingLocation = false;
                     this.loading = false;
+                    alert("GPS required for enrollment.");
                 },
                 { enableHighAccuracy: true }
             );
         }
-    }
+    };
 }
 </script>
 {% endblock %}

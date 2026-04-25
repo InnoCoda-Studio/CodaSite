@@ -207,7 +207,11 @@
             hx-indicator="#inventory-button"
             @htmx:after-request="stockModal = false; $el.reset()"
             
-            x-data="liveCaptureEngine()" 
+            {% comment %} x-data="liveCaptureEngine()"  {% endcomment %}
+            x-data="captureEngine({ 
+                watermarkText: '🔒 DELIVERY VERIFIED - CodaSite', 
+                requireVideo: true 
+            })"
             x-init="$watch('stockModal', val => val ? startCamera() : stopCamera())"
         >
     {% csrf_token %}
@@ -357,8 +361,8 @@
     });
 
     // 🚀 THE LOCAL RAM-TO-DJANGO CAPTURE ENGINE (WITH WATERMARK & 60s LIMIT)
-    function liveCaptureEngine() {
-        return {
+    //function liveCaptureEngine() {
+       // return {
             stream: null,
             mediaRecorder: null,
             chunks: [],
@@ -478,7 +482,109 @@
                 };
                 this.mediaRecorder.stop();
             }
-        } // End of Alpine Object
-    } // End of liveCaptureEngine
+        //} // End of Alpine Object
+    //} // End of liveCaptureEngine
+
+    function captureEngine({ watermarkText = "🔒 CodaSite SECURE", requireVideo = false } = {}) {
+    return {
+        stream: null,
+        mediaRecorder: null,
+        chunks: [],
+        isRecording: false,
+        hasImage: false,
+        hasVideo: false,
+
+        startCamera() {
+            if (this.stream) return;
+
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: requireVideo
+            })
+            .then(stream => {
+                this.stream = stream;
+                this.$refs.liveFeed.srcObject = stream;
+            })
+            .catch(() => {
+                alert("Camera access is required.");
+            });
+        },
+
+        stopCamera() {
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+            }
+            this.hasImage = false;
+            this.hasVideo = false;
+        },
+
+        snapPhoto() {
+            const canvas = this.$refs.canvas;
+            const video = this.$refs.liveFeed;
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            ctx.drawImage(video, 0, 0);
+
+            // 🔥 WATERMARK (clean + reusable)
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(0, canvas.height - 70, canvas.width, 70);
+
+            ctx.font = "bold 18px sans-serif";
+            ctx.fillStyle = "#2DD4BF";
+            ctx.fillText(`${watermarkText}`, 20, canvas.height - 40);
+            ctx.fillText(`Operator: {{ request.user.username|default:"SYSTEM" }}`, 20, canvas.height - 22);
+            ctx.fillText(`Device Time: ${new Date().toLocaleString()}`, 20, canvas.height - 8);
+                        //ctx.fillText(watermarkText, 20, canvas.height - 35);
+
+            ctx.font = "12px monospace";
+            ctx.fillStyle = "#fff";
+            ctx.fillText(new Date().toLocaleString(), 20, canvas.height - 15);
+
+            canvas.toBlob(blob => {
+                const file = new File([blob], "evidence.jpg", { type: "image/jpeg" });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                this.$refs.imageInput.files = dt.files;
+                this.hasImage = true;
+            }, 'image/jpeg', 0.85);
+        },
+
+        startRecording() {
+            this.chunks = [];
+            this.mediaRecorder = new MediaRecorder(this.stream);
+
+            this.mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) this.chunks.push(e.data);
+            };
+
+            this.mediaRecorder.start();
+            this.isRecording = true;
+
+            setTimeout(() => {
+                if (this.isRecording) this.stopRecording();
+            }, 60000);
+        },
+
+        stopRecording() {
+            this.isRecording = false;
+            this.mediaRecorder.onstop = () => {
+                const blob = new Blob(this.chunks, { type: 'video/mp4' });
+                const file = new File([blob], "evidence.mp4", { type: "video/mp4" });
+
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                this.$refs.videoInput.files = dt.files;
+
+                this.hasVideo = true;
+            };
+
+            this.mediaRecorder.stop();
+        }
+    }
+}
 </script>
 {% endblock %}
