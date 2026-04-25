@@ -63,11 +63,7 @@ self.addEventListener('fetch', event => {
 });
 
 // ///////////////////////////////////
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        window.location.reload();
-    }
-});
+
 // // static/sw.js
 // const CACHE_NAME = 'codasite-v1';
 // const urlsToCache = [
