@@ -8,7 +8,7 @@ from cloudinary.models import CloudinaryField
 from account.models import Company
 from django.db import transaction
 from django.db.models import F
-from geopy.geocoders import Nominatim
+# from geopy.geocoders import Nominatim
 User = get_user_model()
 
 # 1. Site Infrastructure
@@ -22,7 +22,7 @@ class SiteLocation(models.Model):
         related_name='sites',
         null=True
     )
-    
+
     name = models.CharField(max_length=255, db_index=True)
     is_office = models.BooleanField(default=False)
     address = models.TextField(blank=True)
