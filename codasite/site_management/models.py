@@ -8,7 +8,9 @@ from cloudinary.models import CloudinaryField
 from account.models import Company
 from django.db import transaction
 from django.db.models import F
+from datetime import timedelta
 # from geopy.geocoders import Nominatim
+from django.utils import timezone
 User = get_user_model()
 
 # 1. Site Infrastructure
@@ -39,6 +41,10 @@ class SiteLocation(models.Model):
 
     radius_meters = models.IntegerField(
         default=100, help_text="Allowed distance from site center")
+
+    def is_editable(self):
+        # Returns True if the site was created less than 7 days ago
+        return timezone.now() < self.created_at + timedelta(days=7)
 
     def __str__(self):
         return self.name

@@ -1,3 +1,5 @@
+from .models import SiteLocation
+from django.shortcuts import get_object_or_404, redirect
 import cloudinary.uploader  # Make sure this is imported!
 from django.db.models import Q
 from .reports import get_weekly_summary, generate_pdf_report, send_resend_audit_email
@@ -625,8 +627,6 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 #         return response
 
-from django.utils.safestring import mark_safe
-
 
 def htmx_clock_in(request, site_id):
     if request.method == "POST":
@@ -645,19 +645,20 @@ def htmx_clock_in(request, site_id):
         # Check if Admin set the location
         if not site.latitude or not site.longitude:
             return HttpResponse(
-                '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>', 
+                '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>',
                 status=200
             )
 
         # Check if worker's phone provided GPS
         if u_lat == 0 or u_lng == 0:
             return HttpResponse(
-                '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>', 
+                '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>',
                 status=200
             )
 
         # Distance Calculation
-        distance = calculate_distance(site.latitude, site.longitude, u_lat, u_lng)
+        distance = calculate_distance(
+            site.latitude, site.longitude, u_lat, u_lng)
         if distance > site.radius_meters:
             return HttpResponse(
                 f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
@@ -696,9 +697,10 @@ def htmx_clock_in(request, site_id):
 
         present_worker_ids = list(attendance_today.filter(
             time_out__isnull=True).values_list('worker_id', flat=True))
-        
+
         # Determine Role for template rendering
-        invitation = Invitation.objects.filter(email=request.user.email, site=site).last()
+        invitation = Invitation.objects.filter(
+            email=request.user.email, site=site).last()
         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
         # Main Response (The Button)
@@ -717,12 +719,13 @@ def htmx_clock_in(request, site_id):
                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
             </h3>
         '''
-        
+
         # Combine content and trigger finance refresh
         response.content += mark_safe(onsite_counter_html).encode()
         response['HX-Trigger'] = 'financeUpdate'
 
         return response
+
 
 def htmx_clock_out(request, site_id):
     if request.method == "POST":
@@ -849,14 +852,41 @@ def add_site(request):
             address=request.POST.get('address'),
             company=user_company,
             latitude=lat if lat else None,  # Save the Lat
-            longitude=lng if lng else None, # Save the Lng
+            longitude=lng if lng else None,  # Save the Lng
             radius_meters=100               # Set a default radius
         )
-        
-        messages.success(request, f"Project '{request.POST.get('name')}' registered with GPS location.")
+
+        messages.success(
+            request, f"Project '{request.POST.get('name')}' registered with GPS location.")
 
     return redirect('index')
-    
+
+
+@login_required
+def update_site(request, site_id):
+    # 1. Get the site and make sure it belongs to the user's company
+    site = get_object_or_404(SiteLocation, id=site_id,
+                             company=request.user.company)
+
+    # 2. Safety Check: Only allow updates if within the 7-day grace period
+    if not site.is_editable():
+        messages.error(
+            request, "The 7-day grace period for editing this site has expired.")
+        return redirect('index')
+
+    if request.method == "POST":
+        # 3. Update the fields
+        site.name = request.POST.get('name')
+        site.address = request.POST.get('address')
+        site.latitude = request.POST.get('latitude')
+        site.longitude = request.POST.get('longitude')
+        site.save()
+
+        messages.success(
+            request, f"Project '{site.name}' updated successfully.")
+
+    return redirect('index')
+
 
 @login_required
 def deploy_worker(request, site_id):

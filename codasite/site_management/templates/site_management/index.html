@@ -1,10 +1,20 @@
 
 {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
+
     {% block content %}
 
 
 
-        <div x-data="{ open: false }" class="container mx-auto p-6 space-y-6 min-h-screen">
+
+        <div x-data="{ 
+                open: false, 
+                editOpen: false, 
+                editData: { id: '', name: '', address: '', lat: '', lng: '' } 
+            }"
+        
+            x-data="{ open: false }"
+        
+            class="container mx-auto p-6 space-y-6 min-h-screen">
             
             <div class="flex justify-between items-center mt-10">
                 <div>
@@ -21,47 +31,7 @@
                 hx-target="#dashboard-live-zone" hx-swap="innerHTML">
                 {% include 'site_management/htmx_components/dashboard_feed.html' %}
             </div>
-            {% comment %} <div id="dashboard-live-zone" 
-                hx-get="{% url 'dashboard_feed_component' %}" 
-                hx-trigger="load, every 60s" 
-                hx-swap="innerHTML">
-                <div class="flex justify-center p-4">
-                    <span class="animate-spin h-5 w-5 border-2 border-innocoda-teal border-t-transparent rounded-full"></span>
-                </div>
-            </div> {% endcomment %}
-            {% comment %} <div id="dashboard-live-zone" 
-                hx-get="{% url 'dashboard_feed_component' %}"  hx-trigger="every 60s" 
-                hx-swap="innerHTML">
-                {% include 'site_management/htmx_components/dashboard_feed.html' %}
-            </div> {% endcomment %}
-            {% comment %} <div id="dashboard-live-zone" 
-            hx-get="{% url 'index' %}" 
-            hx-trigger="every 60s" 
-            hx-swap="innerHTML">
-            {% include 'site_management/htmx_components/dashboard_feed.html' %}
-            </div> {% endcomment %}
-
-        {% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
-            {% for site in sites %}
-            <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-3xl border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden">
-                {% for item in low_stock_items %}
-                    {% if item.site_id == site.id %}
-                        <div class="absolute top-4 right-4 h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
-                    {% endif %}
-                {% endfor %}
-                <h2 class="text-2xl font-bold text-white group-hover:text-innocoda-teal transition-colors">{{ site.name }}</h2>
-                <p class="text-gray-400 text-sm mt-1 flex items-center">
-                    {{ site.address|default:"Location not set" }}
-                </p>
-                <div class="mt-8 flex items-center justify-between">
-                    <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em]">Open Dashboard</span>
-                    <div class="bg-white/5 p-2 rounded-lg group-hover:bg-innocoda-teal group-hover:text-innocoda-navy transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div> {% endcomment %}
+          
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
     {% for site in sites %}
@@ -76,20 +46,54 @@
             {% endif %}
         {% endfor %}
 
+    
         <div>
-            <h2 class="text-3xl font-black text-white group-hover:text-innocoda-teal transition-colors tracking-tighter uppercase">{{ site.name }}</h2>
-            {% comment %} <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black">
-                {{ site.address|default:"Location not set" }}
-            </p> {% endcomment %}
-            <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black flex items-center gap-2">
-                {{ site.address|default:"Location not set" }}
-                {% if site.latitude %}
-                    <span class="text-cyan-500">🛰️ GPS Active</span>
+            <div class="flex justify-between items-start">
+                <h2 class="text-3xl font-black text-white group-hover:text-innocoda-teal transition-colors tracking-tighter uppercase">
+                    {{ site.name }}
+                </h2>
+                
+                {% if site.is_editable %}
+                    <button @click="
+                        editData = { 
+                            id: '{{ site.id }}', 
+                            name: '{{ site.name|escapejs }}', 
+                            address: '{{ site.address|escapejs }}', 
+                            lat: '{{ site.latitude|default:'' }}', 
+                            lng: '{{ site.longitude|default:'' }}' 
+                        }; 
+                        editOpen = true;" 
+                        class="text-[9px] bg-white/10 px-3 py-1 rounded-full text-white font-black uppercase">
+                        Edit ⚙️
+                    </button>
                 {% else %}
-                    <span class="text-orange-500">⚠️ GPS Missing</span>
+                    <span class="text-[9px] text-gray-700 font-black uppercase flex items-center gap-1">
+                        Locked 🔒
+                    </span>
+                {% endif %}
+            </div>
+
+            <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black flex items-center gap-2 flex-wrap">
+                {{ site.address|default:"Location not set" }}
+                
+                <span class="flex items-center gap-1">
+                    {% if site.latitude %}
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                        <span class="text-cyan-500">GPS Active</span>
+                    {% else %}
+                        <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                        <span class="text-orange-500">GPS Missing</span>
+                    {% endif %}
+                </span>
+
+                {% if site.is_editable %}
+                    <span class="text-[8px] text-innocoda-teal/50 lowercase italic">
+                        (editing expires soon)
+                    </span>
                 {% endif %}
             </p>
         </div>
+      
 
         <div class="mt-8 pt-6 border-t border-white/5">
             <div class="flex flex-wrap gap-2">
@@ -133,25 +137,7 @@
         </div>
         {% endif %}
 
-        {% comment %} <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
-            <div @click.away="open = false" class="glass w-full max-w-md p-8 rounded-[2rem] border border-white/10 shadow-2xl">
-                <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-tight">Register Site</h2>
-                <form
-                    hx-post="{% url 'add_site' %}" 
-                    hx-target="#main-content" 
-                    @htmx:after-request="open = false"
-
-                    class="space-y-5">
-                    {% csrf_token %}
-                    <input type="text" name="name" required placeholder="Project Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal">
-                    <textarea name="address" rows="3" placeholder="Site Location" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal"></textarea>
-                    <div class="flex gap-4">
-                        <button type="button" @click="open = false" class="flex-1 text-xs font-black uppercase text-gray-500">Cancel</button>
-                        <button type="submit" class="flex-1 bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase shadow-lg">Confirm</button>
-                    </div>
-                </form>
-            </div>
-        </div> {% endcomment %}
+        
 
        <div x-show="open" x-cloak 
     class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/95 backdrop-blur-md">
@@ -207,10 +193,22 @@
                     </div>
                 </div>
 
-                <div class="space-y-3">
+                {% comment %} <div class="space-y-3">
                     <label class="text-gray-500 text-[10px] font-black uppercase tracking-widest ml-1">Geofence Radius (Meters)</label>
-                    <input type="number" name="radius_meters" value="100" 
+                    <input type="number" name="radius_meters" value="100" main='0'
                         class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none">
+                </div> {% endcomment %}
+                <div class="space-y-3">
+                    <label class="text-gray-500 text-[10px] font-black uppercase tracking-widest ml-1">
+                        Geofence Radius (Meters)
+                    </label>
+                    <input type="number" 
+                        name="radius_meters" 
+                        value="100" 
+                        min="10" 
+                        required
+                        class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-innocoda-teal"
+                        oninput="if(this.value < 10) this.value = 10;">
                 </div>
             </form>
         </div>
@@ -230,18 +228,46 @@
     </div>
 </div>
 
+{% comment %} Update {% endcomment %}
+<div x-show="editOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-innocoda-navy/95 backdrop-blur-xl">
+    <div @click.away="editOpen = false" class="glass w-full max-w-md p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
+        
+        <h2 class="text-2xl font-black text-white uppercase mb-6">Update Project</h2>
+
+        <form :action="'/update-site/' + editData.id + '/'" method="POST" class="space-y-5">
+            {% csrf_token %}
+            
+            <input type="text" name="name" x-model="editData.name" required 
+                   class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+            
+            <textarea name="address" rows="2" x-model="editData.address" 
+                      class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"></textarea>
+
+            <div class="grid grid-cols-2 gap-3">
+                <input type="text" name="latitude" x-model="editData.lat" placeholder="Lat" class="bg-white/5 border border-white/10 rounded-xl p-3 text-white text-xs">
+                <input type="text" name="longitude" x-model="editData.lng" placeholder="Lng" class="bg-white/5 border border-white/10 rounded-xl p-3 text-white text-xs">
+            </div>
+
+            <div class="flex gap-4 pt-4">
+                <button type="button" @click="editOpen = false" class="flex-1 text-xs font-black text-gray-500 uppercase">Cancel</button>
+                <button type="submit" class="flex-1 bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase shadow-lg">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
-/* Hidden Scrollbar for a cleaner SaaS look */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
+    /* Hidden Scrollbar for a cleaner SaaS look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
 </style>
 <script>
 function captureSiteLocation() {

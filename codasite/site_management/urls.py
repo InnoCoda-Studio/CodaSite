@@ -70,4 +70,7 @@ urlpatterns = [
     path('site/<int:site_id>/warehouse/',
          views.site_warehouse, name='site_warehouse'),
 
+    # Update Site
+    path('update-site/<int:site_id>/', views.update_site, name='update_site'),
+
 ]
