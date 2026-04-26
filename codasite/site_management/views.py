@@ -511,44 +511,177 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return c * R * 1000
 
 
+# def htmx_clock_in(request, site_id):
+
+#     if request.method == "POST":
+#         site = get_object_or_404(SiteLocation, id=site_id)
+#         worker_id = request.POST.get('worker_id')
+#         worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+#         # 🛰️ 1. GET & VALIDATE COORDINATES
+#         try:
+#             u_lat = float(request.POST.get('lat', 0))
+#             u_lng = float(request.POST.get('lng', 0))
+#         except (TypeError, ValueError):
+#             u_lat, u_lng = 0, 0
+
+#         # 🛡️ 2. THE SECURITY LOCK
+#         if not site.latitude or not site.longitude:
+#             return HttpResponse("🚨 Site GPS not set by Admin.", status=200)
+
+#         if u_lat == 0 or u_lng == 0:
+#             return HttpResponse("🚨 GPS Signal missing. Turn on Location.", status=200)
+
+#         distance = calculate_distance(
+#             site.latitude, site.longitude, u_lat, u_lng)
+
+#         # 🛑 STOP THEM IF THEY ARE TOO FAR
+#         if distance > site.radius_meters:
+#             return HttpResponse(
+#                 f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
+#                 f'OUT OF RANGE: {int(distance)}m from {site.name}</div>',
+#                 status=200
+#             )
+
+#         # 3. ✅ CLOCK IN LOGIC (Only runs if distance is okay)
+#         # ... your existing StaffAttendance.objects.update_or_create code ...
+#     # if request.method == "POST":
+#     #     site = get_object_or_404(SiteLocation, id=site_id)
+#     #     worker_id = request.POST.get('worker_id')
+#     #     worker = get_object_or_404(SkilledWorker, id=worker_id)
+#     #     user_lat = request.POST.get('lat')
+#     #     user_lng = request.POST.get('lng')
+
+#     #     # 1. 🛡️ SECURITY GATE: Check if they already finished a shift today
+#     #     already_finished = StaffAttendance.objects.filter(
+#     #         worker=worker,
+#     #         site=site,
+#     #         time_in__date=timezone.now().date(),
+#     #         time_out__isnull=False
+#     #     ).exists()
+
+#         # if already_finished:
+#         #     return HttpResponse(
+#         #         f'<div class="p-3 bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase rounded-xl border border-orange-500/20 animate-shake">'
+#         #         f'🚨 SECURITY: Shift already completed. Access denied until tomorrow!</div>',
+#         #         status=200
+#         #     )
+
+#         # 2. 🛰️ GPS RADIUS CHECK
+#         # if site.latitude and site.longitude and user_lat and user_lng:
+#         #     distance = calculate_distance(
+#         #         site.latitude, site.longitude, user_lat, user_lng)
+#         #     if distance > site.radius_meters:
+#         #         return HttpResponse(
+#         #             f'<div class="p-2 bg-red-500/20 text-red-400 text-[10px] font-black uppercase rounded-xl">🚨 Distance Error: {int(distance)}m away</div>',
+#         #             status=200
+#         #         )
+
+#         # 3. ✅ CLOCK IN (Update or Create)
+#         StaffAttendance.objects.update_or_create(
+#             worker=worker,
+#             site=site,
+#             time_in__date=timezone.now().date(),
+#             defaults={
+#                 'user': request.user,
+#                 'time_in': timezone.now(),
+#                 'daily_rate_at_time': worker.daily_rate
+#             }
+#         )
+
+#         # 🔄 Recalculate for OOB updates
+#         attendance_today = StaffAttendance.objects.filter(
+#             site=site, time_in__date=timezone.now().date()
+#         ).select_related('worker')
+
+#         present_worker_ids = list(attendance_today.filter(
+#             time_out__isnull=True).values_list('worker_id', flat=True))
+
+#         invitation = Invitation.objects.filter(
+#             email=request.user.email, site=site).last()
+#         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#         # 🚀 Response with Button + OOB Counter + OOB List
+#         response = render(request, 'site_management/htmx_components/worker_button.html', {
+#             'worker': worker,
+#             'site': site,
+#             'present_worker_ids': present_worker_ids,
+#             'attendance_today': attendance_today,
+#             'user_role': user_role,
+#         })
+
+#         # Attach OOB Counter
+#         onsite_count = len(present_worker_ids)
+#         total_workers = SkilledWorker.objects.filter(site=site).count()
+#         onsite_counter_html = f'''
+#             <h3 id="onsite-counter" hx-swap-oob="true" class="text-4xl font-black text-white tracking-tighter">
+#                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
+#             </h3>
+#         '''
+#         from django.utils.safestring import mark_safe
+#         response.content = response.content + \
+#             mark_safe(onsite_counter_html).encode()
+#         response['HX-Trigger'] = 'financeUpdate'
+
+#         return response
+
+from django.utils.safestring import mark_safe
+
+
 def htmx_clock_in(request, site_id):
     if request.method == "POST":
         site = get_object_or_404(SiteLocation, id=site_id)
         worker_id = request.POST.get('worker_id')
         worker = get_object_or_404(SkilledWorker, id=worker_id)
-        user_lat = request.POST.get('lat')
-        user_lng = request.POST.get('lng')
 
-        # 1. 🛡️ SECURITY GATE: Check if they already finished a shift today
+        # 🛰️ 1. Coordinate Validation
+        try:
+            u_lat = float(request.POST.get('lat', 0))
+            u_lng = float(request.POST.get('lng', 0))
+        except (TypeError, ValueError):
+            u_lat, u_lng = 0, 0
+
+        # 🛡️ 2. Security Checks
+        # Check if Admin set the location
+        if not site.latitude or not site.longitude:
+            return HttpResponse(
+                '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>', 
+                status=200
+            )
+
+        # Check if worker's phone provided GPS
+        if u_lat == 0 or u_lng == 0:
+            return HttpResponse(
+                '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>', 
+                status=200
+            )
+
+        # Distance Calculation
+        distance = calculate_distance(site.latitude, site.longitude, u_lat, u_lng)
+        if distance > site.radius_meters:
+            return HttpResponse(
+                f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
+                f'OUT OF RANGE: {int(distance)}m away</div>',
+                status=200
+            )
+
+        # Check for completed shift
+        today = timezone.now().date()
         already_finished = StaffAttendance.objects.filter(
-            worker=worker,
-            site=site,
-            time_in__date=timezone.now().date(),
-            time_out__isnull=False
+            worker=worker, site=site, time_in__date=today, time_out__isnull=False
         ).exists()
 
         if already_finished:
             return HttpResponse(
-                f'<div class="p-3 bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase rounded-xl border border-orange-500/20 animate-shake">'
-                f'🚨 SECURITY: Shift already completed. Access denied until tomorrow!</div>',
+                '<div class="p-2 bg-orange-500 text-white text-[10px] font-black uppercase rounded-lg">🚨 Shift already completed today</div>',
                 status=200
             )
 
-        # 2. 🛰️ GPS RADIUS CHECK
-        if site.latitude and site.longitude and user_lat and user_lng:
-            distance = calculate_distance(
-                site.latitude, site.longitude, user_lat, user_lng)
-            if distance > site.radius_meters:
-                return HttpResponse(
-                    f'<div class="p-2 bg-red-500/20 text-red-400 text-[10px] font-black uppercase rounded-xl">🚨 Distance Error: {int(distance)}m away</div>',
-                    status=200
-                )
-
-        # 3. ✅ CLOCK IN (Update or Create)
-        StaffAttendance.objects.update_or_create(
+        # ✅ 3. Clock In (Update or Create)
+        attendance, created = StaffAttendance.objects.update_or_create(
             worker=worker,
             site=site,
-            time_in__date=timezone.now().date(),
+            time_in__date=today,
             defaults={
                 'user': request.user,
                 'time_in': timezone.now(),
@@ -556,28 +689,27 @@ def htmx_clock_in(request, site_id):
             }
         )
 
-        # 🔄 Recalculate for OOB updates
+        # 🔄 4. Prep OOB Updates & Response
         attendance_today = StaffAttendance.objects.filter(
-            site=site, time_in__date=timezone.now().date()
+            site=site, time_in__date=today
         ).select_related('worker')
 
         present_worker_ids = list(attendance_today.filter(
             time_out__isnull=True).values_list('worker_id', flat=True))
-
-        invitation = Invitation.objects.filter(
-            email=request.user.email, site=site).last()
+        
+        # Determine Role for template rendering
+        invitation = Invitation.objects.filter(email=request.user.email, site=site).last()
         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
-        # 🚀 Response with Button + OOB Counter + OOB List
+        # Main Response (The Button)
         response = render(request, 'site_management/htmx_components/worker_button.html', {
             'worker': worker,
             'site': site,
             'present_worker_ids': present_worker_ids,
-            'attendance_today': attendance_today,
             'user_role': user_role,
         })
 
-        # Attach OOB Counter
+        # OOB Counter Update
         onsite_count = len(present_worker_ids)
         total_workers = SkilledWorker.objects.filter(site=site).count()
         onsite_counter_html = f'''
@@ -585,13 +717,12 @@ def htmx_clock_in(request, site_id):
                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
             </h3>
         '''
-        from django.utils.safestring import mark_safe
-        response.content = response.content + \
-            mark_safe(onsite_counter_html).encode()
+        
+        # Combine content and trigger finance refresh
+        response.content += mark_safe(onsite_counter_html).encode()
         response['HX-Trigger'] = 'financeUpdate'
 
         return response
-
 
 def htmx_clock_out(request, site_id):
     if request.method == "POST":
@@ -705,20 +836,27 @@ def daily_report(request, site_id):
 @login_required
 def add_site(request):
     if request.method == "POST":
-        # ✅ FIX: Use '.company' instead of '.site_company_profile'
-        # This matches the 'related_name' we set in your account/models.py
+        # 1. Get the company
         user_company = request.user.company
 
-        # 🏗️ 2. Now you can use it down here
+        # 2. Get GPS data from the hidden inputs in your form
+        lat = request.POST.get('latitude')
+        lng = request.POST.get('longitude')
+
+        # 3. Create the Site with ALL data
         SiteLocation.objects.create(
             name=request.POST.get('name'),
             address=request.POST.get('address'),
-            company=user_company  # ✅ Now this works perfectly!
+            company=user_company,
+            latitude=lat if lat else None,  # Save the Lat
+            longitude=lng if lng else None, # Save the Lng
+            radius_meters=100               # Set a default radius
         )
-        messages.success(request, "New site location added successfully.")
+        
+        messages.success(request, f"Project '{request.POST.get('name')}' registered with GPS location.")
 
     return redirect('index')
-
+    
 
 @login_required
 def deploy_worker(request, site_id):

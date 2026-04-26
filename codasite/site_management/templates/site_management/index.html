@@ -78,8 +78,16 @@
 
         <div>
             <h2 class="text-3xl font-black text-white group-hover:text-innocoda-teal transition-colors tracking-tighter uppercase">{{ site.name }}</h2>
-            <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black">
+            {% comment %} <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black">
                 {{ site.address|default:"Location not set" }}
+            </p> {% endcomment %}
+            <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black flex items-center gap-2">
+                {{ site.address|default:"Location not set" }}
+                {% if site.latitude %}
+                    <span class="text-cyan-500">🛰️ GPS Active</span>
+                {% else %}
+                    <span class="text-orange-500">⚠️ GPS Missing</span>
+                {% endif %}
             </p>
         </div>
 
@@ -125,7 +133,7 @@
         </div>
         {% endif %}
 
-        <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
+        {% comment %} <div x-show="open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/90 backdrop-blur-md">
             <div @click.away="open = false" class="glass w-full max-w-md p-8 rounded-[2rem] border border-white/10 shadow-2xl">
                 <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-tight">Register Site</h2>
                 <form
@@ -143,6 +151,117 @@
                     </div>
                 </form>
             </div>
+        </div> {% endcomment %}
+
+       <div x-show="open" x-cloak 
+    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-innocoda-navy/95 backdrop-blur-md">
+    
+    <div @click.away="open = false" 
+        class="glass w-full max-w-md rounded-[2.5rem] border border-white/10 shadow-2xl flex flex-col max-h-[85vh]">
+        
+        <div class="p-8 pb-4">
+            <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Register Site</h2>
+            <p class="text-gray-500 text-[9px] uppercase tracking-[0.2em] font-bold">Project Deployment v1.0</p>
         </div>
+
+        <div class="flex-1 overflow-y-auto px-8 py-2 custom-scrollbar">
+            <form hx-post="{% url 'add_site' %}" 
+                hx-target="#main-content" 
+                @htmx:after-request="if(event.detail.successful) window.location.reload()"
+                class="space-y-6">
+                {% csrf_token %}
+
+                <div class="space-y-3">
+                    <label class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest">General Information</label>
+                    <input type="text" name="name" required placeholder="PROJECT NAME" 
+                        class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-innocoda-teal">
+                    <textarea name="address" rows="2" placeholder="PHYSICAL ADDRESS" 
+                        class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none focus:border-innocoda-teal"></textarea>
+                </div>
+
+                <div class="p-5 bg-white/5 rounded-3xl border border-white/5 space-y-4">
+                    <label class="text-white text-[10px] font-black uppercase tracking-widest">Location Engine</label>
+                    
+                    <button type="button" onclick="captureSiteLocation()" id="gps-btn" 
+                        class="w-full py-4 bg-innocoda-teal text-innocoda-navy rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-innocoda-teal/20 active:scale-95 transition-all">
+                        📍 Auto-Capture Location
+                    </button>
+
+                    <div class="relative py-2 flex items-center">
+                        <div class="flex-grow border-t border-white/5"></div>
+                        <span class="flex-shrink mx-4 text-[8px] text-gray-600 font-black uppercase">OR MANUAL ENTRY</span>
+                        <div class="flex-grow border-t border-white/5"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <span class="text-[8px] text-gray-500 font-bold ml-1 uppercase">Lat</span>
+                            <input type="text" name="latitude" id="site_lat" placeholder="0.000" 
+                                class="w-full bg-innocoda-navy border border-white/10 rounded-xl p-3 text-white text-xs font-mono outline-none">
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[8px] text-gray-500 font-bold ml-1 uppercase">Lng</span>
+                            <input type="text" name="longitude" id="site_lng" placeholder="0.000" 
+                                class="w-full bg-innocoda-navy border border-white/10 rounded-xl p-3 text-white text-xs font-mono outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="text-gray-500 text-[10px] font-black uppercase tracking-widest ml-1">Geofence Radius (Meters)</label>
+                    <input type="number" name="radius_meters" value="100" 
+                        class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none">
+                </div>
+            </form>
+        </div>
+
+        <div class="p-8 pt-4 border-t border-white/5">
+            <div class="flex items-center gap-4">
+                <button type="button" @click="open = false" 
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" form="site-form"
+                    class="flex-[2] bg-white text-innocoda-navy py-4 px-4  rounded-2xl font-black text-[11px] hover:pointer uppercase shadow-xl hover:bg-innocoda-teal transition-all">
+                    Confirm Registration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Hidden Scrollbar for a cleaner SaaS look */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+</style>
+<script>
+function captureSiteLocation() {
+    const btn = document.getElementById('gps-btn');
+    btn.innerHTML = "🛰️ Locating...";
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            document.getElementById('site_lat').value = position.coords.latitude;
+            document.getElementById('site_lng').value = position.coords.longitude;
+            btn.innerHTML = "✅ Location Locked";
+            btn.classList.add('bg-innocoda-teal/20');
+        },
+        (error) => {
+            alert("Error: Please enable GPS/Location on your device.");
+            btn.innerHTML = "❌ GPS Failed - Try Again";
+        },
+        { enableHighAccuracy: true }
+    );
+}
+</script>
     </div>
 {% endblock %}
