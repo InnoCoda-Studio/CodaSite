@@ -258,15 +258,18 @@
         </div>
 
         <div class="grid grid-cols-2 gap-2 mt-2">
-            <button type="button" @click="snapWaybill" :disabled="isRecording" class="bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all disabled:opacity-30">
+            <button type="button" @click="snapPhoto" :disabled="isRecording" 
+                    class="bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all disabled:opacity-30">
                 📸 Snap Waybill
             </button>
 
-            <button type="button" x-show="!isRecording" @click="startRecording" class="bg-white/5 border border-white/10 hover:border-red-500 hover:text-red-400 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all disabled:opacity-30">
+            <button type="button" x-show="!isRecording" @click="startRecording" 
+                    class="bg-white/5 border border-white/10 hover:bg-red-500 hover:text-red-400 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all disabled:opacity-30">
                 🎥 Record Offload
             </button>
             
-            <button type="button" x-show="isRecording" @click="stopRecording" class="bg-red-500 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+            <button type="button" x-show="isRecording" @click="stopRecording" 
+                    class="bg-red-500 text-white text-[9px] font-black uppercase py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.5)]">
                 ⏹️ Stop Video
             </button>
         </div>
@@ -347,7 +350,7 @@
     {% endif %}
 </div>  {% endcomment %}
 
-<script>
+{% comment %} <script>
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.id === 'stock-list-container') {
             if (window.Alpine) {
@@ -586,5 +589,124 @@
         }
     }
 }
+</script> {% endcomment %}
+
+<script>
+    function captureEngine({ watermarkText = "🔒 CodaSite SECURE", requireVideo = true } = {}) {
+        return {
+            stream: null,
+            mediaRecorder: null,
+            chunks: [],
+            isRecording: false,
+            hasImage: false,
+            hasVideo: false,
+
+            async startCamera() {
+                if (this.stream) return;
+
+                // 🚀 Requesting High-Resolution (1080p)
+                const constraints = {
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: true
+                };
+
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.$refs.liveFeed.srcObject = this.stream;
+                } catch (err) {
+                    console.error("Camera Error:", err);
+                    alert("Camera access is required for site security.");
+                }
+            },
+
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(t => t.stop());
+                    this.stream = null;
+                }
+                // Don't reset hasImage/hasVideo here or it clears your captures before submit
+            },
+
+            snapPhoto() {
+                const canvas = this.$refs.canvas;
+                const video = this.$refs.liveFeed;
+                const ctx = canvas.getContext('2d');
+
+                // High-Res matching
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                ctx.drawImage(video, 0, 0);
+
+                // 🔥 PRO WATERMARK
+                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+
+                ctx.font = "bold 24px sans-serif";
+                ctx.fillStyle = "#2DD4BF";
+                ctx.fillText(watermarkText, 30, canvas.height - 60);
+                
+                ctx.font = "18px monospace";
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(`OPERATOR: {{ request.user.username|upper }}`, 30, canvas.height - 35);
+                ctx.fillText(`DATE: ${new Date().toLocaleString()}`, 30, canvas.height - 15);
+
+                canvas.toBlob(blob => {
+                    const file = new File([blob], "waybill_evidence.jpg", { type: "image/jpeg" });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    this.$refs.imageInput.files = dt.files;
+                    this.hasImage = true;
+                    // Pulse feedback
+                    alert("Waybill captured successfully!");
+                }, 'image/jpeg', 0.95); // 0.95 = High Quality JPEG
+            },
+
+            startRecording() {
+                this.chunks = [];
+                // Use higher bitrate for video quality
+                this.mediaRecorder = new MediaRecorder(this.stream, {
+                    mimeType: 'video/webm;codecs=vp8,opus'
+                });
+
+                this.mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) this.chunks.push(e.data);
+                };
+
+                this.mediaRecorder.start();
+                this.isRecording = true;
+
+                // Auto-stop at 60s
+                setTimeout(() => {
+                    if (this.isRecording) this.stopRecording();
+                }, 60000);
+            },
+
+            stopRecording() {
+                this.isRecording = false;
+                this.mediaRecorder.onstop = () => {
+                    const blob = new Blob(this.chunks, { type: 'video/mp4' });
+                    const file = new File([blob], "delivery_video.mp4", { type: "video/mp4" });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    this.$refs.videoInput.files = dt.files;
+                    this.hasVideo = true;
+                    alert("Video evidence secured.");
+                };
+                this.mediaRecorder.stop();
+            }
+        }
+    }
+
+    // HTMX Re-init for Alpine (Keeps things working after refresh)
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (window.Alpine) {
+            window.Alpine.initTree(evt.detail.target);
+        }
+    });
 </script>
 {% endblock %}
