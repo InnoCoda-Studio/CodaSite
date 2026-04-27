@@ -19,20 +19,7 @@
     <meta property="og:title" content="CodaSite: Professional Site Management">
     <meta property="og:description" content="Stop losing track of materials. Start auditing your construction site like a pro.">
     <meta property="og:type" content="website">
-    
-    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
-
-
-
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-
-
-
     <link rel="manifest" href="{% static 'manifest.json' %}">
-
-    <meta name="theme-color" content="#001F3F">
-
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -40,11 +27,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <meta name="htmx-config" content='{"useTemplateFragments":true, "includeIndicator":true, "historyCacheSize":0}'>
+
+
+    
+     {% tailwind_css %}
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <meta name="theme-color" content="#1e293b">
+        <meta name="theme-color" content="#001F3F">
+    <meta name="htmx-config" content='{"refreshOnHistoryMiss":true}'>
+ <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.0.1">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+
+    <script src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+    <script src="{% static 'js/alpine.min.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}"> 
 <script>
     document.body.addEventListener('htmx:configRequest', (event) => {
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
     });
 </script>
+
+
 
     {% comment %} SEO {% endcomment %}
     <script type="application/ld+json">
@@ -89,28 +97,14 @@
     }
     </script>
 
-     {% tailwind_css %}
-   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 
-    <meta name="theme-color" content="#1e293b">
-    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+
+
+
+
 
 
     
-
-
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-
-    <script src="{% static 'js/alpine.min.js' %}" defer></script>
-    
-    <meta name="htmx-config" content='{"refreshOnHistoryMiss":true}'>
-
-
-
-    {% comment %} <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.0.1"> {% endcomment %}
-
-    <script src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css">
 
     {% comment %} HTMX link {% endcomment %}
         <script>
