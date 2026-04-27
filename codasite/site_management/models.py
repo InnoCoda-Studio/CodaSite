@@ -11,6 +11,7 @@ from django.db.models import F
 from datetime import timedelta
 # from geopy.geocoders import Nominatim
 from django.utils import timezone
+import datetime
 User = get_user_model()
 
 # 1. Site Infrastructure
@@ -142,6 +143,12 @@ class SkilledWorker(models.Model):
     phone = models.CharField(max_length=20, db_index=True, blank=True)
     emergency_contact = models.CharField(
         max_length=255, db_index=True, null=True, blank=True)
+    video_id_proof = CloudinaryField(
+        'worker_videos/',
+        resource_type='video',  # 👈 Critical for Cloudinary to treat it as video
+        null=True,
+        blank=True
+    )
 
     # 💰 PAYROLL & STATUS
     daily_rate = models.DecimalField(
@@ -180,7 +187,14 @@ class SkilledWorker(models.Model):
         ordering = ['-id']
 
     def save(self, *args, **kwargs):
+        # ID NUMBER
+        if not self.id_number:
+            short_uuid = str(uuid.uuid4())[:4].upper()
+            year = datetime.now().year
+            self.id_number = f"CS-{year}-{short_uuid}"
+
         if not self.slug:
+
             # 1. Create the base (e.g., "victor-paul")
             base = slugify(self.name)
 

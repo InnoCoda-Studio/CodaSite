@@ -32,6 +32,7 @@ ALLOWED_HOSTS = [
     'www.codasite.com.ng',
     'localhost',
     '127.0.0.1',
+
 ]
 
 

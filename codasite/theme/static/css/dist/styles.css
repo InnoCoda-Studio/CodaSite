@@ -14,12 +14,14 @@
     --color-red-700: oklch(50.5% 0.213 27.518);
     --color-orange-400: oklch(75% 0.183 55.934);
     --color-orange-500: oklch(70.5% 0.213 47.604);
+    --color-orange-600: oklch(64.6% 0.222 41.116);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-green-400: oklch(79.2% 0.209 151.711);
     --color-emerald-200: oklch(90.5% 0.093 164.15);
     --color-emerald-400: oklch(76.5% 0.177 163.223);
     --color-emerald-500: oklch(69.6% 0.17 162.48);
     --color-emerald-600: oklch(59.6% 0.145 163.225);
+    --color-cyan-500: oklch(71.5% 0.143 215.221);
     --color-blue-600: oklch(54.6% 0.245 262.881);
     --color-slate-50: oklch(98.4% 0.003 247.858);
     --color-slate-100: oklch(96.8% 0.007 247.896);
@@ -281,9 +283,6 @@
   .inset-0 {
     inset: calc(var(--spacing) * 0);
   }
-  .inset-6 {
-    inset: calc(var(--spacing) * 6);
-  }
   .inset-y-0 {
     inset-block: calc(var(--spacing) * 0);
   }
@@ -425,6 +424,9 @@
   .z-\[60\] {
     z-index: 60;
   }
+  .z-\[70\] {
+    z-index: 70;
+  }
   .z-\[100\] {
     z-index: 100;
   }
@@ -475,6 +477,9 @@
     @media (width >= 96rem) {
       max-width: 96rem;
     }
+  }
+  .mx-4 {
+    margin-inline: calc(var(--spacing) * 4);
   }
   .mx-auto {
     margin-inline: auto;
@@ -773,6 +778,9 @@
   .max-w-\[140px\] {
     max-width: 140px;
   }
+  .max-w-\[200px\] {
+    max-width: 200px;
+  }
   .max-w-full {
     max-width: 100%;
   }
@@ -803,11 +811,20 @@
   .flex-1 {
     flex: 1;
   }
+  .flex-\[2\] {
+    flex: 2;
+  }
+  .flex-shrink {
+    flex-shrink: 1;
+  }
   .shrink {
     flex-shrink: 1;
   }
   .shrink-0 {
     flex-shrink: 0;
+  }
+  .flex-grow {
+    flex-grow: 1;
   }
   .border-collapse {
     border-collapse: collapse;
@@ -1327,6 +1344,9 @@
       background-color: color-mix(in oklab, var(--color-black) 95%, transparent);
     }
   }
+  .bg-cyan-500 {
+    background-color: var(--color-cyan-500);
+  }
   .bg-emerald-500 {
     background-color: var(--color-emerald-500);
   }
@@ -1378,10 +1398,10 @@
       background-color: color-mix(in oklab, var(--color-innocoda-navy) 60%, transparent);
     }
   }
-  .bg-innocoda-navy\/90 {
-    background-color: color-mix(in srgb, #001F3F 90%, transparent);
+  .bg-innocoda-navy\/95 {
+    background-color: color-mix(in srgb, #001F3F 95%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-innocoda-navy) 90%, transparent);
+      background-color: color-mix(in oklab, var(--color-innocoda-navy) 95%, transparent);
     }
   }
   .bg-innocoda-teal {
@@ -1429,6 +1449,9 @@
       background-color: color-mix(in oklab, var(--color-orange-500) 10%, transparent);
     }
   }
+  .bg-orange-600 {
+    background-color: var(--color-orange-600);
+  }
   .bg-red-500 {
     background-color: var(--color-red-500);
   }
@@ -1449,6 +1472,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
     }
+  }
+  .bg-red-600 {
+    background-color: var(--color-red-600);
   }
   .bg-red-600\/90 {
     background-color: color-mix(in srgb, oklch(57.7% 0.245 27.325) 90%, transparent);
@@ -1818,6 +1844,9 @@
   .text-blue-600 {
     color: var(--color-blue-600);
   }
+  .text-cyan-500 {
+    color: var(--color-cyan-500);
+  }
   .text-emerald-200 {
     color: var(--color-emerald-200);
   }
@@ -1856,6 +1885,12 @@
   }
   .text-innocoda-teal {
     color: var(--color-innocoda-teal);
+  }
+  .text-innocoda-teal\/50 {
+    color: color-mix(in srgb, #00D2D2 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-innocoda-teal) 50%, transparent);
+    }
   }
   .text-orange-400 {
     color: var(--color-orange-400);
@@ -2123,6 +2158,10 @@
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
+  .duration-100 {
+    --tw-duration: 100ms;
+    transition-duration: 100ms;
+  }
   .duration-300 {
     --tw-duration: 300ms;
     transition-duration: 300ms;
@@ -2370,13 +2409,6 @@
         @supports (color: color-mix(in lab, red, red)) {
           border-color: color-mix(in oklab, var(--color-innocoda-teal) 50%, transparent);
         }
-      }
-    }
-  }
-  .hover\:border-red-500 {
-    &:hover {
-      @media (hover: hover) {
-        border-color: var(--color-red-500);
       }
     }
   }

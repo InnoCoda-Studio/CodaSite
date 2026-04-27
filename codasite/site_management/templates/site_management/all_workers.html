@@ -83,7 +83,12 @@
         
         <div @click.away="regModal = false" 
             class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative"
-            x-data="globalEnrollmentEngine()">
+            
+
+            x-data="globalEnrollmentEngine()"
+            x-init="$watch('regModal', value => { if(value) startCamera(); else stopCamera(); })"
+            
+            >
             
             <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -104,7 +109,12 @@
                 <input type="hidden" name="register_worker" value="true">
                 <input type="hidden" name="enrollment_lat" value="">
                 <input type="hidden" name="enrollment_long" value="">
-                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
+
+                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden">
+                <input type="file" name="video_id_proof" x-ref="videoFileInput" class="hidden">
+
+
+                
                 
                 <div class="space-y-3">
                     <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Secure Biometric Capture</p>
@@ -165,11 +175,40 @@
                                     muted
                                 >
                             </video>
+
+                           
                             <button type="button" @click="switchCamera()" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full hover:bg-innocoda-teal transition-colors z-30">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             </button>
 
-                            <button type="button" @click="snapPhoto()" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-10 py-4 rounded-full font-black text-xs tracking-widest shadow-xl z-20 active:scale-90 transition-transform">CAPTURE</button>
+                            {% comment %} <button type="button" @click="snapPhoto()" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-10 py-4 rounded-full font-black text-xs tracking-widest shadow-xl z-20 active:scale-90 transition-transform">CAPTURE</button> {% endcomment %}
+                            {% comment %} <div x-show="stream && !photoAttached" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
+                                <p class="text-[9px] text-white font-bold bg-black/40 px-2 py-1 rounded" x-text="recordingStatus"></p>
+                                <button type="button" 
+                                        @click="recordVideoID()" 
+                                        :disabled="isRecording"
+                                        class="bg-red-600 text-white px-10 py-4 rounded-full font-black text-xs tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50">
+                                    <span x-text="isRecording ? 'RECORDING...' : 'START VIDEO ID'"></span>
+                                </button>
+                            </div> {% endcomment %}
+
+                            <div x-show="stream && !photoAttached" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20 w-full px-8">
+                                <template x-if="isRecording">
+                                    <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                                        <div class="bg-red-500 h-full transition-all duration-100" :style="`width: ${recordingProgress}%`"></div >
+                                    </div>
+                                </template>
+
+                                <button type="button" 
+                                        @click="startVideoEnrollment()" 
+                                        :disabled="isRecording"
+                                        :class="isRecording ? 'bg-red-600 animate-pulse' : 'bg-innocoda-teal'"
+                                        class="w-full max-w-[200px] text-white py-4 rounded-full font-black text-[10px] tracking-widest shadow-2xl active:scale-90 transition-all">
+                                    <span x-text="isRecording ? 'RECORDING ID...' : 'BEGIN BIO-CAPTURE'"></span>
+                                </button>
+                                
+                                <p class="text-[8px] text-white/50 font-bold uppercase tracking-[0.2em]" x-text="isRecording ? 'Hold still: Face center' : 'Step 1: Start 3s Video ID'"></p>
+                            </div>
                         </div>
 
                         <div x-show="photoAttached" class="absolute inset-0 w-full h-full">
@@ -229,187 +268,26 @@
 </style>
 
 <script>
-{% comment %} function globalEnrollmentEngine() {
-    return {
-        gettingLocation: false,
-        loading: false,
-        stream: null,
-        photoAttached: false,
-        photoPreview: null,
-        facingMode: 'user',
-
-        faceDescriptor: null, // 🔥 future AI feature
-
-        async init() {
-            await this.loadModels();
-
-            this.$watch('regModal', (value) => {
-                if (value) {
-                    setTimeout(() => this.startCamera(), 200);
-                } else {
-                    this.stopCamera();
-                }
-            });
-        },
-
-        async loadModels() {
-            const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js/weights";
-
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        },
-
-        stopCamera() {
-            if (this.stream) {
-                this.stream.getTracks().forEach(t => t.stop());
-                this.stream = null;
-            }
-        },
-
-        async startCamera() {
-            this.stopCamera();
-
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: this.facingMode },
-                    audio: false
-                });
-
-                this.$refs.liveFeed.srcObject = this.stream;
-                await this.$refs.liveFeed.play();
-
-            } catch (err) {
-                console.error(err);
-                alert("Camera permission denied");
-            }
-        },
-
-        async switchCamera() {
-            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-            await this.startCamera();
-        },
-
-        async snapPhoto() {
-            const video = this.$refs.liveFeed;
-
-            if (!video.videoWidth || !video.videoHeight) {
-                alert("Camera not ready");
-                return;
-            }
-
-            // 🔥 FACE DETECTION (REAL MAGIC HERE)
-            const detection = await faceapi
-                .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (!detection) {
-                alert("No face detected. Position face properly.");
-                return;
-            }
-
-            const box = detection.detection.box;
-
-            const canvas = this.$refs.canvas;
-            const ctx = canvas.getContext("2d");
-
-            const SIZE = 640;
-            canvas.width = SIZE;
-            canvas.height = SIZE;
-
-            // crop FACE only (not fake center crop)
-            ctx.drawImage(
-                video,
-                box.x, box.y, box.width, box.height,
-                0, 0, SIZE, SIZE
-            );
-
-            // watermark
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, SIZE - 60, SIZE, 60);
-
-            ctx.fillStyle = "#2DD4BF";
-            ctx.font = "bold 16px sans-serif";
-            ctx.fillText("BIOMETRIC FACE CAPTURED", 20, SIZE - 25);
-
-            ctx.fillStyle = "#fff";
-            ctx.font = "10px monospace";
-            ctx.fillText(new Date().toLocaleString(), 20, SIZE - 10);
-
-            // stop camera
-            this.stopCamera();
-
-            // convert to file
-            canvas.toBlob(blob => {
-                const file = new File([blob], "face.jpg", { type: "image/jpeg" });
-
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files;
-
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL("image/jpeg");
-
-                // 🔥 SAVE FACE DATA FOR FUTURE RECOGNITION
-                this.faceDescriptor = Array.from(detection.descriptor);
-
-            }, "image/jpeg", 0.9);
-        },
-
-        secureHTMXSubmit(event) {
-            const form = event.target;
-
-            if (!this.photoAttached) {
-                alert("Capture face first");
-                return;
-            }
-
-            this.loading = true;
-            this.gettingLocation = true;
-
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
-                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
-
-                    // optional: send face vector too (advanced)
-                    if (this.faceDescriptor) {
-                        const input = document.createElement("input");
-                        input.type = "hidden";
-                        input.name = "face_vector";
-                        input.value = JSON.stringify(this.faceDescriptor);
-                        form.appendChild(input);
-                    }
-
-                    this.gettingLocation = false;
-                    form.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true }));
-                },
-                () => {
-                    alert("GPS required");
-                    this.loading = false;
-                    this.gettingLocation = false;
-                }
-            );
-        }
-    }
-} {% endcomment %}
-
 function globalEnrollmentEngine() {
     return {
-        gettingLocation: false,
-        loading: false,
         stream: null,
-
         photoAttached: false,
-        photoPreview: null,
-
+        photoPreview: '',
+        isRecording: false,
+        loading: false,
         facingMode: 'user',
+        gettingLocation: false,
+        regModal: false, 
+        recordingProgress: 0,
+        mediaRecorder: null,
+        videoChunks: [],
+        recordingStatus: 'Stand still for 3s',
 
         init() {
             this.$watch('regModal', (value) => {
                 if (value) {
-                    setTimeout(() => this.startCamera(), 150);
+                    // Slight delay to ensure the modal DOM is ready for the video ref
+                    setTimeout(() => this.startCamera(), 500);
                 } else {
                     this.stopCamera();
                 }
@@ -418,7 +296,6 @@ function globalEnrollmentEngine() {
 
         async startCamera() {
             this.stopCamera();
-
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: {
@@ -432,13 +309,72 @@ function globalEnrollmentEngine() {
                 const video = this.$refs.liveFeed;
                 if (video) {
                     video.srcObject = this.stream;
+                    // play() returns a promise, it's safer to await it
                     await video.play();
                 }
-
             } catch (err) {
-                console.error(err);
-                alert("Camera access failed. Use HTTPS and allow permissions.");
+                console.error("Camera error:", err);
+                alert("Camera access failed. Ensure you are using HTTPS (or localhost) and have granted permissions.");
             }
+        },
+
+        async startVideoEnrollment() {
+            if (!this.stream) return;
+            
+            this.isRecording = true;
+            this.recordingProgress = 0;
+            this.videoChunks = [];
+
+            // Configuration for mobile-friendly recording
+            const options = { videoBitsPerSecond: 1000000 };
+            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+                options.mimeType = 'video/webm;codecs=vp8';
+            }
+
+            try {
+                this.mediaRecorder = new MediaRecorder(this.stream, options);
+            } catch (e) {
+                this.mediaRecorder = new MediaRecorder(this.stream);
+            }
+
+            this.mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) this.videoChunks.push(e.data);
+            };
+
+            this.mediaRecorder.onstop = async () => {
+                const mimeType = this.mediaRecorder.mimeType || 'video/mp4';
+                const videoBlob = new Blob(this.videoChunks, { type: mimeType });
+                const videoFile = new File([videoBlob], "id_proof.mp4", { type: mimeType });
+
+                const dt = new DataTransfer();
+                dt.items.add(videoFile);
+                
+                if (this.$refs.videoFileInput) {
+                    this.$refs.videoFileInput.files = dt.files;
+                }
+
+                // Snap the photo preview automatically after recording
+                this.snapPhoto(); 
+                this.isRecording = false;
+            };
+
+            this.mediaRecorder.start();
+            
+            let duration = 3000; 
+            let elapsed = 0;
+            const interval = 100;
+
+            const timer = setInterval(() => {
+                elapsed += interval;
+                this.recordingProgress = (elapsed / duration) * 100;
+                
+                if (elapsed >= duration) {
+                    clearInterval(timer);
+                    if (this.mediaRecorder.state !== "inactive") {
+                        this.mediaRecorder.stop();
+                    }
+                }
+            }, interval);
         },
 
         stopCamera() {
@@ -458,12 +394,11 @@ function globalEnrollmentEngine() {
             const canvas = this.$refs.canvas;
 
             if (!video || !video.videoWidth) {
-                alert("Camera not ready");
+                console.error("Camera not ready for snap");
                 return;
             }
 
             const ctx = canvas.getContext("2d");
-
             const SIZE = 640;
             canvas.width = SIZE;
             canvas.height = SIZE;
@@ -479,43 +414,33 @@ function globalEnrollmentEngine() {
             );
 
             this.drawWatermark(ctx, canvas);
-
             this.buildFile(canvas);
         },
 
         drawWatermark(ctx, canvas) {
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
             ctx.fillStyle = "#2DD4BF";
             ctx.font = "bold 14px sans-serif";
             ctx.fillText("BIOMETRIC VERIFIED", 15, canvas.height - 30);
-
             ctx.fillStyle = "#fff";
             ctx.font = "10px monospace";
-            ctx.fillText(
-                new Date().toLocaleString(),
-                canvas.width - 200,
-                canvas.height - 30
-            );
+            ctx.fillText(new Date().toLocaleString(), canvas.width - 200, canvas.height - 30);
         },
 
         buildFile(canvas) {
-            this.stopCamera();
-
             canvas.toBlob(blob => {
-                const file = new File([blob], "capture.jpg", {
-                    type: "image/jpeg"
-                });
-
+                const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
                 const dt = new DataTransfer();
                 dt.items.add(file);
 
-                this.$refs.hiddenFileInput.files = dt.files;
+                if (this.$refs.hiddenFileInput) {
+                    this.$refs.hiddenFileInput.files = dt.files;
+                }
 
                 this.photoAttached = true;
                 this.photoPreview = canvas.toDataURL("image/jpeg");
-
+                this.stopCamera(); // Close stream after capture
             }, "image/jpeg", 0.9);
         },
 
@@ -523,30 +448,15 @@ function globalEnrollmentEngine() {
             const form = event.target;
 
             if (!this.photoAttached) {
-                alert("Photo required.");
+                alert("Please complete the Biometric Capture first.");
                 return;
             }
 
-            this.gettingLocation = true;
             this.loading = true;
 
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
-                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
-
-                    this.gettingLocation = false;
-
-                    form.dispatchEvent(
-                        new Event('confirmedHTMXSubmit', { bubbles: true })
-                    );
-                },
-                () => {
-                    this.gettingLocation = false;
-                    this.loading = false;
-                    alert("GPS required for enrollment.");
-                },
-                { enableHighAccuracy: true }
+            // Simplified: No GPS check here since it's a general registration
+            form.dispatchEvent(
+                new Event('confirmedHTMXSubmit', { bubbles: true })
             );
         }
     };
