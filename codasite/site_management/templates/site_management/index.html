@@ -151,10 +151,12 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-8 py-2 custom-scrollbar">
-            <form hx-post="{% url 'add_site' %}" 
-                hx-target="#main-content" 
-                @htmx:after-request="if(event.detail.successful) window.location.reload()"
-                class="space-y-6">
+            <form id="site-form" 
+                    hx-post="{% url 'add_site' %}" 
+                    hx-target="#main-content" 
+                    @htmx:after-request="if(event.detail.successful) window.location.reload()"
+                    class="space-y-6"
+            >
                 {% csrf_token %}
 
                 <div class="space-y-3">
@@ -270,7 +272,7 @@
         }
 </style>
 <script>
-function captureSiteLocation() {
+//function captureSiteLocation() {
     const btn = document.getElementById('gps-btn');
     btn.innerHTML = "🛰️ Locating...";
     
@@ -286,6 +288,31 @@ function captureSiteLocation() {
             btn.innerHTML = "❌ GPS Failed - Try Again";
         },
         { enableHighAccuracy: true }
+    );
+//}
+function captureSiteLocation() {
+    const btn = document.getElementById('gps-btn');
+    
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by this browser.");
+        return;
+    }
+
+    btn.innerHTML = "🛰️ Locating...";
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            document.getElementById('site_lat').value = position.coords.latitude;
+            document.getElementById('site_lng').value = position.coords.longitude;
+            btn.innerHTML = "✅ Location Locked";
+        },
+        (error) => {
+            // Check if it's a security/permission issue
+            console.error(error);
+            alert("GPS Error: " + error.message + ". Make sure you are using HTTPS.");
+            btn.innerHTML = "❌ GPS Failed";
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
     );
 }
 </script>
