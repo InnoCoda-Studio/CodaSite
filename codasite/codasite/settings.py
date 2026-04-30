@@ -267,11 +267,14 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 
 # 2
 
+
+# settings.py
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.resend.com'
-EMAIL_PORT = 587  # Changed from 465
-EMAIL_USE_TLS = True  # Changed from SSL
-EMAIL_USE_SSL = False  # Ensure this is False if using TLS
+EMAIL_PORT = 587             # Use 587 instead of 465
+EMAIL_USE_TLS = True         # Use TLS instead of SSL
+EMAIL_USE_SSL = False        # Ensure this is False
 EMAIL_HOST_USER = 'resend'
 EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
