@@ -257,24 +257,35 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 # settings.py
 
 # 1. Use the SMTP backend (standard for most email services)
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.resend.com'
-# EMAIL_PORT = 465
-# EMAIL_USE_SSL = True
-# EMAIL_HOST_USER = 'resend'
-# EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
-# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.resend.com'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'resend'
+EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
+DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # 2
 
 
 # settings.py
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.resend.com'
-EMAIL_PORT = 587             # Use 587 instead of 465
-EMAIL_USE_TLS = True         # Use TLS instead of SSL
-EMAIL_USE_SSL = False        # Ensure this is False
-EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
-DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.resend.com'
+# EMAIL_PORT = 587             # Use 587 instead of 465
+# EMAIL_USE_TLS = True         # Use TLS instead of SSL
+# EMAIL_USE_SSL = False        # Ensure this is False
+# EMAIL_HOST_USER = 'resend'
+# EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
+# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
+
+
+# # settings.py
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.resend.com'
+# EMAIL_PORT = 587             # Use 587 instead of 465
+# EMAIL_USE_TLS = True         # Use TLS instead of SSL
+# EMAIL_USE_SSL = False
+# EMAIL_HOST_USER = 'resend'
+# EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
+# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
