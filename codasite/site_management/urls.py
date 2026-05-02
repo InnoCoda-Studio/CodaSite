@@ -73,6 +73,16 @@ urlpatterns = [
     # Update Site
     path('update-site/<int:site_id>/', views.update_site, name='update_site'),
 
+    # 🎯 1. The PM's Tool: Generates the QR Modal via HTMX
+    path('site/<int:site_id>/generate-qr/',
+         views.generate_site_qr, name='generate_site_qr'),
+    # 📱 2. The Worker's Landing Page: Where the phone goes after scanning
+    # We haven't built 'attendance_scan_portal' yet, but let's reserve the road now
+    path('attendance/scan/<int:site_id>/',
+         views.attendance_scan_portal, name='attendance_scan_portal'),
+
     path('site/<int:site_id>/worker/<int:worker_id>/history/',
          views.worker_history_modal, name='worker_history_modal'),
+
+
 ]

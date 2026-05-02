@@ -173,10 +173,12 @@
                                    @mouseleave="openName = false"
                                    class="font-black text-white text-base md:text-lg uppercase truncate group-hover:text-innocoda-teal transition-colors cursor-pointer"
                                 >
-                                    {{ person.worker.name|default:person.user.username }}
-                                </p>
+                                <p class="font-black text-white text-base md:text-lg uppercase truncate transition-colors cursor-pointer group-hover:text-innocoda-teal"
+                                    title="{{ person.worker.name|default:person.user.username }}">
+                                        {{ person.worker.name|default:person.user.username }}
+                                    </p>
 
-                                <span class="text-[7px] md:text-[8px] bg-white/10 text-gray-400 px-2 md:px-3 py-1 rounded-full font-black uppercase tracking-widest mt-1 inline-block">
+                               <span class="text-[7px] md:text-[8px] bg-white/10 text-gray-400 px-2 md:px-3 py-1 rounded-full font-black uppercase tracking-widest mt-1 inline-block">
                                     {{ person.worker.category|default:"STAFF" }}
                                 </span>
                             </div>

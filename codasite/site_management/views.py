@@ -14,6 +14,9 @@ from .models import SiteLocation, StaffAttendance, MaterialDeduction
 from django.conf import settings
 # Ensure these are at the top
 #
+import qrcode
+from io import BytesIO
+import base64
 
 from decimal import Decimal, InvalidOperation
 from django.template.loader import render_to_string
@@ -838,6 +841,38 @@ def htmx_clock_out(request, site_id):
         response['HX-Trigger'] = 'financeUpdate'
 
         return response
+
+
+@login_required
+def generate_site_qr(request, site_id):
+    site = get_object_or_404(SiteLocation, id=site_id)
+
+    # 🔐 Security: Encode the Site ID and a timestamp or secret
+    # This URL is where the worker's phone will go
+    portal_url = request.build_absolute_uri(f'/attendance/scan/{site.id}/')
+
+    # Create the QR
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(portal_url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Save to buffer to send to template without saving a file to disk
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    return render(request, 'site_management/htmx_components/qr_modal.html', {
+        'qr_code': qr_base64,
+        'site': site
+    })
+# Temporary placeholder so the server can start
+
+
+def attendance_scan_portal(request, site_id):
+    site = get_object_or_404(SiteLocation, id=site_id)
+    return render(request, 'site_management/worker_scan_portal.html', {'site': site})
 
 
 @login_required
