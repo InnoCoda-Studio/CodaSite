@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Gate Entry | {{ site.name }}{% endblock %}
+
+{% block content %}
+<div x-data="attendanceHandler()" class="min-h-screen bg-[#0a0f1a] p-6 pb-20 flex flex-col items-center justify-center">
+    
+    <div class="text-center mb-8">
+        <div class="w-20 h-20 bg-innocoda-teal/10 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-innocoda-teal/20">
+            <svg class="w-10 h-10 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+        </div>
+        <h1 class="text-3xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
+        <p class="text-innocoda-teal text-xs font-black uppercase tracking-widest mt-2">Biometric Gate Portal</p>
+    </div>
+
+    <div class="w-full max-w-md glass rounded-[3rem] border border-white/10 p-8 shadow-2xl relative overflow-hidden">
+        
+        <div class="relative w-full aspect-square rounded-[2rem] bg-black border-2 border-white/5 overflow-hidden mb-6">
+            <video x-ref="video" autoplay playsinline class="w-full h-full object-cover"></video>
+            <canvas x-ref="canvas" class="hidden"></canvas>
+            
+            <div class="absolute inset-0 border-[3rem] border-black/40 rounded-[2rem] pointer-events-none flex items-center justify-center">
+                <div class="w-full h-full border-2 border-dashed border-innocoda-teal/30 rounded-full"></div>
+            </div>
+        </div>
+
+        <div x-show="message" x-transition class="mb-6 p-4 rounded-2xl text-center text-[10px] font-black uppercase tracking-widest" :class="isError ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'">
+            <span x-text="message"></span>
+        </div>
+
+        <div class="space-y-4">
+            <button @click="processAttendance('IN')" 
+                    :disabled="loading"
+                    class="w-full py-5 bg-innocoda-teal text-black rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">
+                <span x-show="!loading">Clock In Site</span>
+                <span x-show="loading" class="animate-pulse">Verifying...</span>
+            </button>
+
+            <button @click="processAttendance('OUT')" 
+                    :disabled="loading"
+                    class="w-full py-5 glass border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50">
+                Clock Out
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function attendanceHandler() {
+    return {
+        loading: false,
+        message: 'Camera active. Center your face.',
+        isError: false,
+        stream: null,
+        lat: null,
+        lng: null,
+
+        async init() {
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                this.$refs.video.srcObject = this.stream;
+                
+                // Start tracking GPS immediately
+                navigator.geolocation.getCurrentPosition(pos => {
+                    this.lat = pos.coords.latitude;
+                    this.lng = pos.coords.longitude;
+                }, err => {
+                    this.isError = true;
+                    this.message = 'GPS Permission Denied. Please enable location.';
+                });
+            } catch (err) {
+                this.isError = true;
+                this.message = 'Camera access denied.';
+            }
+        },
+
+        async processAttendance(type) {
+            this.loading = true;
+            this.message = 'Processing... stay still';
+
+            // 1. Capture Image
+            const canvas = this.$refs.canvas;
+            canvas.width = this.$refs.video.videoWidth;
+            canvas.height = this.$refs.video.videoHeight;
+            canvas.getContext('2d').drawImage(this.$refs.video, 0, 0);
+            const photoData = canvas.toDataURL('image/jpeg');
+
+            // 2. Prepare Data
+            const formData = new FormData();
+            formData.append('type', type);
+            formData.append('photo', photoData);
+            formData.append('lat', this.lat);
+            formData.append('lng', this.lng);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            try {
+                // We will build this endpoint next
+                const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
+                } else {
+                    this.isError = true;
+                    this.message = result.error;
+                }
+            } catch (err) {
+                this.isError = true;
+                this.message = 'Connection Error. Try again.';
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
