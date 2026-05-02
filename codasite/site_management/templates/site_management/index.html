@@ -72,9 +72,9 @@
                         Edit ⚙️
                     </button>
                 {% else %}
-                    <span class="text-[9px] text-gray-700 font-black uppercase flex items-center gap-1">
+                    {% comment %} <span class="text-[9px] text-gray-700 font-black uppercase flex items-center gap-1">
                         Locked 🔒
-                    </span>
+                    </span> {% endcomment %}
                 {% endif %}
             </div>
 
@@ -154,7 +154,7 @@
         </div>
     </div>
 </a> {% endcomment %}
-
+{% comment %} 
         <a href="{% url 'site_dashboard' site.id %}" 
         class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between group/link">
             
@@ -180,8 +180,40 @@
                     </svg>
                 </div>
             </div>
-        </a>
+        </a> {% endcomment %}
+        <!-- Added 'transform-gpu' and 'active' states for PWA/Mobile -->
+<a href="{% url 'site_dashboard' site.id %}" 
+   class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between group/link touch-none transform-gpu active:opacity-70 transition-all">
+    
+    <div class="relative">
+        <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.4em]">
+            Enter Site Dashboard
+        </span>
+        <!-- Underline: Added 'will-change' for smoother PWA rendering -->
+        <div class="absolute -bottom-2 left-0 w-0 h-[2px] bg-innocoda-teal group-hover/link:w-full transition-all duration-700 rounded-full shadow-[0_0_10px_#14b8a6] will-change-[width]"></div>
+    </div>
 
+    <div class="flex items-center">
+        <!-- Show this when loading -->
+        <div class="htmx-indicator">
+            <svg class="animate-spin h-4 w-4 text-innocoda-teal mr-2" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+
+        <!-- Arrow Container: Using transform-gpu and standard filter for Safari compatibility -->
+        <div class="relative flex items-center transform-gpu group-hover/link:translate-x-2 transition-transform duration-500 ease-out">
+            <svg class="w-6 h-6 text-innocoda-teal filter drop-shadow-[0_0_8px_rgba(20,184,166,0.8)]" 
+                 style="filter: drop-shadow(0 0 8px rgba(20, 184, 166, 0.8));"
+                 fill="none" 
+                 stroke="currentColor" 
+                 viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+            </svg>
+        </div>
+    </div>
+</a>
 
     </div>
     {% endfor %}
@@ -326,6 +358,11 @@
 </div>
 
 <style>
+    @media (hover: hover) {
+  .group-hover\/link\:w-full:hover {
+    width: 100%;
+  }
+}
     /* Hidden Scrollbar for a cleaner SaaS look */
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
