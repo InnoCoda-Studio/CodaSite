@@ -192,7 +192,32 @@
                                     Clock Out
                                 </button>
                             {% else %}
-                                <button 
+
+                            <form id="clock-in-form-{{ worker.id }}" 
+                                hx-post="{% url 'htmx_clock_in' site.id %}" 
+                                hx-encoding="multipart/form-data" 
+                                hx-target="#worker-action-{{ worker.id }}" 
+                                hx-swap="outerHTML"
+                                class="inline-block">
+                                
+                                {% csrf_token %}
+                                <input type="hidden" name="worker_id" value="{{ worker.id }}">
+                                <input type="hidden" name="lat" id="lat-{{ worker.id }}" value="">
+                                <input type="hidden" name="lng" id="lng-{{ worker.id }}" value="">
+                                
+                                <!-- The Magic HTML5 Camera Button -->
+                                {% comment %} <label class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-105 active:scale-95">
+                                    <span>📷 Snap & Clock-In</span>
+                                    <!-- capture="environment" forces the back camera to open instantly -->
+                                    <input type="file" name="daily_photo" accept="image/*" capture="environment" class="hidden" onchange="executeSecureClockIn(this, '{{ worker.id }}')">
+                                </label> {% endcomment %}
+                                <button type="button" 
+                                    @click="$dispatch('open-clock-in', { id: '{{ worker.id }}', name: '{{ worker.name }}' })"
+                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2">
+                                    <span>📸 Verify & Clock-In</span>
+                                </button>
+                                </form>
+                                {% comment %} <button 
                                     x-data="{ clicking: false }"
                                     @click="clicking = true; clockInWithGPS('{{ worker.id }}', '{{ site.id }}')"
                                     :disabled="clicking"
@@ -207,7 +232,7 @@
                                     </template>
 
                                     <span x-text="clicking ? 'Verifying...' : '⚡ Quick Clock-In'"></span>
-                                </button>
+                                </button> {% endcomment %}
                             {% endif %}
                         </div>
                     </div>
@@ -487,119 +512,55 @@
 </div>
 {% comment %} Dispaying workers cloing message  {% endcomment %}
 <div id="toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>
+
+<!-- THE UNIVERSAL CLOCK-IN MODAL -->
+<div x-data="universalClockInEngine()" 
+     @open-clock-in.window="openModal($event.detail)"
+     x-show="isOpen" x-cloak 
+     class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-md px-4">
+    
+    <div @click.away="closeModal()" class="glass w-full max-w-md p-6 rounded-[2.5rem] border border-white/20 shadow-2xl relative">
+        <!-- Close Button -->
+        <button @click="closeModal()" class="absolute top-4 right-4 text-white hover:text-red-500 z-50">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+
+        <h3 class="text-white font-black uppercase text-sm text-center mb-4">
+            Clocking In: <span x-text="workerName" class="text-innocoda-teal"></span>
+        </h3>
+        
+        <!-- Live Video Feed -->
+        <div class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border-2 border-white/10">
+            <video x-ref="liveVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            
+            <button type="button" @click="snapAndSubmit()" :disabled="processing" 
+                    :class="processing ? 'bg-gray-500 scale-95' : 'bg-red-500 hover:scale-105'"
+                    class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white px-8 py-3 rounded-full font-black uppercase text-xs shadow-xl transition-all flex items-center gap-2">
+                <span x-text="processing ? 'Verifying...' : '📸 SNAP & VERIFY'"></span>
+            </button>
+        </div>
+        
+        <!-- Hidden Canvas for capturing the frame -->
+        <canvas x-ref="clockInCanvas" class="hidden"></canvas>
+        
+        <!-- The Hidden HTMX Form -->
+        <form x-ref="clockInForm" 
+              hx-post="{% url 'htmx_clock_in' site.id %}" 
+              hx-encoding="multipart/form-data"
+              :hx-target="'#worker-action-' + workerId"
+              hx-swap="outerHTML"
+              @htmx:after-request="closeModal()">
+            {% csrf_token %}
+            <input type="hidden" name="worker_id" :value="workerId">
+            <input type="hidden" name="lat" x-ref="latInput">
+            <input type="hidden" name="lng" x-ref="lngInput">
+            <input type="file" name="daily_photo" x-ref="photoInput" class="hidden">
+        </form>
+    </div>
+</div>
 <script>
     {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
   
-{% comment %} 
-function workerEnrollmentEngine() {
-    return {
-        lat: '',
-        long: '',
-        gettingLocation: false,
-        loading: false,
-        stream: null,
-        photoAttached: false,
-        photoPreview: null,
-        facingMode: 'user', // Defaults to selfie/front camera
-
-        // 1. Updated Start Camera (Handles dynamic facing mode)
-        startCamera() {
-            // CRITICAL: Stop old tracks before switching or it will error out
-            if (this.stream) {
-                this.stream.getTracks().forEach(t => t.stop());
-            }
-
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: this.facingMode }, 
-                audio: false 
-            })
-            .then(s => {
-                this.stream = s;
-                this.$refs.videoFeed.srcObject = s;
-                this.$refs.videoFeed.play();
-            }).catch(err => {
-                console.error(err);
-                alert("SECURITY: Camera access is required.");
-            });
-            .catch(err => {
-                console.error(err);
-                alert("Camera failed. Tap again or refresh.");
-            });
-            
-        },
-
-        // 2. NEW: Toggle Logic
-        toggleCamera() {
-            this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
-            this.startCamera();
-        },
-
-        snapPhoto() {
-            const canvas = this.$refs.canvas;
-            const video = this.$refs.videoFeed;
-            const ctx = canvas.getContext('2d');
-            
-            const MAX_WIDTH = 480;
-            const scale = MAX_WIDTH / video.videoWidth;
-            
-            canvas.width = MAX_WIDTH;
-            canvas.height = video.videoHeight * scale;
-
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Security Watermark
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-            ctx.font = "bold 16px Arial";
-            ctx.fillStyle = "#2DD4BF";
-            ctx.fillText("🔒 CodaSite ENROLLMENT", 15, canvas.height - 35);
-            ctx.font = "12px Arial";
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 15);
-
-            this.stream.getTracks().forEach(t => t.stop());
-            this.stream = null;
-
-            canvas.toBlob((blob) => {
-                const file = new File([blob], "biometric_id.jpg", { type: "image/jpeg" });
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files;
-                
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL('image/jpeg');
-            }, 'image/jpeg', 0.6); 
-            init() {
-                console.log("Camera component ready");
-            }
-        },
-
-        secureSubmit(event) {
-            if (!this.photoAttached) {
-                alert("SECURITY: You must snap a live biometric photo.");
-                return;
-            }
-            this.gettingLocation = true;
-            this.loading = true;
-            
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    this.lat = pos.coords.latitude;
-                    this.long = pos.coords.longitude;
-                    document.querySelector('input[name="enrollment_lat"]').value = this.lat;
-                    document.querySelector('input[name="enrollment_long"]').value = this.long;
-                    event.target.dispatchEvent(new Event('htmx-secure-submit')); 
-                },
-                (err) => {
-                    alert('SECURITY: GPS location required.');
-                    this.gettingLocation = false;
-                    this.loading = false;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
-    }
-} {% endcomment %}
 
 
 function workerEnrollmentEngine() {
@@ -751,6 +712,131 @@ function clockInWithGPS(workerId, siteId) {
         }, gpsOptions); // 👈 Pass the options here
     } else {
         showToast("❌ Browser does not support GPS", "error");
+    }
+}
+
+function executeSecureClockIn(fileInput, workerId) {
+    if (!fileInput.files.length) return; // User canceled camera
+    
+    speakMessage("Verifying identity and location...");
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                // 1. Inject GPS data into the hidden fields
+                document.getElementById('lat-' + workerId).value = position.coords.latitude;
+                document.getElementById('lng-' + workerId).value = position.coords.longitude;
+                
+                // 2. Trigger HTMX to send the photo and GPS to Django
+                htmx.trigger('#clock-in-form-' + workerId, 'submit');
+            }, 
+            function(error) {
+                showToast("🚨 GPS Required to Clock In!", "error");
+                speakMessage("GPS Error. Access Denied.");
+                fileInput.value = ""; // Clear the file
+            }, 
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    } else {
+        showToast("❌ Browser does not support GPS", "error");
+    }
+}
+
+
+function universalClockInEngine() {
+    return {
+        isOpen: false,
+        workerId: null,
+        workerName: '',
+        stream: null,
+        processing: false,
+
+        openModal(data) {
+            this.workerId = data.id;
+            this.workerName = data.name;
+            this.isOpen = true;
+            this.processing = false;
+            
+            // Fix HTMX target dynamically so it updates the correct worker row
+            this.$refs.clockInForm.setAttribute('hx-target', '#worker-action-' + this.workerId);
+            htmx.process(this.$refs.clockInForm); 
+            
+            this.startCamera();
+        },
+
+        closeModal() {
+            this.isOpen = false;
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
+                this.stream = null;
+            }
+        },
+
+        startCamera() {
+            // First try to open the back camera (for phones)
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+            .then(s => {
+                this.stream = s;
+                this.$refs.liveVideo.srcObject = s;
+                this.$refs.liveVideo.play();
+            }).catch(err => {
+                // If back camera fails (like on a laptop), fallback to the standard webcam
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+                .then(s => {
+                    this.stream = s;
+                    this.$refs.liveVideo.srcObject = s;
+                    this.$refs.liveVideo.play();
+                }).catch(e => {
+                    alert("Camera access is blocked. Please check browser permissions.");
+                });
+            });
+        },
+
+        snapAndSubmit() {
+            this.processing = true;
+            speakMessage("Verifying identity..."); // Using your existing voice function!
+
+            const video = this.$refs.liveVideo;
+            const canvas = this.$refs.clockInCanvas;
+            const ctx = canvas.getContext('2d');
+            
+            // Standardize the resolution for speed
+            canvas.width = 480;
+            canvas.height = 360;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert to a file and attach to hidden form
+            canvas.toBlob((blob) => {
+                const file = new File([blob], "daily_clock_in.jpg", { type: "image/jpeg" });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                this.$refs.photoInput.files = dt.files;
+
+                // Stop the camera feed immediately so it feels snappy
+                if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+
+                // Grab GPS and fire off HTMX
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            this.$refs.latInput.value = position.coords.latitude;
+                            this.$refs.lngInput.value = position.coords.longitude;
+                            
+                            // Trigger the HTMX submission natively
+                            htmx.trigger(this.$refs.clockInForm, 'submit');
+                        },
+                        (error) => {
+                            showToast("🚨 GPS location required to clock in!", "error");
+                            this.processing = false;
+                            this.closeModal();
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                } else {
+                    alert("Your browser does not support GPS.");
+                }
+            }, 'image/jpeg', 0.8);
+        }
     }
 }
 
