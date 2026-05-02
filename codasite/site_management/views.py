@@ -1013,21 +1013,22 @@ def daily_report(request, site_id):
 
 
 @login_required
-def worker_history_modal(request, worker_id):
+def worker_history_modal(request, site_id, worker_id):
+    # 1. Grab both the Site and the Worker
+    site = get_object_or_404(SiteLocation, id=site_id)
     worker = get_object_or_404(SkilledWorker, id=worker_id)
 
-    # Fetch all time attendance records for this worker, newest first
+    # 🔒 2. THE FIX: Filter the history by BOTH worker AND site!
     history = StaffAttendance.objects.filter(
-        worker=worker).order_by('-time_in')
+        worker=worker, site=site).order_by('-time_in')
 
     context = {
+        'site': site,      # Pass the site to the template so you can display the site name
         'worker': worker,
         'history': history,
     }
 
-    # We render this as a partial HTML snippet to inject via HTMX
     return render(request, 'site_management/htmx_components/history_modal.html', context)
-
 # --- WORKER & SITE MANAGEMENT ---
 
 

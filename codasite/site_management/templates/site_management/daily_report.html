@@ -22,14 +22,14 @@
 <div x-data="{ imgModal: false, imgUrl: '', isVideo: false, search: '' }" class="min-h-screen pb-32">
     
     <main class="container mx-auto p-4 md:p-8 space-y-8">
-        
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div>
+         <div>
                 <h1 class="text-4xl font-black uppercase tracking-tighter text-white">Daily Site Audit</h1>
                 <p class="text-gray-400 text-xs mt-1 uppercase tracking-widest">
                     Operations for: <span class="text-innocoda-teal font-black">{{ site.name }}</span>
                 </p>
             </div>
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+           
 
             <div class="relative w-full max-w-md">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -44,20 +44,30 @@
             </div>
 
             <!-- 🗓️ THE INTERACTIVE ARCHIVE PICKER -->
-            <div class="glass border border-white/10 px-6 py-4 rounded-[2rem] shadow-2xl flex flex-col items-end relative z-50">
-                <p class="text-[8px] text-gray-500 uppercase font-black tracking-[0.3em] mb-2">Audit Archive</p>
-                <form hx-get="{% url 'daily_report' site.id %}" hx-target="#main-content" hx-push-url="true" class="flex items-center gap-2">
-                    <input type="date" name="date" 
-                           value="{{ report_date|date:'Y-m-d' }}" 
-                           class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-bold text-xs uppercase tracking-widest outline-none focus:border-innocoda-teal cursor-pointer"
-                           onchange="this.form.dispatchEvent(new Event('submit'))"
-                           max="{% now 'Y-m-d' %}">
-                           
-                    {% if not is_today %}
-                        <a href="{% url 'daily_report' site.id %}" hx-get="{% url 'daily_report' site.id %}" hx-target="#main-content" hx-push-url="true" class="text-[9px] font-black text-innocoda-teal bg-innocoda-teal/10 px-3 py-2 rounded-lg border border-innocoda-teal/20 hover:bg-innocoda-teal hover:text-black transition-all">Today</a>
-                    {% endif %}
-                </form>
-            </div>
+            <!-- 🗓️ THE INTERACTIVE ARCHIVE PICKER -->
+<div class="glass border border-white/10 px-6 py-4 rounded-[2rem] shadow-2xl flex flex-col items-end relative z-50">
+    <p class="text-[8px] text-gray-500 uppercase font-black tracking-[0.3em] mb-2">Audit Archive</p>
+    
+    <!-- Using native GET form so the page completely refreshes and updates the URL -->
+    <form method="GET" action="{% url 'daily_report' site.id %}" class="flex items-center gap-2">
+        
+        <!-- Removed the onchange auto-submit so you can type in peace -->
+        <input type="date" name="date" 
+               value="{{ report_date|date:'Y-m-d' }}" 
+               class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-bold text-xs uppercase tracking-widest outline-none focus:border-innocoda-teal cursor-pointer"
+               max="{% now 'Y-m-d' %}">
+               
+        <!-- 🚀 NEW: The GO Button -->
+        <button type="submit" class="bg-innocoda-teal text-black px-4 py-2 rounded-xl text-xs font-black uppercase hover:bg-white transition-all shadow-lg">
+            Go
+        </button>
+               
+        {% if not is_today %}
+            <!-- Native anchor link to reset to today -->
+            <a href="{% url 'daily_report' site.id %}" class="text-[9px] font-black text-innocoda-teal bg-innocoda-teal/10 px-3 py-2 rounded-lg border border-innocoda-teal/20 hover:bg-innocoda-teal hover:text-black transition-all">Today</a>
+        {% endif %}
+    </form>
+</div>
         </div>
 
         <section class="glass rounded-[2rem] md:rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl">
@@ -214,7 +224,8 @@
 
                     <!-- Only show History button if this is a registered SkilledWorker -->
                     {% if person.worker %}
-                        <button hx-get="{% url 'worker_history_modal' person.worker.id %}" 
+                        <!-- Notice we are passing site.id AND person.worker.id -->
+                        <button hx-get="{% url 'worker_history_modal' site.id person.worker.id %}" 
                                 hx-target="#modal-anchor" 
                                 hx-swap="innerHTML"
                                 class="bg-white/5 border border-white/10 hover:bg-white/10 text-white px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all mt-4 w-full text-center group-hover:border-innocoda-teal/30 group-hover:text-innocoda-teal">
