@@ -530,13 +530,33 @@
         </h3>
         
         <!-- Live Video Feed -->
-        <div class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border-2 border-white/10">
-            <video x-ref="liveVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
+        {% comment %} <div class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border-2 border-white/10">
+            <video x-ref="liveVideo" class="w-full h-[500px] object-cover" autoplay playsinline muted></video>
             
             <button type="button" @click="snapAndSubmit()" :disabled="processing" 
                     :class="processing ? 'bg-gray-500 scale-95' : 'bg-red-500 hover:scale-105'"
                     class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white px-8 py-3 rounded-full font-black uppercase text-xs shadow-xl transition-all flex items-center gap-2">
                 <span x-text="processing ? 'Verifying...' : '📸 SNAP & VERIFY'"></span>
+            </button>
+        </div> {% endcomment %}
+
+        <div class="relative rounded-3xl overflow-hidden bg-black h-[60vh] max-h-[550px] mb-4 border-2 border-white/10 group">
+            <!-- Removed aspect-video, changed to h-full so it fills the parent perfectly -->
+            <video x-ref="liveVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            
+            <!-- The Camera Switch Button -->
+            <button type="button" @click="toggleCamera()" 
+                    class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+
+            <!-- The Snap Button -->
+            <button type="button" @click="snapAndSubmit()" :disabled="processing" 
+                    :class="processing ? 'bg-gray-500 scale-95' : 'bg-red-500 hover:scale-105'"
+                    class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white px-10 py-4 rounded-full font-black  text-sm shadow-xl transition-all flex items-center gap-2 z-20">
+                <span x-text="processing ? 'Verifying...' : 'snap & verify'"></span>
             </button>
         </div>
         
@@ -750,6 +770,7 @@ function universalClockInEngine() {
         workerName: '',
         stream: null,
         processing: false,
+        facingMode: 'environment', // Starts with the back camera by default
 
         openModal(data) {
             this.workerId = data.id;
@@ -761,7 +782,8 @@ function universalClockInEngine() {
             this.$refs.clockInForm.setAttribute('hx-target', '#worker-action-' + this.workerId);
             htmx.process(this.$refs.clockInForm); 
             
-            this.startCamera();
+            // Delay camera start slightly so the modal transition finishes first
+            setTimeout(() => this.startCamera(), 150);
         },
 
         closeModal() {
@@ -773,37 +795,55 @@ function universalClockInEngine() {
         },
 
         startCamera() {
-            // First try to open the back camera (for phones)
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+            // Stop existing tracks before starting a new one
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
+            }
+
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: this.facingMode }, 
+                audio: false 
+            })
             .then(s => {
                 this.stream = s;
                 this.$refs.liveVideo.srcObject = s;
                 this.$refs.liveVideo.play();
             }).catch(err => {
-                // If back camera fails (like on a laptop), fallback to the standard webcam
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-                .then(s => {
-                    this.stream = s;
-                    this.$refs.liveVideo.srcObject = s;
-                    this.$refs.liveVideo.play();
-                }).catch(e => {
+                console.error("Camera error:", err);
+                // Fallback: If 'environment' (back cam) fails, try 'user' (webcam)
+                if (this.facingMode === 'environment') {
+                    this.facingMode = 'user';
+                    this.startCamera();
+                } else {
                     alert("Camera access is blocked. Please check browser permissions.");
-                });
+                }
             });
+        },
+
+        toggleCamera() {
+            // Flip the camera mode and restart the stream
+            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
+            this.startCamera();
         },
 
         snapAndSubmit() {
             this.processing = true;
-            speakMessage("Verifying identity..."); // Using your existing voice function!
+            speakMessage("Verifying identity..."); // Triggers your voice function
 
             const video = this.$refs.liveVideo;
             const canvas = this.$refs.clockInCanvas;
             const ctx = canvas.getContext('2d');
             
-            // Standardize the resolution for speed
+            // Standardize resolution for fast uploads
             canvas.width = 480;
             canvas.height = 360;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Fix stretch by calculating aspect ratio crop
+            const size = Math.min(video.videoWidth, video.videoHeight);
+            const startX = (video.videoWidth - size) / 2;
+            const startY = (video.videoHeight - size) / 2;
+            
+            ctx.drawImage(video, startX, startY, size, size, 0, 0, canvas.width, canvas.height);
 
             // Convert to a file and attach to hidden form
             canvas.toBlob((blob) => {
@@ -837,7 +877,7 @@ function universalClockInEngine() {
                 }
             }, 'image/jpeg', 0.8);
         }
-    }
+    };
 }
 
 // 🍞 3. The Toast UI Function
