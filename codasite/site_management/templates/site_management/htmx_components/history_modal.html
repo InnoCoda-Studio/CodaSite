@@ -1,0 +1,70 @@
+<!-- history_modal.html -->
+<div id="history-modal-container" 
+     x-data="{ show: true }" 
+     x-show="show" 
+     class="fixed inset-0 z-[400] flex justify-end bg-black/60 backdrop-blur-sm"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 translate-x-full"
+     x-transition:enter-end="opacity-100 translate-x-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100 translate-x-0"
+     x-transition:leave-end="opacity-0 translate-x-full">
+    
+    <div class="w-full max-w-md h-full glass border-l border-white/20 shadow-2xl flex flex-col p-6 overflow-hidden">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
+            <div>
+                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">{{ worker.name }}</h2>
+                <p class="text-[9px] text-innocoda-teal font-black uppercase tracking-widest">Complete Audit Trail</p>
+            </div>
+            <!-- This button removes the modal from the DOM -->
+            <button @click="show = false; setTimeout(() => $el.closest('#history-modal-container').remove(), 300)" class="text-gray-500 hover:text-white glass p-3 rounded-full transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <!-- Scrollable Timeline -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
+            {% for record in history %}
+            <div class="relative pl-6 border-l-2 border-white/10 pb-4">
+                <!-- Timeline Dot -->
+                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full {% if record.time_out %}bg-emerald-500{% else %}bg-orange-500 animate-pulse{% endif %} border-4 border-[#0a0f1a]"></div>
+                
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5 hover:border-innocoda-teal/30 transition-colors">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="text-sm font-black text-white uppercase">{{ record.time_in|date:"l, d M Y" }}</p>
+                            <p class="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">Logged by: {{ record.user.username }}</p>
+                        </div>
+                        
+                        <!-- Biometric Photo Thumbnail -->
+                        {% if record.clock_in_photo %}
+                            <img src="{{ record.clock_in_photo.url }}" class="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-md">
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                        <div>
+                            <p class="text-[7px] text-gray-500 uppercase font-black">In</p>
+                            <p class="text-xs font-bold text-white">{{ record.time_in|date:"h:i A" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[7px] text-gray-500 uppercase font-black">Out</p>
+                            {% if record.time_out %}
+                                <p class="text-xs font-bold text-red-400">{{ record.time_out|date:"h:i A" }}</p>
+                            {% else %}
+                                <p class="text-[9px] font-black text-orange-400 uppercase mt-1">Active</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center p-8 opacity-50">
+                <p class="text-xs font-black text-white uppercase tracking-widest">No shift history found.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

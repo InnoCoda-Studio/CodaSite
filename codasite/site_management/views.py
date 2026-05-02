@@ -1,3 +1,4 @@
+from django.shortcuts import render, get_object_or_404
 from .models import SiteLocation
 from django.shortcuts import get_object_or_404, redirect
 import cloudinary.uploader  # Make sure this is imported!
@@ -410,132 +411,6 @@ def site_dashboard(request, site_id):
 
 
 @login_required
-def site_warehouse(request, site_id):
-    # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
-    site = get_object_or_404(SiteLocation, id=site_id)
-
-    # 🛡️ 2. THE PERMISSION GATE
-    # Check if the user is the Boss
-    is_owner = (site.company.owner == request.user)
-
-    # Check if the user is an invited staff member for THIS site
-    invitation = Invitation.objects.filter(
-        email=request.user.email,
-        site=site,
-        is_used=True
-    ).last()
-
-    # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
-    if not is_owner and not invitation:
-        messages.error(
-            request, "Access Denied: You are not assigned to this warehouse.")
-        return redirect('profile')
-
-    # 3. Determine the User's Role for the UI
-    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-    is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
-
-    # --- THE LOGIC ENGINE ---
-
-    if request.method == "POST":
-        if 'add_stock' in request.POST:
-            try:
-                qty = Decimal(request.POST.get('quantity') or '0.00')
-                item_name = request.POST.get('item_name', '').strip().upper()
-                unit = request.POST.get('unit', '').strip()
-                img_file = request.FILES.get('evidence_image')
-                vid_file = request.FILES.get('evidence_video')
-
-                # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
-                processed_vid = None
-                if vid_file:
-                    import cloudinary.uploader
-                    upload_result = cloudinary.uploader.upload(
-                        vid_file,
-                        resource_type="video",
-                        folder="codasite_audits",
-                        transformation=[
-                            {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
-                                "x": 20, "y": 20, "width": 80, "opacity": 90}
-                        ]
-                    )
-                    processed_vid = upload_result['public_id']
-
-                # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
-                with transaction.atomic():
-                    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-                        site=site, item_name=item_name, defaults={'unit': unit}
-                    )
-                    stock.current_balance += qty
-                    if img_file:
-                        stock.evidence_image = img_file
-                    if processed_vid:
-                        stock.evidence_video = processed_vid
-                    stock.save()
-
-                    MaterialRestockLog.objects.create(
-                        stock_item=stock, site=site, quantity_added=qty,
-                        evidence_image=img_file,
-                        evidence_video=processed_vid if processed_vid else None
-                    )
-
-                messages.success(
-                    request, f"Received {qty} {unit} of {item_name}.")
-            except Exception as e:
-                messages.error(request, f"Intake Error: {e}")
-
-        # --- B. ISSUE MATERIAL (DEDUCTION) ---
-        elif 'issue_material' in request.POST:
-            stock_id = request.POST.get('stock_item')
-            worker_id = request.POST.get('worker_id')
-            qty_input = request.POST.get('quantity')
-
-            try:
-                qty = Decimal(qty_input or 0)
-                worker = get_object_or_404(SkilledWorker, id=worker_id)
-                stock = get_object_or_404(
-                    MaterialStock, id=stock_id, site=site)
-
-                MaterialDeduction.objects.create(
-                    stock_item=stock,
-                    worker=worker,
-                    quantity_taken=qty,
-                    purpose=request.POST.get('purpose', 'General Site Use'),
-                    authorized_by=request.user,
-                )
-                messages.success(
-                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
-            except ValidationError as e:
-                error_msg = e.message_dict.get('__all__', [str(e)])[0]
-                messages.error(request, error_msg)
-            except Exception as e:
-                messages.error(request, "A system error occurred.")
-
-        if request.htmx:
-            stocks = MaterialStock.objects.filter(site=site)
-            return render(request, 'site_management/partials/stock_list_partial.html', {
-                'stocks': stocks,
-                'site': site,
-                'messages': messages.get_messages(request)
-            })
-
-        return redirect('site_warehouse', site_id=site.id)
-
-    # 📋 Normal Page Load
-    stocks = MaterialStock.objects.filter(site=site)
-    workers = SkilledWorker.objects.filter(site=site)
-
-    context = {
-        'site': site,
-        'stocks': stocks,
-        'workers': workers,
-        'is_boss': is_boss,
-        'user_role': user_role,
-    }
-    return render(request, 'site_management/site_warehouse.html', context)
-
-
-@login_required
 def htmx_finance_summary(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
 
@@ -707,35 +582,132 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 #         return response
 
 
+# def htmx_clock_in(request, site_id):
+#     if request.method == "POST":
+#         site = get_object_or_404(SiteLocation, id=site_id)
+#         worker_id = request.POST.get('worker_id')
+#         worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+#         # 🛰️ 1. Coordinate Validation
+#         try:
+#             u_lat = float(request.POST.get('lat', 0))
+#             u_lng = float(request.POST.get('lng', 0))
+#         except (TypeError, ValueError):
+#             u_lat, u_lng = 0, 0
+
+#         # 🛡️ 2. Security Checks
+#         # Check if Admin set the location
+#         if not site.latitude or not site.longitude:
+#             return HttpResponse(
+#                 '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>',
+#                 status=200
+#             )
+
+#         # Check if worker's phone provided GPS
+#         if u_lat == 0 or u_lng == 0:
+#             return HttpResponse(
+#                 '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>',
+#                 status=200
+#             )
+
+#         # Distance Calculation
+#         distance = calculate_distance(
+#             site.latitude, site.longitude, u_lat, u_lng)
+#         if distance > site.radius_meters:
+#             return HttpResponse(
+#                 f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
+#                 f'OUT OF RANGE: {int(distance)}m away</div>',
+#                 status=200
+#             )
+
+#         # Check for completed shift
+#         today = timezone.now().date()
+#         already_finished = StaffAttendance.objects.filter(
+#             worker=worker, site=site, time_in__date=today, time_out__isnull=False
+#         ).exists()
+
+#         if already_finished:
+#             return HttpResponse(
+#                 '<div class="p-2 bg-orange-500 text-white text-[10px] font-black uppercase rounded-lg">🚨 Shift already completed today</div>',
+#                 status=200
+#             )
+
+#         # ✅ 3. Clock In (Update or Create)
+#         attendance, created = StaffAttendance.objects.update_or_create(
+#             worker=worker,
+#             site=site,
+#             time_in__date=today,
+#             defaults={
+#                 'user': request.user,
+#                 'time_in': timezone.now(),
+#                 'daily_rate_at_time': worker.daily_rate
+#             }
+#         )
+
+#         # 🔄 4. Prep OOB Updates & Response
+#         attendance_today = StaffAttendance.objects.filter(
+#             site=site, time_in__date=today
+#         ).select_related('worker')
+
+#         present_worker_ids = list(attendance_today.filter(
+#             time_out__isnull=True).values_list('worker_id', flat=True))
+
+#         # Determine Role for template rendering
+#         invitation = Invitation.objects.filter(
+#             email=request.user.email, site=site).last()
+#         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+
+#         # Main Response (The Button)
+#         response = render(request, 'site_management/htmx_components/worker_button.html', {
+#             'worker': worker,
+#             'site': site,
+#             'present_worker_ids': present_worker_ids,
+#             'user_role': user_role,
+#         })
+
+#         # OOB Counter Update
+#         onsite_count = len(present_worker_ids)
+#         total_workers = SkilledWorker.objects.filter(site=site).count()
+#         onsite_counter_html = f'''
+#             <h3 id="onsite-counter" hx-swap-oob="true" class="text-4xl font-black text-white tracking-tighter">
+#                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
+#             </h3>
+#         '''
+
+#         # Combine content and trigger finance refresh
+#         response.content += mark_safe(onsite_counter_html).encode()
+#         response['HX-Trigger'] = 'financeUpdate'
+
+#         return response
 def htmx_clock_in(request, site_id):
     if request.method == "POST":
         site = get_object_or_404(SiteLocation, id=site_id)
         worker_id = request.POST.get('worker_id')
         worker = get_object_or_404(SkilledWorker, id=worker_id)
 
-        # 🛰️ 1. Coordinate Validation
+        # 📸 1. CATCH THE NEW BIOMETRIC SNAPSHOT
+        daily_photo = request.FILES.get('daily_photo')
+
+        # 🛰️ 2. Coordinate Validation
         try:
             u_lat = float(request.POST.get('lat', 0))
             u_lng = float(request.POST.get('lng', 0))
         except (TypeError, ValueError):
             u_lat, u_lng = 0, 0
 
-        # 🛡️ 2. Security Checks
-        # Check if Admin set the location
+        # 🛡️ 3. Security Checks
         if not site.latitude or not site.longitude:
             return HttpResponse(
                 '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>',
                 status=200
             )
 
-        # Check if worker's phone provided GPS
         if u_lat == 0 or u_lng == 0:
             return HttpResponse(
                 '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>',
                 status=200
             )
 
-        # Distance Calculation
         distance = calculate_distance(
             site.latitude, site.longitude, u_lat, u_lng)
         if distance > site.radius_meters:
@@ -745,7 +717,6 @@ def htmx_clock_in(request, site_id):
                 status=200
             )
 
-        # Check for completed shift
         today = timezone.now().date()
         already_finished = StaffAttendance.objects.filter(
             worker=worker, site=site, time_in__date=today, time_out__isnull=False
@@ -757,7 +728,7 @@ def htmx_clock_in(request, site_id):
                 status=200
             )
 
-        # ✅ 3. Clock In (Update or Create)
+        # ✅ 4. Clock In (Update or Create with the Photo)
         attendance, created = StaffAttendance.objects.update_or_create(
             worker=worker,
             site=site,
@@ -765,11 +736,12 @@ def htmx_clock_in(request, site_id):
             defaults={
                 'user': request.user,
                 'time_in': timezone.now(),
-                'daily_rate_at_time': worker.daily_rate
+                'daily_rate_at_time': worker.daily_rate,
+                'clock_in_photo': daily_photo  # 📸 INJECT THE PHOTO INTO THE DATABASE
             }
         )
 
-        # 🔄 4. Prep OOB Updates & Response
+        # 🔄 5. Prep OOB Updates & Response
         attendance_today = StaffAttendance.objects.filter(
             site=site, time_in__date=today
         ).select_related('worker')
@@ -777,12 +749,10 @@ def htmx_clock_in(request, site_id):
         present_worker_ids = list(attendance_today.filter(
             time_out__isnull=True).values_list('worker_id', flat=True))
 
-        # Determine Role for template rendering
         invitation = Invitation.objects.filter(
             email=request.user.email, site=site).last()
         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
 
-        # Main Response (The Button)
         response = render(request, 'site_management/htmx_components/worker_button.html', {
             'worker': worker,
             'site': site,
@@ -871,6 +841,132 @@ def htmx_clock_out(request, site_id):
 
 
 @login_required
+def site_warehouse(request, site_id):
+    # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
+    site = get_object_or_404(SiteLocation, id=site_id)
+
+    # 🛡️ 2. THE PERMISSION GATE
+    # Check if the user is the Boss
+    is_owner = (site.company.owner == request.user)
+
+    # Check if the user is an invited staff member for THIS site
+    invitation = Invitation.objects.filter(
+        email=request.user.email,
+        site=site,
+        is_used=True
+    ).last()
+
+    # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
+    if not is_owner and not invitation:
+        messages.error(
+            request, "Access Denied: You are not assigned to this warehouse.")
+        return redirect('profile')
+
+    # 3. Determine the User's Role for the UI
+    user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+    is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
+
+    # --- THE LOGIC ENGINE ---
+
+    if request.method == "POST":
+        if 'add_stock' in request.POST:
+            try:
+                qty = Decimal(request.POST.get('quantity') or '0.00')
+                item_name = request.POST.get('item_name', '').strip().upper()
+                unit = request.POST.get('unit', '').strip()
+                img_file = request.FILES.get('evidence_image')
+                vid_file = request.FILES.get('evidence_video')
+
+                # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
+                processed_vid = None
+                if vid_file:
+                    import cloudinary.uploader
+                    upload_result = cloudinary.uploader.upload(
+                        vid_file,
+                        resource_type="video",
+                        folder="codasite_audits",
+                        transformation=[
+                            {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
+                                "x": 20, "y": 20, "width": 80, "opacity": 90}
+                        ]
+                    )
+                    processed_vid = upload_result['public_id']
+
+                # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
+                with transaction.atomic():
+                    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                        site=site, item_name=item_name, defaults={'unit': unit}
+                    )
+                    stock.current_balance += qty
+                    if img_file:
+                        stock.evidence_image = img_file
+                    if processed_vid:
+                        stock.evidence_video = processed_vid
+                    stock.save()
+
+                    MaterialRestockLog.objects.create(
+                        stock_item=stock, site=site, quantity_added=qty,
+                        evidence_image=img_file,
+                        evidence_video=processed_vid if processed_vid else None
+                    )
+
+                messages.success(
+                    request, f"Received {qty} {unit} of {item_name}.")
+            except Exception as e:
+                messages.error(request, f"Intake Error: {e}")
+
+        # --- B. ISSUE MATERIAL (DEDUCTION) ---
+        elif 'issue_material' in request.POST:
+            stock_id = request.POST.get('stock_item')
+            worker_id = request.POST.get('worker_id')
+            qty_input = request.POST.get('quantity')
+
+            try:
+                qty = Decimal(qty_input or 0)
+                worker = get_object_or_404(SkilledWorker, id=worker_id)
+                stock = get_object_or_404(
+                    MaterialStock, id=stock_id, site=site)
+
+                MaterialDeduction.objects.create(
+                    stock_item=stock,
+                    worker=worker,
+                    quantity_taken=qty,
+                    purpose=request.POST.get('purpose', 'General Site Use'),
+                    authorized_by=request.user,
+                )
+                messages.success(
+                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
+            except ValidationError as e:
+                error_msg = e.message_dict.get('__all__', [str(e)])[0]
+                messages.error(request, error_msg)
+            except Exception as e:
+                messages.error(request, "A system error occurred.")
+
+        if request.htmx:
+            stocks = MaterialStock.objects.filter(site=site)
+            return render(request, 'site_management/partials/stock_list_partial.html', {
+                'stocks': stocks,
+                'site': site,
+                'messages': messages.get_messages(request)
+            })
+
+        return redirect('site_warehouse', site_id=site.id)
+
+    # 📋 Normal Page Load
+    stocks = MaterialStock.objects.filter(site=site)
+    workers = SkilledWorker.objects.filter(site=site)
+
+    context = {
+        'site': site,
+        'stocks': stocks,
+        'workers': workers,
+        'is_boss': is_boss,
+        'user_role': user_role,
+    }
+    return render(request, 'site_management/site_warehouse.html', context)
+
+
+@login_required
 def daily_report(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
 
@@ -911,6 +1007,27 @@ def daily_report(request, site_id):
         return render(request, 'site_management/daily_report.html', context)
 
     return render(request, 'site_management/daily_report.html', context)
+
+
+# Import your models here
+
+
+@login_required
+def worker_history_modal(request, worker_id):
+    worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+    # Fetch all time attendance records for this worker, newest first
+    history = StaffAttendance.objects.filter(
+        worker=worker).order_by('-time_in')
+
+    context = {
+        'worker': worker,
+        'history': history,
+    }
+
+    # We render this as a partial HTML snippet to inject via HTMX
+    return render(request, 'site_management/htmx_components/history_modal.html', context)
+
 # --- WORKER & SITE MANAGEMENT ---
 
 

@@ -73,4 +73,7 @@ urlpatterns = [
     # Update Site
     path('update-site/<int:site_id>/', views.update_site, name='update_site'),
 
+    path('worker/<int:worker_id>/history/',
+         views.worker_history_modal, name='worker_history_modal'),
+
 ]

@@ -250,6 +250,9 @@ class StaffAttendance(models.Model):
         SiteLocation, on_delete=models.SET_NULL, null=True)
     mode = models.CharField(max_length=10, db_index=True,
                             choices=WORK_MODES, default='SITE')
+    # 📸 The Anti-Cheat Security Snapshot
+    clock_in_photo = CloudinaryField(
+        folder='attendance_photos/clock_in/', null=True, blank=True)
 
     latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True)
