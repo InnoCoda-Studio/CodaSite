@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     # tailwin up ☝🏻
     "account",
     "site_management",
+    'anymail',
 ]
 
 
@@ -237,7 +238,6 @@ else:
 # /// Cound
 
 # /// Tell Django where your custom login page is
-
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'login'
@@ -246,38 +246,18 @@ AUTH_USER_MODEL = 'account.User'
 STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 
+# --- EMAIL SETTINGS (Anymail / Resend API) ---
 
-# The specific attribute your view is looking for:
+# 1. Fetch the key from your .env file or Render dashboard
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 
-# Your SMTP settings:
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.resend.com'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = RESEND_API_KEY  # Use the variable defined above
+# 2. Tell Django to use Anymail (bypasses Render's SMTP block)
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+
+# 3. Pass the key to Anymail
+ANYMAIL = {
+    "RESEND_API_KEY": RESEND_API_KEY,
+}
+
+# 4. Default sender for password resets and system emails
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-
-
-# settings.py
-
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.resend.com'
-# EMAIL_PORT = 587             # Use 587 instead of 465
-# EMAIL_USE_TLS = True         # Use TLS instead of SSL
-# EMAIL_USE_SSL = False        # Ensure this is False
-# EMAIL_HOST_USER = 'resend'
-# EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
-# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-
-
-# # settings.py
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.resend.com'
-# EMAIL_PORT = 587             # Use 587 instead of 465
-# EMAIL_USE_TLS = True         # Use TLS instead of SSL
-# EMAIL_USE_SSL = False
-# EMAIL_HOST_USER = 'resend'
-# EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
-# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
