@@ -5,7 +5,7 @@ import os
 import dj_database_url
 from dotenv import load_dotenv
 # Cloudinary
-import cloudinary
+
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 
@@ -246,21 +246,6 @@ AUTH_USER_MODEL = 'account.User'
 STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 
-
-# 🛑 3. Add this to prevent WinError 10061
-# This tells Django: "Don't look for a local SMTP server; we are using the Resend SDK instead."
-
-
-# RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-# DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-# EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# settings.py
-
-# 1. Use the SMTP backend (standard for most email services)
-# settings.py
-
-load_dotenv()
 
 # The specific attribute your view is looking for:
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
