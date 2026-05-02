@@ -1,23 +1,58 @@
 <div id="qr-modal" x-data="{ show: true }" x-show="show" 
      class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
     
+    <!-- Modal Card -->
     <div @click.away="show = false; setTimeout(() => $el.remove(), 300)" 
          class="glass max-w-sm w-full p-8 rounded-[3rem] border border-white/20 text-center shadow-2xl">
         
         <h3 class="text-2xl font-black text-white uppercase tracking-tighter mb-2">{{ site.name }}</h3>
         <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.2em] mb-6">Gate Entry Pass</p>
         
+        <!-- QR Code Container -->
         <div class="bg-white p-4 rounded-3xl inline-block shadow-[0_0_30px_rgba(0,210,210,0.3)]">
-            <img src="data:image/png;base64,{{ qr_code }}" class="w-64 h-64">
+            <img id="gate-qr-image" src="data:image/png;base64,{{ qr_code }}" class="w-64 h-64">
         </div>
         
-        <p class="mt-6 text-gray-400 text-[10px] font-bold uppercase leading-relaxed">
+        <p class="mt-6 text-gray-400 text-[10px] font-bold uppercase leading-relaxed px-4">
             Workers should scan this to <br> <span class="text-white">Clock In / Out</span> automatically.
         </p>
-        
-        <button @click="show = false; setTimeout(() => $el.closest('#qr-modal').remove(), 300)" 
-                class="mt-8 w-full py-4 glass border border-white/10 text-white text-xs font-black uppercase rounded-2xl hover:bg-white hover:text-black transition-all">
-            Close Gate Pass
-        </button>
+
+        <!-- 🚀 ACTION BUTTONS -->
+        <div class="flex flex-col gap-3 mt-8">
+            <!-- Save to Gallery Button -->
+            <button @click="downloadQR()" 
+                    class="w-full py-4 bg-white text-black text-xs font-black uppercase rounded-2xl flex items-center justify-center gap-2 hover:bg-innocoda-teal transition-all shadow-lg active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Save to Gallery
+            </button>
+            
+            <!-- Close Button -->
+            <button @click="show = false; setTimeout(() => $el.closest('#qr-modal').remove(), 300)" 
+                    class="w-full py-4 glass border border-white/10 text-white text-xs font-black uppercase rounded-2xl hover:bg-white/5 transition-all active:scale-95">
+                Close Gate Pass
+            </button>
+        </div>
     </div>
 </div>
+
+<script>
+/**
+ * 📸 Millionaire Move: Converts the base64 QR into a downloadable file.
+ * This allows the PM to keep the Gate Pass in their phone gallery
+ * for offline use at the site.
+ */
+function downloadQR() {
+    const qrImage = document.getElementById('gate-qr-image');
+    if (!qrImage) return;
+
+    const link = document.createElement('a');
+    link.href = qrImage.src;
+    // Uses the Django slugify filter to create a clean filename
+    link.download = `GatePass-{{ site.name|slugify }}-{% now "Y-m-d" %}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
