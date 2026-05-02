@@ -13,14 +13,28 @@
     
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for item in low_stock_items %}
-        <div class="glass border-l-4 border-orange-500 p-5 rounded-3xl flex justify-between items-center group hover:bg-white/5 transition-all animate-pulse">
+        <!-- Each card now manages its own visibility state -->
+        <div x-data="{ show: true }" 
+             x-show="show" 
+             x-transition:leave="transition ease-in duration-300"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="glass border-l-4 border-orange-500 p-5 rounded-3xl flex justify-between items-center group hover:bg-white/5 transition-all relative overflow-hidden">
+            
             <div class="space-y-1">
-                <h4 class="text-white font-black text-sm uppercase tracking-tight">{{ item.item_name }}</h4>
+                <div class="flex items-center gap-2">
+                    <h4 class="text-white font-black text-sm uppercase tracking-tight">{{ item.item_name }}</h4>
+                    <!-- Individual Dismiss Button -->
+                    <button @click="show = false" class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-gray-600 hover:text-white ml-2">
+                        ✕
+                    </button>
+                </div>
                 <p class="text-[9px] text-gray-500 font-bold uppercase">{{ item.site.name }}</p>
                 <a href="https://wa.me/?text=URGENT:%20{{ item.item_name }}%20running%20low..." class="inline-block mt-2 text-[8px] font-black text-innocoda-teal uppercase tracking-widest hover:underline">
                     Send to WhatsApp →
                 </a>
             </div>
+
             <div class="text-right">
                 <div class="flex items-baseline justify-end gap-1">
                     <p class="text-orange-500 font-black text-2xl tracking-tighter">{{ item.current_balance|floatformat:0 }}</p>

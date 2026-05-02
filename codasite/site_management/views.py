@@ -55,77 +55,172 @@ import json
 from django.http import HttpResponse
 
 
+# @login_required
+# def index(request):
+#     # 🧼 CLEANUP: Remove the active site ID from the session
+#     # if 'active_site_id' in request.session:
+#     #     del request.session['active_site_id']
+#     #     request.session.modified = True
+
+#     #     today = timezone.now().date()
+
+#     # 🏢 1. Identify the Company
+
+#     # 🧼 Session Cleanup
+#     if 'active_site_id' in request.session:
+#         del request.session['active_site_id']
+#         request.session.modified = True
+
+#     # 🏢 1. Identify the Company (The Safe Way)
+#     # Check if they own a company
+#     user_company = getattr(request.user, 'company', None)
+
+#     # If they DON'T own one, they might be an invited staff member
+#     if not user_company:
+#         invitation = Invitation.objects.filter(
+#             email=request.user.email, is_used=True).first()
+#         if invitation:
+#             user_company = invitation.site.company
+
+#     # 🔥 Still no company? They haven't set up anything yet.
+#     if not user_company:
+#         # If it's a fresh Contractor, they need to create a company first
+#         return redirect('profile')  # Or wherever you handle company creation
+
+#     # 🏗️ 2. BASE QUERIES (Now works for everyone!)
+#     # If it's a staff member, they should only see the sites they are invited to
+#     if hasattr(request.user, 'company'):
+#         user_sites = SiteLocation.objects.filter(company=user_company)
+#     else:
+#         # Storekeepers only see their assigned site(s)
+#         assigned_site_ids = Invitation.objects.filter(
+#             email=request.user.email, is_used=True
+#         ).values_list('site_id', flat=True)
+#         user_sites = SiteLocation.objects.filter(id__in=assigned_site_ids)
+
+#     sites = user_sites.order_by("-created_at")
+
+#     # try:
+#     #     user_company = request.user.company
+#     # except AttributeError:
+#     #     messages.error(request, "Access Denied: No Company Profile found.")
+#     #     return redirect('login')
+
+#     # # 🏗️ 2. BASE QUERIES
+#     # user_sites = SiteLocation.objects.filter(company=user_company)
+#     # sites = user_sites.order_by("-created_at")
+
+#     # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
+#     # This groups every material by name and unit, then adds up the total balance
+#     # total_cement = MaterialStock.objects.filter(
+#     #     site__company=user_company,
+#     #     item_name__icontains='cement'
+#     # ).aggregate(total=Sum('current_balance'))['total'] or 0
+#     # global_inventory = MaterialStock.objects.filter(
+#     #     site__company=user_company
+#     # ).values('item_name', 'unit').annotate(
+#     #     total_balance=Sum('current_balance')
+#     # ).order_by('item_name')
+
+#     # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
+#     # Only calculate global stats if the user IS the company owner
+#     if hasattr(request.user, 'company'):
+#         # The Boss sees everything across all sites
+#         total_cement = MaterialStock.objects.filter(
+#             site__company=user_company,
+#             item_name__icontains='cement'
+#         ).aggregate(total=Sum('current_balance'))['total'] or 0
+
+#         global_inventory = MaterialStock.objects.filter(
+#             site__company=user_company
+#         ).values('item_name', 'unit').annotate(
+#             total_balance=Sum('current_balance')
+#         ).order_by('item_name')
+
+#         # Critical low stock (Full Business View)
+#         low_stock_items = MaterialStock.objects.filter(
+#             site__company=user_company,
+#             current_balance__lt=F('minimum_required')
+#         ).select_related('site').order_by('current_balance')
+#     else:
+#         # Storekeepers see 0/None for global stats to keep data private
+#         total_cement = 0
+#         global_inventory = None
+#         low_stock_items = None
+
+#     # 🚨 CRITICAL LOW STOCK (Across all sites)
+#     low_stock_items = MaterialStock.objects.filter(
+#         site__company=user_company,
+#         current_balance__lt=F('minimum_required')
+#     ).select_related('site').order_by('current_balance')
+
+#     context = {
+#         'sites': sites,
+#         'global_inventory': global_inventory,  # ⬅️ This is the "Know Everything" data
+#         'low_stock_items': low_stock_items,
+#         'company': user_company,
+#         'total_cement': total_cement,
+#     }
+
+#     # --- 🎯 THE RESPONSE LOGIC ---
+
+#     # Check if this is a partial update for the dashboard feed
+#     if request.headers.get('HX-Target') == 'dashboard-live-zone':
+#         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
+
+#     # 1. Prepare the full index response
+#     response = render(request, 'site_management/index.html', context)
+
+#     # 🚀 2. THE MAGIC CLEANUP: Wipe the Live Ops button instantly
+#     if request.htmx:
+#         # We send an EMPTY div with the OOB trigger to "kill" the button in the Nav
+#         cleanup_html = '<div id="live-ops-anchor" hx-swap-oob="true"></div>'
+#         response.write(mark_safe(cleanup_html))
+
+#     return response
+
 @login_required
 def index(request):
-    # 🧼 CLEANUP: Remove the active site ID from the session
-    # if 'active_site_id' in request.session:
-    #     del request.session['active_site_id']
-    #     request.session.modified = True
-
-    #     today = timezone.now().date()
-
-    # 🏢 1. Identify the Company
-
-    # 🧼 Session Cleanup
+    # 🧼 Session Cleanup: Wipe the active site ID when returning home
     if 'active_site_id' in request.session:
         del request.session['active_site_id']
         request.session.modified = True
 
-    # 🏢 1. Identify the Company (The Safe Way)
-    # Check if they own a company
+    # 🏢 1. Identify the Company
     user_company = getattr(request.user, 'company', None)
 
-    # If they DON'T own one, they might be an invited staff member
+    # Handle invited staff members
     if not user_company:
         invitation = Invitation.objects.filter(
             email=request.user.email, is_used=True).first()
         if invitation:
             user_company = invitation.site.company
 
-    # 🔥 Still no company? They haven't set up anything yet.
     if not user_company:
-        # If it's a fresh Contractor, they need to create a company first
-        return redirect('profile')  # Or wherever you handle company creation
+        return redirect('profile')
 
-    # 🏗️ 2. BASE QUERIES (Now works for everyone!)
-    # If it's a staff member, they should only see the sites they are invited to
+    # 🏗️ 2. BASE QUERIES (With N+1 Optimization)
     if hasattr(request.user, 'company'):
-        user_sites = SiteLocation.objects.filter(company=user_company)
+        # 🚀 KEY FIX: Added .prefetch_related('stocks')
+        user_sites = SiteLocation.objects.filter(
+            company=user_company).prefetch_related('stocks')
     else:
-        # Storekeepers only see their assigned site(s)
         assigned_site_ids = Invitation.objects.filter(
             email=request.user.email, is_used=True
         ).values_list('site_id', flat=True)
-        user_sites = SiteLocation.objects.filter(id__in=assigned_site_ids)
+        # 🚀 KEY FIX: Added .prefetch_related('stocks')
+        user_sites = SiteLocation.objects.filter(
+            id__in=assigned_site_ids).prefetch_related('stocks')
 
     sites = user_sites.order_by("-created_at")
 
-    # try:
-    #     user_company = request.user.company
-    # except AttributeError:
-    #     messages.error(request, "Access Denied: No Company Profile found.")
-    #     return redirect('login')
+    # 📦 3. GLOBAL INVENTORY & SECURITY LOGIC
+    total_cement = 0
+    global_inventory = None
+    low_stock_items = None
 
-    # # 🏗️ 2. BASE QUERIES
-    # user_sites = SiteLocation.objects.filter(company=user_company)
-    # sites = user_sites.order_by("-created_at")
-
-    # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
-    # This groups every material by name and unit, then adds up the total balance
-    # total_cement = MaterialStock.objects.filter(
-    #     site__company=user_company,
-    #     item_name__icontains='cement'
-    # ).aggregate(total=Sum('current_balance'))['total'] or 0
-    # global_inventory = MaterialStock.objects.filter(
-    #     site__company=user_company
-    # ).values('item_name', 'unit').annotate(
-    #     total_balance=Sum('current_balance')
-    # ).order_by('item_name')
-
-    # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
-    # Only calculate global stats if the user IS the company owner
     if hasattr(request.user, 'company'):
-        # The Boss sees everything across all sites
+        # The Boss sees everything
         total_cement = MaterialStock.objects.filter(
             site__company=user_company,
             item_name__icontains='cement'
@@ -137,43 +232,27 @@ def index(request):
             total_balance=Sum('current_balance')
         ).order_by('item_name')
 
-        # Critical low stock (Full Business View)
+        # 🚨 FIX: Moved this INSIDE the conditional so Storekeepers don't trigger global queries
         low_stock_items = MaterialStock.objects.filter(
             site__company=user_company,
             current_balance__lt=F('minimum_required')
         ).select_related('site').order_by('current_balance')
-    else:
-        # Storekeepers see 0/None for global stats to keep data private
-        total_cement = 0
-        global_inventory = None
-        low_stock_items = None
-
-    # 🚨 CRITICAL LOW STOCK (Across all sites)
-    low_stock_items = MaterialStock.objects.filter(
-        site__company=user_company,
-        current_balance__lt=F('minimum_required')
-    ).select_related('site').order_by('current_balance')
 
     context = {
         'sites': sites,
-        'global_inventory': global_inventory,  # ⬅️ This is the "Know Everything" data
+        'global_inventory': global_inventory,
         'low_stock_items': low_stock_items,
         'company': user_company,
         'total_cement': total_cement,
     }
 
     # --- 🎯 THE RESPONSE LOGIC ---
-
-    # Check if this is a partial update for the dashboard feed
     if request.headers.get('HX-Target') == 'dashboard-live-zone':
         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
 
-    # 1. Prepare the full index response
     response = render(request, 'site_management/index.html', context)
 
-    # 🚀 2. THE MAGIC CLEANUP: Wipe the Live Ops button instantly
     if request.htmx:
-        # We send an EMPTY div with the OOB trigger to "kill" the button in the Nav
         cleanup_html = '<div id="live-ops-anchor" hx-swap-oob="true"></div>'
         response.write(mark_safe(cleanup_html))
 

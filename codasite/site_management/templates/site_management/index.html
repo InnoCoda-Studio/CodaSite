@@ -6,7 +6,7 @@
 
 
 
-        <div x-data="{ 
+        {% comment %} <div x-data="{ 
                 open: false, 
                 editOpen: false, 
                 editData: { id: '', name: '', address: '', lat: '', lng: '' } 
@@ -14,7 +14,22 @@
         
             x-data="{ open: false }"
         
-            class="container mx-auto p-6 space-y-6 min-h-screen">
+            class="container mx-auto p-6 space-y-6 min-h-screen"> {% endcomment %}
+
+            {% comment %} <div x-data="{ 
+                open: false, 
+                editOpen: false, 
+                editData: { id: '', name: '', address: '', lat: '', lng: '' } 
+            }"
+            class="container mx-auto p-6 space-y-6 min-h-screen"> {% endcomment %}
+
+          <div x-data="{ 
+        open: false, 
+        editOpen: false, 
+        showAlert: true, 
+        editData: { id: '', name: '', address: '', lat: '', lng: '' } 
+    }" 
+    class="container mx-auto p-6 space-y-6 min-h-screen">
             
             <div class="flex justify-between items-center mt-10">
                 <div>
@@ -31,25 +46,15 @@
                 hx-target="#dashboard-live-zone" hx-swap="innerHTML">
                 {% include 'site_management/htmx_components/dashboard_feed.html' %}
             </div>
-          
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6" hx-boost="true" hx-target="#main-content">
     {% for site in sites %}
-    <a href="{% url 'site_dashboard' site.id %}" class="glass p-8 rounded-[2.5rem] border border-white/10 hover:border-innocoda-teal transition-all group relative overflow-hidden flex flex-col justify-between">
+    <div class="glass p-8 rounded-[2.5rem] border border-white/10 hover:border-innocoda-teal/50 transition-all group relative overflow-hidden flex flex-col justify-between">
         
-        {% for item in low_stock_items %}
-            {% if item.site_id == site.id %}
-                <div class="absolute top-6 right-6 flex items-center gap-2 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
-                    <span class="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
-                    <span class="text-[8px] font-black text-orange-400 uppercase tracking-widest">Low Stock</span>
-                </div>
-            {% endif %}
-        {% endfor %}
-
-    
+        <!-- Top Section: Project Name & Edit Button -->
         <div>
             <div class="flex justify-between items-start">
-                <h2 class="text-3xl font-black text-white group-hover:text-innocoda-teal transition-colors tracking-tighter uppercase">
+                <h2 class="text-3xl font-black text-white transition-colors tracking-tighter uppercase">
                     {{ site.name }}
                 </h2>
                 
@@ -63,7 +68,7 @@
                             lng: '{{ site.longitude|default:'' }}' 
                         }; 
                         editOpen = true;" 
-                        class="text-[9px] bg-white/10 px-3 py-1 rounded-full text-white font-black uppercase">
+                        class="text-[9px] bg-white/10 px-3 py-1 rounded-full text-white font-black uppercase hover:bg-white/20 transition-colors">
                         Edit ⚙️
                     </button>
                 {% else %}
@@ -75,7 +80,6 @@
 
             <p class="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-black flex items-center gap-2 flex-wrap">
                 {{ site.address|default:"Location not set" }}
-                
                 <span class="flex items-center gap-1">
                     {% if site.latitude %}
                         <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
@@ -85,38 +89,101 @@
                         <span class="text-orange-500">GPS Missing</span>
                     {% endif %}
                 </span>
-
-                {% if site.is_editable %}
-                    <span class="text-[8px] text-innocoda-teal/50 lowercase italic">
-                        (editing expires soon)
-                    </span>
-                {% endif %}
             </p>
         </div>
-      
 
+        <!-- Materials Section: Context-Aware Badges -->
         <div class="mt-8 pt-6 border-t border-white/5">
             <div class="flex flex-wrap gap-2">
                 {% for stock in site.stocks.all|dictsort:"item_name" %}
-                <div class="bg-white/5 px-3 py-2 rounded-xl border border-white/5 flex items-center gap-2 group-hover:border-innocoda-teal/20 transition-all">
-                    <span class="text-white font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
-                    <span class="text-[8px] text-gray-500 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
-                </div>
+                    
+                    {# Logic check: Check if this item is in the low stock list #}
+                    {# Note: You may need to adjust this check based on how your 'low_stock_items' is passed #}
+                    {% if stock.current_balance <= 10 %} {# Replace with your actual 'low' logic, e.g., stock.reorder_level #}
+                        <!-- LOW STOCK (RED) BADGE -->
+                        {% comment %} <div class="bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/30 flex items-center gap-2">
+                            <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span> <!-- The Red "Logo" -->
+                            <span class="text-red-500 font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
+                            <span class="text-[8px] text-red-400 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
+                        </div> {% endcomment %}
+
+                        <!-- LOW STOCK (ORANGE/AMBER) BADGE -->
+                    <div class="bg-orange-500/10 px-3 py-2 rounded-xl border border-orange-500/30 flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                        <span class="text-orange-500 font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
+                        <span class="text-[8px] text-orange-400/80 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
+                    </div>
+                    {% else %}
+                        <!-- STANDARD BADGE -->
+                        <div class="bg-white/5 px-3 py-2 rounded-xl border border-white/5 flex items-center gap-2">
+                            <span class="text-white font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
+                            <span class="text-[8px] text-gray-500 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
+                        </div>
+                    {% endif %}
+
                 {% empty %}
-                <p class="text-[9px] text-gray-700 italic font-bold uppercase tracking-widest">No Materials Assigned</p>
+                    <p class="text-[9px] text-gray-700 italic font-bold uppercase tracking-widest">No Materials Assigned</p>
                 {% endfor %}
             </div>
         </div>
 
-        <div class="mt-8 flex items-center justify-between">
-            <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.3em]">Enter Site Dashboard</span>
-            <div class="bg-white/5 p-2 rounded-lg group-hover:bg-innocoda-teal group-hover:text-innocoda-navy transition-all transform group-hover:translate-x-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                </svg>
-            </div>
+        <!-- Dashboard Link -->
+        
+   {% comment %} <a href="{% url 'site_dashboard' site.id %}" class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between group/link">
+    <div class="relative">
+        <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.3em]">
+            Enter Site Dashboard
+        </span>
+        <!-- Animated Underline -->
+        <div class="absolute -bottom-2 left-0 w-0 h-[2px] bg-innocoda-teal group-hover/link:w-full transition-all duration-500 rounded-full"></div>
+    </div>
+
+    <!-- The Glowing & Moving Arrow -->
+    <div class="flex items-center gap-3 text-innocoda-teal transition-all duration-700">
+        <span class="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover/link:opacity-100 transform translate-x-4 group-hover/link:translate-x-0 transition-all duration-500">
+            Explore
+        </span>
+        
+        <div class="relative flex items-center justify-center transform group-hover/link:translate-x-3 transition-transform duration-500">
+            <!-- The Glow Effect -->
+            <div class="absolute inset-0 bg-innocoda-teal/40 blur-lg opacity-0 group-hover/link:opacity-100 transition-opacity duration-500"></div>
+            
+            <svg class="w-5 h-5 relative z-10 drop-shadow-[0_0_8px_rgba(20,184,166,0.8)] group-hover/link:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
         </div>
-    </a>
+    </div>
+</a> {% endcomment %}
+
+        <a href="{% url 'site_dashboard' site.id %}" 
+        class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between group/link">
+            
+            <div class="relative">
+                <span class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.4em]">
+                    Enter Site Dashboard
+                </span>
+                <div class="absolute -bottom-2 left-0 w-0 h-[2px] bg-innocoda-teal group-hover/link:w-full transition-all duration-700 rounded-full shadow-[0_0_10px_#14b8a6]"></div>
+            </div>
+
+            <div class="flex items-center">
+                <!-- Show this when loading -->
+                <div class="htmx-indicator">
+                    <svg class="animate-spin h-4 w-4 text-innocoda-teal mr-2" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+
+                <div class="relative flex items-center group-hover/link:translate-x-2 transition-transform duration-500">
+                    <svg class="w-6 h-6 text-innocoda-teal drop-shadow-[0_0_12px_rgba(20,184,166,1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+
+
+    </div>
     {% endfor %}
 </div>
 
@@ -239,10 +306,10 @@
         <form :action="'/update-site/' + editData.id + '/'" method="POST" class="space-y-5">
             {% csrf_token %}
             
-            <input type="text" name="name" x-model="editData.name" required 
+            <input type="text" name="name" x-model="editData.name" required  placeholder="PROJECT NAME"
                    class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
             
-            <textarea name="address" rows="2" x-model="editData.address" 
+            <textarea name="address" rows="2" x-model="editData.address" placeholder="PHYSICAL ADDRESS"
                       class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"></textarea>
 
             <div class="grid grid-cols-2 gap-3">
