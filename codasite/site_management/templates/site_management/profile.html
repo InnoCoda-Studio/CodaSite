@@ -132,7 +132,7 @@
 <div class="glass p-6 rounded-[2.5rem] border border-white/10 mt-8">
     <h3 class="text-white font-black uppercase text-[10px] mb-6 tracking-[0.3em]">Site Team Management</h3>
     
-    <div class="space-y-3">
+    {% comment %} <div class="space-y-3 overflow-y-auto max-h-50">
         {% for invite in my_invitations %}
             <div class="flex items-center justify-between bg-white/5 p-4 rounded-3xl border border-white/5">
                 <div class="flex flex-col">
@@ -160,7 +160,76 @@
         {% empty %}
             <p class="text-gray-500 text-[10px] text-center uppercase tracking-widest italic">No staff invited yet</p>
         {% endfor %}
-    </div>
+    </div> {% endcomment %}
+    <div class="space-y-3 overflow-y-auto max-h-80 pr-1 custom-scrollbar">
+    {% for invite in my_invitations %}
+        <div class="flex items-center justify-between bg-white/[0.03] backdrop-blur-md p-4 rounded-2xl border border-white/10 hover:bg-white/[0.06] transition-all duration-300">
+            
+            <!-- User Info Section -->
+            <div class="flex items-center gap-3 ">
+                <!-- Visual Avatar Placeholder (Makes it feel like a real app) -->
+                <div class="w-8 h-8 rounded-full bg-innocoda-teal/20 flex items-center justify-center border border-innocoda-teal/30">
+                    <span class="text-innocoda-teal text-[10px] font-bold">{{ invite.email|slice:":1"|upper }}</span>
+                </div>
+                
+                <div class="flex flex-col">
+                    <span class="text-white text-[11px] font-semibold leading-none truncate max-w-[120px] sm:max-w-none">
+                        {{ invite.email }}
+                    </span>
+                    <span class="text-white/40 text-[9px] font-bold uppercase mt-1 tracking-wider">
+                        <span class="text-innocoda-teal">{{ invite.role_assigned }}</span><span class="text-red-900"> @ {{ invite.site.name }}</span>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Action Section -->
+            <div class="flex items-center gap-3">
+                <!-- Status Badge -->
+                <div class="flex flex-col items-end">
+                    <span class="{% if invite.is_used %}text-emerald-400{% else %}text-amber-400{% endif %} text-[8px] font-black uppercase tracking-tighter">
+                        {% if invite.is_used %}Active{% else %}Pending{% endif %}
+                    </span>
+                    {% if not invite.is_used %}
+                        <span class="text-[7px] text-white/30 italic">Awaiting...</span>
+                    {% endif %}
+                </div>
+
+                {% if invite.is_used %}
+                <form hx-post="{% url 'block_staff' invite.id %}" 
+                      hx-confirm="Are you sure you want to block this user?" 
+                      hx-target="closest div"
+                      class="ml-1">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="p-2.5 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors group active:scale-95">
+                       <svg class="w-4 h-4 text-red-400/70 group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                       </svg>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <div class="py-10 text-center">
+            <p class="text-white/20 text-[10px] uppercase tracking-[0.2em] italic">No staff invited yet</p>
+        </div>
+    {% endfor %}
+</div>
+
+<style>
+    /* Custom thin scrollbar for that clean mobile look */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }
+</style>
 </div>
 
 {% if invitation %}

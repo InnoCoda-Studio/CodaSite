@@ -1229,12 +1229,12 @@ def invite_staff(request):
         site_id = request.POST.get('site_id')
         site = get_object_or_404(SiteLocation, id=site_id)
 
+        # Get the company name for the email branding
+        company_name = site.company.name
+
         # 🛡️ THE UPDATED PERMISSION GATE
-        # 1. Check the Company Owner (The Boss)
-        # ✅ We use site.company.owner now
         is_owner = (site.company.owner == request.user)
 
-        # 2. Check if the user is a Project Manager for THIS site
         is_pm = Invitation.objects.filter(
             email=request.user.email,
             site=site,
@@ -1242,13 +1242,11 @@ def invite_staff(request):
             is_used=True
         ).exists()
 
-        # 🔥 Block anyone who isn't the Boss or a PM
         if not (is_owner or is_pm):
             messages.error(
                 request, "Access Denied: Only Company Owners and PMs can invite staff.")
             return redirect('site_dashboard', site_id=site.id)
 
-        # 3. Create the Invite record
         import uuid
         token = uuid.uuid4()
         Invitation.objects.create(
@@ -1259,52 +1257,54 @@ def invite_staff(request):
             token=token
         )
 
-        # 4. Build the Link
-        # domain = "https://codasite.onrender.com"
-        # domain = "http://127.0.0.1:9000"
         domain = "https://codasite.com.ng"
         invite_link = f"{domain}/account/register/?token={token}"
 
-        # 5. The Dispatch
-        # 5. THE DISPATCH (Using Resend SDK to bypass Django's local SMTP)
-
         from django.conf import settings
+        import resend  # Ensure this is imported at the top of your file too
 
         resend.api_key = settings.RESEND_API_KEY
 
-        # We use HTML here to make the invite look like a "Super App"
+        # 🏗️ Updated HTML with dynamic Company Name and Brand Footer
         params = {
             "from": settings.DEFAULT_FROM_EMAIL,
             "to": [email],
             "subject": f"🏗️ Invitation: Join {site.name} on CodaSite",
             "html": f"""
-                <div style="font-family: sans-serif; padding: 20px; color: #1a202c; border: 1px solid #e2e8f0; border-radius: 12px;">
-                    <h2 style="color: #0d9488;">InnoCoda Studio</h2>
+                <div style="font-family: sans-serif; padding: 20px; color: #1a202c; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 600px; margin: auto;">
+                    <h2 style="color: #0d9488; margin-bottom: 5px;">{company_name}</h2>
+                    <p style="font-size: 12px; color: #718096; margin-top: 0; margin-bottom: 20px;">via CodaSite</p>
+                    
                     <p>Hello,</p>
                     <p>You have been invited by <strong>{request.user.username}</strong> to join the project at <strong>{site.name}</strong> 
                     as a <strong>{role.replace('_', ' ').title()}</strong>.</p>
+                    
                     <p>Click the button below to set up your account and start managing site materials:</p>
-                    <div style="margin: 30px 0;">
+                    
+                    <div style="margin: 30px 0; text-align: center;">
                         <a href="{invite_link}" style="display: inline-block; padding: 14px 28px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Accept Invitation</a>
                     </div>
+                    
                     <p style="margin-top: 20px; font-size: 12px; color: #718096;">If the button doesn't work, copy this link into your browser: <br>{invite_link}</p>
+                    
                     <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-                    <p style="font-size: 10px; color: #a0aec0;">CodaSite - Construction Management simplified.</p>
+                    
+                    <div style="text-align: center;">
+                        <p style="font-size: 11px; color: #a0aec0; margin-bottom: 4px;">CodaSite - Construction Management simplified.</p>
+                        <p style="font-size: 10px; color: #cbd5e0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Powered by InnoCoda Studio</p>
+                    </div>
                 </div>
             """
         }
 
         try:
-            # 🚀 This calls Resend directly, ignoring the 'WinError 10061' error
             resend.Emails.send(params)
             messages.success(
                 request, f"Invitation sent successfully to {email}!")
         except Exception as e:
-            # If the API key is missing or internet is down, we catch it here
             messages.error(request, f"Email failed to send. Error: {e}")
 
         return redirect('profile')
-
 # Restock
 
 

@@ -1,3 +1,4 @@
+from dotenv import load_dotenv  # Make sure this is imported
 import os  # Make sure this is at the top of settings.py
 from pathlib import Path
 import os
@@ -257,15 +258,21 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 # settings.py
 
 # 1. Use the SMTP backend (standard for most email services)
+# settings.py
+
+load_dotenv()
+
+# The specific attribute your view is looking for:
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+
+# Your SMTP settings:
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.resend.com'
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY')
+EMAIL_HOST_PASSWORD = RESEND_API_KEY  # Use the variable defined above
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
-
-# 2
 
 
 # settings.py
