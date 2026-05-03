@@ -1,3 +1,4 @@
+import math
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.db import transaction, IntegrityError
@@ -67,129 +68,31 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-# @login_required
-# def index(request):
-#     # 🧼 CLEANUP: Remove the active site ID from the session
-#     # if 'active_site_id' in request.session:
-#     #     del request.session['active_site_id']
-#     #     request.session.modified = True
+def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200):
+    """
+    Calculates the distance between two sets of GPS coordinates 
+    and checks if they are within a specific meter threshold.
+    """
+    # Earth's radius in meters
+    R = 6371000
 
-#     #     today = timezone.now().date()
+    # Convert degrees to radians
+    phi1 = math.radians(site_lat)
+    phi2 = math.radians(user_lat)
+    delta_phi = math.radians(user_lat - site_lat)
+    delta_lambda = math.radians(user_lng - site_lng)
 
-#     # 🏢 1. Identify the Company
+    # Haversine formula logic
+    a = math.sin(delta_phi / 2)**2 + \
+        math.cos(phi1) * math.cos(phi2) * \
+        math.sin(delta_lambda / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-#     # 🧼 Session Cleanup
-#     if 'active_site_id' in request.session:
-#         del request.session['active_site_id']
-#         request.session.modified = True
+    distance = R * c
 
-#     # 🏢 1. Identify the Company (The Safe Way)
-#     # Check if they own a company
-#     user_company = getattr(request.user, 'company', None)
+    # Return True if the worker is within the buffer (default 200m)
+    return distance <= tolerance_meters
 
-#     # If they DON'T own one, they might be an invited staff member
-#     if not user_company:
-#         invitation = Invitation.objects.filter(
-#             email=request.user.email, is_used=True).first()
-#         if invitation:
-#             user_company = invitation.site.company
-
-#     # 🔥 Still no company? They haven't set up anything yet.
-#     if not user_company:
-#         # If it's a fresh Contractor, they need to create a company first
-#         return redirect('profile')  # Or wherever you handle company creation
-
-#     # 🏗️ 2. BASE QUERIES (Now works for everyone!)
-#     # If it's a staff member, they should only see the sites they are invited to
-#     if hasattr(request.user, 'company'):
-#         user_sites = SiteLocation.objects.filter(company=user_company)
-#     else:
-#         # Storekeepers only see their assigned site(s)
-#         assigned_site_ids = Invitation.objects.filter(
-#             email=request.user.email, is_used=True
-#         ).values_list('site_id', flat=True)
-#         user_sites = SiteLocation.objects.filter(id__in=assigned_site_ids)
-
-#     sites = user_sites.order_by("-created_at")
-
-#     # try:
-#     #     user_company = request.user.company
-#     # except AttributeError:
-#     #     messages.error(request, "Access Denied: No Company Profile found.")
-#     #     return redirect('login')
-
-#     # # 🏗️ 2. BASE QUERIES
-#     # user_sites = SiteLocation.objects.filter(company=user_company)
-#     # sites = user_sites.order_by("-created_at")
-
-#     # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
-#     # This groups every material by name and unit, then adds up the total balance
-#     # total_cement = MaterialStock.objects.filter(
-#     #     site__company=user_company,
-#     #     item_name__icontains='cement'
-#     # ).aggregate(total=Sum('current_balance'))['total'] or 0
-#     # global_inventory = MaterialStock.objects.filter(
-#     #     site__company=user_company
-#     # ).values('item_name', 'unit').annotate(
-#     #     total_balance=Sum('current_balance')
-#     # ).order_by('item_name')
-
-#     # 📦 3. GLOBAL INVENTORY ENGINE (Sum of everything)
-#     # Only calculate global stats if the user IS the company owner
-#     if hasattr(request.user, 'company'):
-#         # The Boss sees everything across all sites
-#         total_cement = MaterialStock.objects.filter(
-#             site__company=user_company,
-#             item_name__icontains='cement'
-#         ).aggregate(total=Sum('current_balance'))['total'] or 0
-
-#         global_inventory = MaterialStock.objects.filter(
-#             site__company=user_company
-#         ).values('item_name', 'unit').annotate(
-#             total_balance=Sum('current_balance')
-#         ).order_by('item_name')
-
-#         # Critical low stock (Full Business View)
-#         low_stock_items = MaterialStock.objects.filter(
-#             site__company=user_company,
-#             current_balance__lt=F('minimum_required')
-#         ).select_related('site').order_by('current_balance')
-#     else:
-#         # Storekeepers see 0/None for global stats to keep data private
-#         total_cement = 0
-#         global_inventory = None
-#         low_stock_items = None
-
-#     # 🚨 CRITICAL LOW STOCK (Across all sites)
-#     low_stock_items = MaterialStock.objects.filter(
-#         site__company=user_company,
-#         current_balance__lt=F('minimum_required')
-#     ).select_related('site').order_by('current_balance')
-
-#     context = {
-#         'sites': sites,
-#         'global_inventory': global_inventory,  # ⬅️ This is the "Know Everything" data
-#         'low_stock_items': low_stock_items,
-#         'company': user_company,
-#         'total_cement': total_cement,
-#     }
-
-#     # --- 🎯 THE RESPONSE LOGIC ---
-
-#     # Check if this is a partial update for the dashboard feed
-#     if request.headers.get('HX-Target') == 'dashboard-live-zone':
-#         return render(request, 'site_management/htmx_components/dashboard_feed.html', context)
-
-#     # 1. Prepare the full index response
-#     response = render(request, 'site_management/index.html', context)
-
-#     # 🚀 2. THE MAGIC CLEANUP: Wipe the Live Ops button instantly
-#     if request.htmx:
-#         # We send an EMPTY div with the OOB trigger to "kill" the button in the Nav
-#         cleanup_html = '<div id="live-ops-anchor" hx-swap-oob="true"></div>'
-#         response.write(mark_safe(cleanup_html))
-
-#     return response
 
 @login_required
 def index(request):
