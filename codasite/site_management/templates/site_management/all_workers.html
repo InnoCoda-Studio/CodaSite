@@ -79,25 +79,27 @@
                 <input type="file" name="video_id_proof" x-ref="videoFileInput" class="hidden">
 
                 <!-- Biometric UI -->
+                
+                <!-- Biometric UI -->
                 <div class="space-y-3">
                     <div class="relative w-full aspect-square bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
                         <video x-ref="liveFeed" autoplay playsinline muted class="w-full h-full object-cover grayscale-[0.2] contrast-110"></video>
                         <div x-show="stream && !photoAttached" class="scan-line"></div>
                         
-                        <div x-show="photoAttached" class="absolute inset-0">
+                        <div x-show="photoAttached" class="absolute inset-0 z-20">
                             <img :src="photoPreview" class="w-full h-full object-cover">
                             <button type="button" @click="photoAttached = false; startCamera()" class="absolute top-4 right-4 bg-black/60 text-white px-4 py-2 rounded-full text-[9px] font-black uppercase">Retake</button>
                         </div>
 
-                        <div x-show="stream && !photoAttached" class="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8">
-                            <div x-show="isRecording" class="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                                <div class="bg-red-500 h-full transition-all duration-100" :style="`width: ${recordingProgress}%`"></div >
-                            </div>
-                            <button type="button" @click="startVideoEnrollment()" :disabled="isRecording" 
+                        <div x-show="stream && !photoAttached" class="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-20">
+                            <button type="button" @click="instantCapture()" 
                                 class="w-full py-4 rounded-full font-black text-[10px] tracking-widest uppercase bg-innocoda-teal text-white shadow-2xl active:scale-95">
-                                <span x-text="isRecording ? 'Recording...' : 'Capture Biometrics'"></span>
+                                <span>Capture Biometrics</span>
                             </button>
                         </div>
+                        
+                        <!-- 🔥 THIS WAS MISSING: The canvas where the photo is actually drawn -->
+                        <canvas x-ref="canvas" class="hidden"></canvas>
                     </div>
                 </div>
 
@@ -106,9 +108,15 @@
                     <div class="space-y-4">
                         <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" name="id_number" placeholder="ID (AUTO)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-[11px] font-bold outline-none focus:border-innocoda-teal transition-all uppercase">
                             <input type="text" name="phone" required placeholder="PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
+                            <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT OR PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
+
                         </div>
+
+                        {% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" name="phone" required placeholder="PRIMARY PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
+                        </div> {% endcomment %}
+                        {% comment %} <input type="text" name="id_number" placeholder="ID (AUTO)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-[11px] font-bold outline-none focus:border-innocoda-teal transition-all uppercase"> {% endcomment %}
                     </div>
 
                     <div class="space-y-4">
@@ -125,9 +133,15 @@
                     </div>
                 </div>
 
-                <button type="submit" :disabled="loading" class="w-full bg-white text-innocoda-navy py-6 rounded-4xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center active:scale-95 disabled:opacity-50">
-                    <span x-show="!loading">Finalize Enrollment</span>
-                    <span x-show="loading" class="flex items-center gap-3" x-cloak>Processing...</span>
+                <button type="submit" 
+                    :disabled="loading || !photoAttached" 
+                    class="w-full py-6 rounded-4xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl transition-all flex items-center justify-center active:scale-95"
+                    :class="photoAttached ? 'bg-white text-innocoda-navy hover:bg-innocoda-teal' : 'bg-gray-800 text-gray-500 cursor-not-allowed'">
+                    <span x-show="!loading" x-text="photoAttached ? 'Finalize Enrollment' : 'Awaiting Biometrics...'"></span>
+                    <span x-show="loading" class="flex items-center gap-3" x-cloak>
+                        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Processing...
+                    </span>
                 </button>
             </form>
         </div>
@@ -145,81 +159,122 @@
     }
     @keyframes scanMove { 0% { transform: translateY(0); } 100% { transform: translateY(640px); } }
 </style>
-
 <script>
 function globalEnrollmentEngine() {
     return {
-        stream: null, photoAttached: false, photoPreview: '', isRecording: false,
-        loading: false, recordingProgress: 0, mediaRecorder: null, videoChunks: [], facingMode: 'user',
+        stream: null, 
+        photoAttached: false, 
+        photoPreview: '', 
+        loading: false, 
+        facingMode: 'user', 
 
         init() {
-            this.$watch('regModal', (val) => { if (val) setTimeout(() => this.startCamera(), 500); else this.stopCamera(); });
+            this.$watch('regModal', (val) => { 
+                if (val) setTimeout(() => this.startCamera(), 500); 
+                else this.stopCamera(); 
+            });
         },
 
         async startCamera() {
+            this.stopCamera();
+            await new Promise(resolve => setTimeout(resolve, 200));
+
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: this.facingMode } }, audio: false });
-                this.$refs.liveFeed.srcObject = this.stream;
-            } catch (err) { alert("Camera failed."); }
+                this.stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: this.facingMode }, 
+                    audio: false 
+                });
+                
+                const video = this.$refs.liveFeed;
+                if (video) {
+                    video.srcObject = this.stream;
+                    video.setAttribute('playsinline', ''); 
+                    await video.play();
+                }
+            } catch (err) { 
+                alert("Camera access denied. Please check permissions."); 
+            }
         },
 
-        async startVideoEnrollment() {
+        async switchCamera() {
+            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
+            await this.startCamera();
+        },
+
+        instantCapture() {
             if (!this.stream) return;
-            this.isRecording = true; this.recordingProgress = 0; this.videoChunks = [];
-            this.mediaRecorder = new MediaRecorder(this.stream);
-            this.mediaRecorder.ondataavailable = (e) => this.videoChunks.push(e.data);
-            this.mediaRecorder.onstop = () => {
-                const videoBlob = new Blob(this.videoChunks, { type: 'video/mp4' });
-                const dt = new DataTransfer();
-                dt.items.add(new File([videoBlob], "id_proof.mp4", { type: 'video/mp4' }));
-                this.$refs.videoFileInput.files = dt.files;
-                this.snapPhoto();
-                this.isRecording = false;
-            };
-            this.mediaRecorder.start();
-            let elapsed = 0;
-            const timer = setInterval(() => {
-                elapsed += 100; this.recordingProgress = (elapsed / 3000) * 100;
-                if (elapsed >= 3000) { clearInterval(timer); this.mediaRecorder.stop(); }
-            }, 100);
+            this.snapPhoto();
         },
 
         snapPhoto() {
-            const canvas = this.$refs.canvas;
             const video = this.$refs.liveFeed;
-            const ctx = canvas.getContext("2d");
-            canvas.width = 640; canvas.height = 640;
-            const size = Math.min(video.videoWidth, video.videoHeight);
-            ctx.drawImage(video, (video.videoWidth - size) / 2, (video.videoHeight - size) / 2, size, size, 0, 0, 640, 640);
-            
-            // Apply Watermark
-            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 570, 640, 70);
-            ctx.fillStyle = "#2DD4BF"; ctx.font = "bold 18px sans-serif";
-            ctx.fillText("CODA-ID VERIFIED PERSONNEL", 25, 605);
+            const canvas = this.$refs.canvas;
 
+            // Prevent crash if canvas is missing or video isn't ready
+            if (!canvas || !video || video.videoWidth === 0) {
+                alert("Lens is focusing, please tap again.");
+                return;
+            }
+
+            const ctx = canvas.getContext("2d");
+            canvas.width = 640;
+            canvas.height = 640;
+
+            const size = Math.min(video.videoWidth, video.videoHeight);
+            const startX = (video.videoWidth - size) / 2;
+            const startY = (video.videoHeight - size) / 2;
+
+            ctx.drawImage(video, startX, startY, size, size, 0, 0, 640, 640);
+            
+            // Branding
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(0, 570, 640, 70);
+            ctx.fillStyle = "#2DD4BF"; 
+            ctx.font = "bold 18px sans-serif";
+            ctx.fillText("CODA-ID VERIFIED PERSONNEL", 25, 605);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "12px monospace";
+            ctx.fillText(`SECURE ENROLLMENT: ${new Date().toLocaleString()}`, 25, 625);
+
+            // Unlock the UI
+            this.photoPreview = canvas.toDataURL("image/jpeg");
+            this.photoAttached = true; 
+            
             canvas.toBlob(blob => {
+                const file = new File([blob], "profile.jpg", { type: "image/jpeg" });
                 const dt = new DataTransfer();
-                dt.items.add(new File([blob], "profile.jpg", { type: "image/jpeg" }));
-                this.$refs.hiddenFileInput.files = dt.files;
-                this.photoAttached = true; this.photoPreview = canvas.toDataURL("image/jpeg");
-                this.stopCamera();
+                dt.items.add(file);
+                
+                if (this.$refs.hiddenFileInput) {
+                    this.$refs.hiddenFileInput.files = dt.files;
+                }
             }, "image/jpeg", 0.9);
+
+            this.stopCamera();
         },
 
-        stopCamera() { if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; } },
+        stopCamera() { 
+            if (this.stream) { 
+                this.stream.getTracks().forEach(t => t.stop()); 
+                this.stream = null; 
+            } 
+        },
 
         secureHTMXSubmit(event) {
-            if (!this.photoAttached) { alert("Biometrics required."); return; }
+            if (!this.photoAttached) { 
+                alert("Please capture a photo first."); 
+                return; 
+            }
             this.loading = true;
-            // Restore GPS for security
+            
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     event.target.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
                     event.target.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
                     event.target.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true }));
                 },
-                () => { event.target.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true })); }, // Fallback if GPS fails
-                { enableHighAccuracy: true }
+                () => { event.target.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true })); },
+                { enableHighAccuracy: true, timeout: 5000 }
             );
         }
     };

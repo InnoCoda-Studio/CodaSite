@@ -87,5 +87,8 @@ urlpatterns = [
     path('site/<int:site_id>/worker/<int:worker_id>/history/',
          views.worker_history_modal, name='worker_history_modal'),
 
+    path('attendance/process-clock/<int:site_id>/',
+         views.process_biometric_clock, name='process_biometric_clock'),
+
 
 ]
