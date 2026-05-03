@@ -1,3 +1,4 @@
+from django.utils.text import slugify
 from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
@@ -1340,17 +1341,24 @@ def all_workers(request):
 # allworkers sers
 
 
+# In views.py
 def worker_search(request):
-    search_text = request.GET.get('search', '').strip()
+    search_query = request.GET.get('search', '').strip()
 
-    # Filter by name OR category (role) for ALL users or just current company
-    workers = SkilledWorker.objects.filter(
-        Q(name__icontains=search_text) |
-        Q(category__icontains=search_text)
-    )
+    # 🔥 SECURITY FIX: Lock search to THIS company only
+    workers = SkilledWorker.objects.filter(company=request.user.company)
 
-    # Return ONLY the results part, not the whole page!
+    if search_query:
+        workers = workers.filter(
+            Q(name__icontains=search_query) |
+            Q(id_number__icontains=search_query) |
+            Q(category__icontains=search_query)
+        )
+
     return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
+
+
+# Make sure to import your User, SkilledWorker, SiteLocation, Invitation, cloudinary etc.
 
 
 @login_required
@@ -1380,7 +1388,7 @@ def add_worker(request, site_id):
         account_num = request.POST.get('account_number', '').strip()
         account_name = request.POST.get('account_name', '').strip().upper()
 
-        # Daily Rate Fix: Ensuring it pulls from 'daily_rate' input
+        # Daily Rate Fix
         try:
             daily_rate = Decimal(request.POST.get('daily_rate') or '0.00')
         except:
@@ -1396,7 +1404,12 @@ def add_worker(request, site_id):
         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
                 request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
-            return redirect('site_dashboard', site_id=site_id)
+
+            # 🔥 HTMX Error Fix: Force a clean full-page redirect so it doesn't break the UI
+            response = redirect('site_dashboard', site_id=site_id)
+            if request.headers.get('HX-Request'):
+                response['HX-Redirect'] = response.url
+            return response
 
         try:
             # 4. ☁️ Cloudinary Upload (Profile Picture)
@@ -1411,15 +1424,12 @@ def add_worker(request, site_id):
             with transaction.atomic():
                 # A. Create the Shadow User
                 username = slugify(id_num)
-                # Password logic: Coda + last 4 digits of phone
                 default_password = f"Coda{phone_num[-4:] if len(phone_num) >= 4 else '2026'}"
 
                 worker_user = User.objects.create_user(
-                    username=username,
-                    password=default_password
-                )
+                    username=username, password=default_password)
 
-                # B. Create SkilledWorker Profile with all Bank Details
+                # B. Create SkilledWorker Profile
                 worker = SkilledWorker.objects.create(
                     user=worker_user,
                     contractor=request.user,
@@ -1431,20 +1441,26 @@ def add_worker(request, site_id):
                     phone=phone_num,
                     daily_rate=daily_rate,
                     profile_picture=secure_image_url,
-
-                    # Bank Details saved here
                     bank_name=bank_name,
                     account_number=account_num,
                     account_name=account_name
                 )
 
             messages.success(
-                request,
-                f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}"
-            )
+                request, f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}")
+
+            # 🔥 THE FIX: If HTMX, return ONLY the updated worker list so the modal auto-closes smoothly!
+            if request.headers.get('HX-Request'):
+                workers = SkilledWorker.objects.filter(
+                    company=company).order_by('-id')
+                return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
 
         except Exception as e:
             messages.error(request, f"Registry Error: {str(e)}")
+            response = redirect('site_dashboard', site_id=site_id)
+            if request.headers.get('HX-Request'):
+                response['HX-Redirect'] = response.url
+            return response
 
         return redirect('site_dashboard', site_id=site_id)
 

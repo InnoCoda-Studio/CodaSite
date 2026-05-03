@@ -20,7 +20,7 @@
                 <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest">Total Headcount</p>
                 <p class="text-2xl font-black text-white leading-none mt-1">{{ workers.count }}</p>
             </div>
-            <button @click="regModal = true" class="w-full sm:w-auto bg-white text-innocoda-navy px-8 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-innocoda-teal transition-all shadow-xl active:scale-95">
+            <button type="button" @click="regModal = true" class="w-full sm:w-auto bg-white text-innocoda-navy px-8 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-innocoda-teal transition-all shadow-xl active:scale-95">
                 + Enroll New Personnel
             </button>
         </div>
@@ -59,7 +59,7 @@
             <h2 class="text-3xl font-black text-white uppercase tracking-tighter mb-10">Identity Enrollment</h2>
 
             <!-- 🔥 THE CORRECTED FORM -->
-            <form 
+            {% comment %} <form 
                 hx-post="."
                 hx-encoding="multipart/form-data"
                 hx-trigger="confirmedHTMXSubmit"
@@ -67,7 +67,16 @@
                 hx-swap="innerHTML"
                 hx-on::after-request="if(event.detail.successful) regModal = false"
                 @submit.prevent="secureHTMXSubmit($event)"
-                class="space-y-8">
+                class="space-y-8"> {% endcomment %}
+            <form 
+                    hx-post="."
+                    hx-encoding="multipart/form-data"
+                    hx-trigger="confirmedHTMXSubmit"
+                    hx-target="#worker-results-container"
+                    hx-swap="innerHTML"
+                    @htmx:after-on-load.camel="regModal = false; loading = false;" 
+                    @submit.prevent="secureHTMXSubmit($event)"
+                    class="space-y-8">
                 
                 {% csrf_token %}
                 <input type="hidden" name="register_worker" value="true">
@@ -85,6 +94,13 @@
                     <div class="relative w-full aspect-square bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
                         <video x-ref="liveFeed" autoplay playsinline muted class="w-full h-full object-cover grayscale-[0.2] contrast-110"></video>
                         <div x-show="stream && !photoAttached" class="scan-line"></div>
+                        <!-- 🔥 CAMERA FLIP TOGGLE -->
+                        <button x-show="stream && !photoAttached" type="button" @click="switchCamera()" 
+                            class="absolute top-6 right-6 bg-black/60 text-white p-3 rounded-full hover:bg-innocoda-teal transition-all z-30 active:scale-90 shadow-xl backdrop-blur-md">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </button>
                         
                         <div x-show="photoAttached" class="absolute inset-0 z-20">
                             <img :src="photoPreview" class="w-full h-full object-cover">
@@ -107,11 +123,12 @@
                 <div class="space-y-6">
                     <div class="space-y-4">
                         <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
-                        <div class="grid grid-cols-2 gap-4">
+                        
                             <input type="text" name="phone" required placeholder="PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
-                            <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT OR PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
+                            
+                       
+                        <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT " class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold outline-none focus:border-innocoda-teal transition-all">
 
-                        </div>
 
                         {% comment %} <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input type="text" name="phone" required placeholder="PRIMARY PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
