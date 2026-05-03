@@ -522,8 +522,10 @@ def process_biometric_clock(request, site_id):
                 worker=worker,
                 site=site,
                 user=request.user,
-                time_in=timezone.now(),
-                clock_in_photo=photo_file  # 📸 Proof!
+                clock_in_photo=photo_file,
+                latitude=lat,  # 🛰️ Ensure these are passed
+                longitude=lng,
+                # No need to pass time_in, auto_now_add does it!
             )
         else:
             # Closing the active shift
