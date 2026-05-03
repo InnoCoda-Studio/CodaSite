@@ -490,31 +490,35 @@ def process_biometric_clock(request, site_id):
     if request.method == 'POST':
         site = get_object_or_404(SiteLocation, id=site_id)
 
-        # 1. Identify the worker
-        try:
-            worker = SkilledWorker.objects.get(user=request.user)
-        except SkilledWorker.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Worker profile not found.'})
+        # 1. Identify the worker (Safely)
+        worker = SkilledWorker.objects.filter(user=request.user).first()
+        if not worker:
+            return JsonResponse({'success': False, 'error': 'You are logged in, but you don\'t have a WORKER PROFILE yet. Ask the PM to link your account.'})
 
-        # 2. Get Data from Phone
+        # 2. Get Data (Safely)
         clock_type = request.POST.get('type')
         photo_data = request.POST.get('photo')
-        lat = request.POST.get('lat')
-        lng = request.POST.get('lng')
 
-        # 3. GPS Check (The 200m Buffer)
+        # 🛰️ GPS Extraction with a safety net
+        try:
+            lat = float(request.POST.get('lat') or 0)
+            lng = float(request.POST.get('lng') or 0)
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'GPS Data is corrupted. Refresh and try again.'})
+
+        # 3. Proximity Check
         dist = calculate_distance(site.latitude, site.longitude, lat, lng)
         if dist > 200:
-            return JsonResponse({'success': False, 'error': f'Too far from site ({int(dist)}m away).'})
+            return JsonResponse({'success': False, 'error': f'Too far from gate ({int(dist)}m). Move closer.'})
 
-        # 4. Save the Selfie
+        # 4. Process the Selfie
         try:
             format, imgstr = photo_data.split(';base64,')
             ext = format.split('/')[-1]
             photo_file = ContentFile(base64.b64decode(
                 imgstr), name=f"biometric_{worker.id}_{timezone.now().timestamp()}.{ext}")
-        except:
-            return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Camera capture failed. Check browser permissions.'})
 
         # 5. Record Attendance
         if clock_type == 'IN':
@@ -523,12 +527,10 @@ def process_biometric_clock(request, site_id):
                 site=site,
                 user=request.user,
                 clock_in_photo=photo_file,
-                latitude=lat,  # 🛰️ Ensure these are passed
-                longitude=lng,
-                # No need to pass time_in, auto_now_add does it!
+                latitude=lat,
+                longitude=lng
             )
         else:
-            # Closing the active shift
             attendance = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).last()
             if attendance:
@@ -540,7 +542,6 @@ def process_biometric_clock(request, site_id):
         return JsonResponse({'success': True})
 
     return JsonResponse({'success': False, 'error': 'Invalid request.'})
-
 
 # def htmx_clock_in(request, site_id):
 
