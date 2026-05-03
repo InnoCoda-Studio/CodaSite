@@ -1,3 +1,4 @@
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.shortcuts import render, get_object_or_404
@@ -1353,11 +1354,11 @@ def worker_search(request):
 
 
 @login_required
-# 🚨 REMOVED @transaction.atomic from here so Cloudinary doesn't crash the database!
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
     company = site.company
 
+    # 1. 🛡️ Permission Security
     is_owner = (company.owner == request.user)
     is_invited_pm = Invitation.objects.filter(
         email=request.user.email, site=site, is_used=True, role_assigned='PROJECT_MANAGER'
@@ -1365,85 +1366,87 @@ def add_worker(request, site_id):
 
     if not (is_owner or is_invited_pm):
         messages.error(
-            request, "SECURITY ALERT: You are not authorized to enroll personnel on this site.")
-        return redirect('profile')  # Kick them completely out of the site
+            request, "SECURITY ALERT: Unauthorized enrollment attempt blocked.")
+        return redirect('profile')
 
     if request.method == "POST":
-        id_num = request.POST.get('id_number', '').strip()
+        # Data Extraction
+        id_num = request.POST.get('id_number', '').strip().upper()
         phone_num = request.POST.get('phone', '').strip()
+        worker_name = request.POST.get('name', '').strip()
 
-        # --- 🛑 1. THE SECURITY VAULT: FRONT DOOR CHECKS ---
-        profile_picture = request.FILES.get('profile_picture')
-        lat = request.POST.get('enrollment_lat')
-        lon = request.POST.get('enrollment_long')
+        # Financial Data
+        bank_name = request.POST.get('bank_name', '').strip().upper()
+        account_num = request.POST.get('account_number', '').strip()
+        account_name = request.POST.get('account_name', '').strip().upper()
 
-        if not profile_picture:
-            messages.error(
-                request, "CRITICAL: Live Biometric photo is missing. Request rejected.")
-            return redirect('site_dashboard', site_id=site_id)
+        # Daily Rate Fix: Ensuring it pulls from 'daily_rate' input
+        try:
+            daily_rate = Decimal(request.POST.get('daily_rate') or '0.00')
+        except:
+            daily_rate = Decimal('0.00')
 
-        if not lat or not lon:
-            messages.error(
-                request, "CRITICAL: GPS Coordinates missing. Ghost worker registration blocked.")
-            return redirect('site_dashboard', site_id=site_id)
+        # 2. ⚡ Auto-Generate Staff ID (If left blank)
+        if not id_num:
+            year = timezone.now().year
+            count = SkilledWorker.objects.filter(company=company).count() + 1
+            id_num = f"IC-{year}-{count:03d}"
 
-        # Gatekeeper Check (Prevent Duplicates)
+        # 3. 🛡️ Identity Collision Check
         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
-                request, "Identity Error: Personnel already exists in Global Registry.")
+                request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
             return redirect('site_dashboard', site_id=site_id)
 
         try:
-            # 🟢 CAPTURE DAILY RATE (Matching your HTML input name 'pay_frequency')
-            raw_rate = request.POST.get('pay_frequency')
-            daily_rate = Decimal(raw_rate) if raw_rate else Decimal('0.00')
+            # 4. ☁️ Cloudinary Upload (Profile Picture)
+            secure_image_url = None
+            profile_picture = request.FILES.get('profile_picture')
+            if profile_picture:
+                upload_result = cloudinary.uploader.upload(
+                    profile_picture, folder="codasite_personnel")
+                secure_image_url = upload_result['public_id']
 
-            # --- ⚡ 2. TIER-1 OPTIMIZATION: UPLOAD TO CLOUDINARY OUTSIDE THE LOCK ---
-            # We do the heavy lifting before touching the database
-            upload_result = cloudinary.uploader.upload(
-                profile_picture,
-                resource_type="image",
-                folder="codasite_personnel",
-            )
-            # Get the Cloudinary ID
-            secure_image_url = upload_result['public_id']
-
-            # --- 🔒 3. NOW LOCK THE DATABASE FOR 0.01 SECONDS TO SAVE ---
+            # 5. 🔒 Atomic Database Transaction
             with transaction.atomic():
-                worker = SkilledWorker.objects.create(
-                    contractor=request.user,
-                    site=site,
-                    name=request.POST.get('name'),
-                    category=request.POST.get('category'),
-                    id_number=id_num,
-                    phone=phone_num,
-                    emergency_contact=request.POST.get('emergency_contact'),
-                    bank_name=request.POST.get('bank_name'),
-                    account_number=request.POST.get('account_number'),
-                    account_name=request.POST.get('account_name'),
-                    pay_frequency="Daily",  # Hardcoded since the HTML input was used for the rate
-                    daily_rate=daily_rate,
-                    profile_picture=secure_image_url  # Save the secure Cloudinary image!
+                # A. Create the Shadow User
+                username = slugify(id_num)
+                # Password logic: Coda + last 4 digits of phone
+                default_password = f"Coda{phone_num[-4:] if len(phone_num) >= 4 else '2026'}"
+
+                worker_user = User.objects.create_user(
+                    username=username,
+                    password=default_password
                 )
 
-                # NOTE: If you ever add gps_lat and gps_long to your SkilledWorker model,
-                # you can save `lat` and `lon` variables right here!
+                # B. Create SkilledWorker Profile with all Bank Details
+                worker = SkilledWorker.objects.create(
+                    user=worker_user,
+                    contractor=request.user,
+                    site=site,
+                    company=company,
+                    name=worker_name,
+                    category=request.POST.get('category', '').upper(),
+                    id_number=id_num,
+                    phone=phone_num,
+                    daily_rate=daily_rate,
+                    profile_picture=secure_image_url,
+
+                    # Bank Details saved here
+                    bank_name=bank_name,
+                    account_number=account_num,
+                    account_name=account_name
+                )
 
             messages.success(
-                request, f"New Personnel '{worker.name}' enrolled securely with Biometrics and GPS.")
+                request,
+                f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}"
+            )
 
         except Exception as e:
-            print(f"CRITICAL ERROR: {e}")
-            messages.error(request, f"Registry Error: {e}")
+            messages.error(request, f"Registry Error: {str(e)}")
 
-            if request.htmx:
-                # We return a simple "Success" response
-                response = HttpResponse("Registration Successful")
-
-                # This header is the magic. It tells the frontend to fire an event.
-                # Your worker list and counter will 'hear' this and refresh.
-                response['HX-Trigger'] = 'workerUpdated'
-            return response
+        return redirect('site_dashboard', site_id=site_id)
 
     return redirect('site_dashboard', site_id=site_id)
 
