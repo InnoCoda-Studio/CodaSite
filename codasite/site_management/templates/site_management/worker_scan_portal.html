@@ -94,7 +94,7 @@ function attendanceHandler() {
             formData.append('lng', this.lng);
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-            try {
+            {% comment %} try {
                 // We will build this endpoint next
                 const response = await fetch('{% url "process_biometric_clock" site.id %}', {
                     method: 'POST',
@@ -109,10 +109,31 @@ function attendanceHandler() {
                     this.isError = true;
                     this.message = result.error;
                 }
+            } {% endcomment %}
+            
+            try {
+                const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+                    method: 'POST',
+                    body: formData
+                });
+    
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 🎉 Success! Take them back to the dashboard
+                    window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
+                } else {
+                    // ❌ This is where we show the "Worker not found" or "Too far" error
+                    this.isError = true;
+                    this.message = result.error; // Displays the actual error from Django
+                }
             } catch (err) {
                 this.isError = true;
-                this.message = 'Connection Error. Try again.';
-            } finally {
+                this.message = "Network Error: Check your data connection.";
+            }
+             
+
+             finally {
                 this.loading = false;
             }
         }
