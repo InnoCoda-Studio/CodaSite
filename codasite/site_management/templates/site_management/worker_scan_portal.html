@@ -47,6 +47,8 @@
 </div>
 
 <script>
+const formData = new FormData();
+formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 function attendanceHandler() {
     return {
         loading: false,
@@ -110,7 +112,7 @@ function attendanceHandler() {
                     this.message = result.error;
                 }
             } {% endcomment %}
-            
+
             try {
                 const response = await fetch('{% url "process_biometric_clock" site.id %}', {
                     method: 'POST',
