@@ -1,3 +1,5 @@
+from django.http import JsonResponse
+from django.core.files.base import ContentFile
 from django.shortcuts import render, get_object_or_404
 from .models import SiteLocation
 from django.shortcuts import get_object_or_404, redirect
@@ -452,22 +454,90 @@ def htmx_finance_summary(request, site_id):
 # Distance calculating
 
 
+# def calculate_distance(lat1, lon1, lat2, lon2):
+#     # 🌍 Earth radius in kilometers
+#     R = 6371.0
+
+#     # Convert degrees to radians
+#     lat1, lon1, lat2, lon2 = map(
+#         radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+
+#     # Haversine formula
+#     dlon = lon2 - lon1
+#     dlat = lat2 - lat1
+#     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+#     c = 2 * asin(sqrt(a))
+
+#     # Return distance in Meters
+#     return c * R * 1000
+
 def calculate_distance(lat1, lon1, lat2, lon2):
-    # 🌍 Earth radius in kilometers
-    R = 6371.0
+    """Calculates if the worker is within 200m of the site gate."""
+    try:
+        R = 6371.0  # Earth radius in km
+        lat1, lon1, lat2, lon2 = map(
+            radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+        dlon, dlat = lon2 - lon1, lat2 - lat1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * asin(sqrt(a))
+        return c * R * 1000  # Distance in meters
+    except (TypeError, ValueError):
+        return 999999  # Fail safe for missing GPS
 
-    # Convert degrees to radians
-    lat1, lon1, lat2, lon2 = map(
-        radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
 
-    # Haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-    c = 2 * asin(sqrt(a))
+@login_required
+def process_biometric_clock(request, site_id):
+    if request.method == 'POST':
+        site = get_object_or_404(SiteLocation, id=site_id)
 
-    # Return distance in Meters
-    return c * R * 1000
+        # 1. Identify the worker
+        try:
+            worker = SkilledWorker.objects.get(user=request.user)
+        except SkilledWorker.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Worker profile not found.'})
+
+        # 2. Get Data from Phone
+        clock_type = request.POST.get('type')
+        photo_data = request.POST.get('photo')
+        lat = request.POST.get('lat')
+        lng = request.POST.get('lng')
+
+        # 3. GPS Check (The 200m Buffer)
+        dist = calculate_distance(site.latitude, site.longitude, lat, lng)
+        if dist > 200:
+            return JsonResponse({'success': False, 'error': f'Too far from site ({int(dist)}m away).'})
+
+        # 4. Save the Selfie
+        try:
+            format, imgstr = photo_data.split(';base64,')
+            ext = format.split('/')[-1]
+            photo_file = ContentFile(base64.b64decode(
+                imgstr), name=f"biometric_{worker.id}_{timezone.now().timestamp()}.{ext}")
+        except:
+            return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
+
+        # 5. Record Attendance
+        if clock_type == 'IN':
+            StaffAttendance.objects.create(
+                worker=worker,
+                site=site,
+                user=request.user,
+                time_in=timezone.now(),
+                clock_in_photo=photo_file  # 📸 Proof!
+            )
+        else:
+            # Closing the active shift
+            attendance = StaffAttendance.objects.filter(
+                worker=worker, site=site, time_out__isnull=True).last()
+            if attendance:
+                attendance.time_out = timezone.now()
+                attendance.save()
+            else:
+                return JsonResponse({'success': False, 'error': 'No active shift found.'})
+
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request.'})
 
 
 # def htmx_clock_in(request, site_id):
@@ -873,6 +943,72 @@ def generate_site_qr(request, site_id):
 def attendance_scan_portal(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
     return render(request, 'site_management/worker_scan_portal.html', {'site': site})
+
+
+# Ensure you have your models imported (SkilledWorker, StaffAttendance, etc.)
+
+
+@login_required
+def process_biometric_clock(request, site_id):
+    if request.method == 'POST':
+        site = get_object_or_404(SiteLocation, id=site_id)
+
+        # 1. Identify who is scanning
+        try:
+            # Assuming the worker is logged in on their phone
+            worker = SkilledWorker.objects.get(user=request.user)
+        except SkilledWorker.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Worker profile not found for this user.'})
+
+        # 2. Extract data from the scan
+        clock_type = request.POST.get('type')  # 'IN' or 'OUT'
+        photo_data = request.POST.get('photo')  # The Base64 image string
+        lat = float(request.POST.get('lat', 0))
+        lng = float(request.POST.get('lng', 0))
+
+        # 3. Proximity Check (The 200m Buffer)
+        # Using the check_proximity function we discussed earlier
+        if not check_proximity(site.latitude, site.longitude, lat, lng):
+            return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
+
+        # 4. Process the Selfie
+        try:
+            format, imgstr = photo_data.split(';base64,')
+            ext = format.split('/')[-1]
+            photo_file = ContentFile(base64.b64decode(
+                imgstr), name=f"gate_{worker.id}_{timezone.now().strftime('%Y%m%d%H%M')}.{ext}")
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
+
+        # 5. Save the Record
+        if clock_type == 'IN':
+            # Create a new attendance log
+            StaffAttendance.objects.create(
+                worker=worker,
+                site=site,
+                user=request.user,
+                time_in=timezone.now(),
+                clock_in_photo=photo_file,
+                # Store coordinates for the audit trail
+                # Make sure your model has these fields or skip this part
+            )
+        else:
+            # Find the last active clock-in for today and close it
+            attendance = StaffAttendance.objects.filter(
+                worker=worker,
+                site=site,
+                time_out__isnull=True
+            ).last()
+
+            if attendance:
+                attendance.time_out = timezone.now()
+                attendance.save()
+            else:
+                return JsonResponse({'success': False, 'error': 'No active clock-in found to close.'})
+
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'})
 
 
 @login_required

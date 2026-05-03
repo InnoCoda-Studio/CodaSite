@@ -80,6 +80,9 @@ urlpatterns = [
     # We haven't built 'attendance_scan_portal' yet, but let's reserve the road now
     path('attendance/scan/<int:site_id>/',
          views.attendance_scan_portal, name='attendance_scan_portal'),
+    # site_management/urls.py
+    path('site/<int:site_id>/process-biometric/',
+         views.process_biometric_clock, name='process_biometric_clock'),
 
     path('site/<int:site_id>/worker/<int:worker_id>/history/',
          views.worker_history_modal, name='worker_history_modal'),
