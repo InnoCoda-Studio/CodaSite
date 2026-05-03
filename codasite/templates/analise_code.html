@@ -1,1025 +1,977 @@
 {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
+{% block title %}{{ site.name }} | Pro Operations{% endblock %}
 
-{% block title %}Workforce | Global Registry{% endblock %}
-<style>
-   .scan-line {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        #2DD4BF,
-        transparent
-    );
-    animation: scanMove 2.4s linear infinite;
-    opacity: 0.85;
-    box-shadow: 0 0 20px rgba(45, 212, 191, 0.6);
-}
-
-@keyframes scanMove {
-    0% {
-        transform: translateY(0);
-    }
-    100% {
-        transform: translateY(100%);
-    }
-}
-</style>
 {% block content %}
-<div x-data="{ regModal: false, loading: false, search: '' }" class="container mx-auto p-4 md:p-6 pb-32">
-
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12 px-2">
-        <div class="w-full md:w-auto">
-            <h1 class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none">Workforce</h1>
-            <div class="flex items-center gap-2 mt-2">
-                <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse"></span>
-                <p class="text-innocoda-teal font-black uppercase text-[9px] tracking-[0.4em]">Global Personnel Registry</p>
-            </div>
-        </div>
-        
-        <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div class="bg-white/5 border border-white/10 px-6 py-3 rounded-2xl text-center min-w-30 w-full sm:w-auto">
-                <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest">Total Headcount</p>
-                <p class="text-2xl font-black text-white leading-none mt-1">{{ workers.count }}</p>
-            </div>
-            <button @click="regModal = true" class="w-full sm:w-auto bg-white text-innocoda-navy px-8 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-innocoda-teal transition-all shadow-xl active:scale-95">
-                + Register Personnel
-            </button>
-        </div>
-    </div>
-
-    <div class="relative mb-12">
-        <input type="text" 
-            name="search" 
-            x-model="search" 
-            placeholder="Filter by name, role, or skill..." 
-            hx-get="{% url 'worker_search' %}" 
-            hx-trigger="keyup changed delay:500ms" 
-            hx-target="#worker-results-container" 
-            hx-indicator="#search-spinner"
-            class="glass w-full bg-white/5 border border-white/10 rounded-4xl p-6 pl-14 text-white text-sm focus:border-innocoda-teal outline-none transition-all shadow-inner">
-
-        <svg class="w-6 h-6 text-gray-600 absolute left-6 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-
-        <div id="search-spinner" class="htmx-indicator absolute right-6 top-1/2 -translate-y-1/2">
-            <div class="animate-spin h-5 w-5 border-2 border-innocoda-teal border-t-transparent rounded-full"></div>
-        </div>
-    </div>
-
-    <div id="worker-results-container" class="space-y-4">
-        {% include 'site_management/htmx_components/worker_list_results.html' %}
-    </div>
-
-    <div x-show="regModal" x-cloak 
-        class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl px-4 py-6"
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 scale-95"
-        x-transition:enter-end="opacity-100 scale-100">
-        
-        <div @click.away="regModal = false" 
-            class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative"
-            x-data="globalEnrollmentEngine()">
-            
-            <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-
-            <div class="mb-10">
-                <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
-                <p class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest mt-1">Biometric & Bank Verification</p>
-            </div>
-
-            {% comment %} <form hx-post="." 
-                  hx-encoding="multipart/form-data" 
-                  hx-trigger="confirmedHTMXSubmit"
-                  @submit.prevent="secureHTMXSubmit($event)"
-                  > {% endcomment %}
-
-            <form 
-                hx-post="."
-                hx-trigger="confirmedHTMXSubmit"
-                hx-target="#worker-results-container"
-                hx-swap="innerHTML"
-                @submit.prevent="secureHTMXSubmit($event)"
-                class="space-y-8"
-                hx-on::after-request="regModal = false"
-                >
-                
-                {% csrf_token %}
-                <input type="hidden" name="register_worker" value="true">
-                <input type="hidden" name="enrollment_lat" value="">
-                <input type="hidden" name="enrollment_long" value="">
-                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
-                
-                <div class="space-y-3">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Secure Biometric Capture</p>
-                    <div class="group relative flex flex-col items-center justify-center w-full min-h-[420px] md:min-h-[520px] lg:min-h-[580px] bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">                        
-                        <div x-show="!stream && !photoAttached" class="flex flex-col items-center animate-pulse">
-                            <div class="w-12 h-12 border-4 border-innocoda-teal/20 border-t-innocoda-teal rounded-full animate-spin mb-4"></div>
-                            <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Connecting Lens...</span>
-                        </div>
-
-                        <div x-show="stream" class="absolute inset-0 w-full h-full bg-black">
-                           <div class="absolute top-6 left-6 z-20 space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-innocoda-teal rounded-full animate-pulse"></span>
-                                    <span class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">
-                                        biometric core online
-                                    </span>
-                                </div>
-
-                                <template x-if="stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-white/60 uppercase tracking-widest animate-pulse">
-                                        scanning facial geometry...
-                                    </p>
-                                </template>
-
-                                <template x-if="photoAttached">
-                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
-                                        identity sealed ✓
-                                    </p>
-                                </template>
-
-                            </div>
-
-                            <div class="absolute top-6 left-6 z-20">
-                                <template x-if="!stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">
-                                        system idle
-                                    </p>
-                                </template>
-
-                                <template x-if="stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest animate-pulse">
-                                        scanning identity...
-                                    </p>
-                                </template>
-
-                                <template x-if="photoAttached">
-                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
-                                        verified capture locked
-                                    </p>
-                                </template>
-                            </div>
-
-                            <video
-                                    x-ref="liveFeed"
-                                    class="w-full h-full object-cover grayscale-[0.2] contrast-110"
-                                    autoplay
-                                    playsinline
-                                    muted
-                                >
-                            </video>
-                            <button type="button" @click="switchCamera()" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full hover:bg-innocoda-teal transition-colors z-30">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            </button>
-
-                            <button type="button" @click="snapPhoto()" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-10 py-4 rounded-full font-black text-xs tracking-widest shadow-xl z-20 active:scale-90 transition-transform">CAPTURE</button>
-                        </div>
-
-                        <div x-show="photoAttached" class="absolute inset-0 w-full h-full">
-                            <img :src="photoPreview" class="w-full h-full object-cover">
-                            <button type="button" @click="photoAttached = false; startCamera()" class="absolute top-4 right-4 bg-black/60 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase z-20">Retake</button>
-                        </div>
-                        
-                        <canvas x-ref="canvas" class="hidden"></canvas>
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Personal Data</p>
-                    <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="category" required placeholder="ROLE (MASON, ETC)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                        <input type="text" name="id_number" required placeholder="STAFF ID / NIN" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" name="phone" required placeholder="PRIMARY PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
-                        <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT & PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="bank_name" placeholder="BANK (OPAY, UBA...)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                        <input type="number" name="daily_rate" placeholder="DAILY RATE (₦)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" name="account_number" maxlength="10" placeholder="ACCOUNT NUMBER" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                        <input type="text" name="account_name" placeholder="ACCOUNT HOLDER NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                    </div>
-                    <input type="hidden" name="pay_frequency" value="Daily">
-                </div>
-
-                <button type="submit" :disabled="loading" class="w-full bg-white text-innocoda-navy py-6 rounded-4xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center active:scale-95">
-                    <span x-show="!loading">Finalize Enrollment</span>
-                    <span x-show="loading" class="flex items-center gap-3" x-cloak>
-                        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Processing...
-                    </span>
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
 
 <style>
+    /* Premium Select Styles */
+    select option { background-color: #0a0f1a; color: white; padding: 12px; }
+    .appearance-none {
+        -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 1rem center; background-size: 1.25rem;
+    }
     [x-cloak] { display: none !important; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+    
+    /* Premium Select & Scrollbar */
+    select option { background-color: #0a0f1a; color: white; padding: 12px; }
+    .appearance-none {
+        -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 1rem center; background-size: 1.25rem;
+    }
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(20, 184, 166, 0.3); border-radius: 10px; }
+
 </style>
 
-<script>
-{% comment %} function globalEnrollmentEngine() {
-    return {
-        gettingLocation: false,
-        loading: false,
-        stream: null,
-        photoAttached: false,
-        photoPreview: null,
-        facingMode: 'user',
 
-        faceDescriptor: null, // 🔥 future AI feature
-
-        async init() {
-            await this.loadModels();
-
-            this.$watch('regModal', (value) => {
-                if (value) {
-                    setTimeout(() => this.startCamera(), 200);
-                } else {
-                    this.stopCamera();
-                }
-            });
-        },
-
-        async loadModels() {
-            const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js/weights";
-
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        },
-
-        stopCamera() {
-            if (this.stream) {
-                this.stream.getTracks().forEach(t => t.stop());
-                this.stream = null;
-            }
-        },
-
-        async startCamera() {
-            this.stopCamera();
-
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: this.facingMode },
-                    audio: false
-                });
-
-                this.$refs.liveFeed.srcObject = this.stream;
-                await this.$refs.liveFeed.play();
-
-            } catch (err) {
-                console.error(err);
-                alert("Camera permission denied");
-            }
-        },
-
-        async switchCamera() {
-            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-            await this.startCamera();
-        },
-
-        async snapPhoto() {
-            const video = this.$refs.liveFeed;
-
-            if (!video.videoWidth || !video.videoHeight) {
-                alert("Camera not ready");
-                return;
-            }
-
-            // 🔥 FACE DETECTION (REAL MAGIC HERE)
-            const detection = await faceapi
-                .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (!detection) {
-                alert("No face detected. Position face properly.");
-                return;
-            }
-
-            const box = detection.detection.box;
-
-            const canvas = this.$refs.canvas;
-            const ctx = canvas.getContext("2d");
-
-            const SIZE = 640;
-            canvas.width = SIZE;
-            canvas.height = SIZE;
-
-            // crop FACE only (not fake center crop)
-            ctx.drawImage(
-                video,
-                box.x, box.y, box.width, box.height,
-                0, 0, SIZE, SIZE
-            );
-
-            // watermark
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, SIZE - 60, SIZE, 60);
-
-            ctx.fillStyle = "#2DD4BF";
-            ctx.font = "bold 16px sans-serif";
-            ctx.fillText("BIOMETRIC FACE CAPTURED", 20, SIZE - 25);
-
-            ctx.fillStyle = "#fff";
-            ctx.font = "10px monospace";
-            ctx.fillText(new Date().toLocaleString(), 20, SIZE - 10);
-
-            // stop camera
-            this.stopCamera();
-
-            // convert to file
-            canvas.toBlob(blob => {
-                const file = new File([blob], "face.jpg", { type: "image/jpeg" });
-
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files;
-
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL("image/jpeg");
-
-                // 🔥 SAVE FACE DATA FOR FUTURE RECOGNITION
-                this.faceDescriptor = Array.from(detection.descriptor);
-
-            }, "image/jpeg", 0.9);
-        },
-
-        secureHTMXSubmit(event) {
-            const form = event.target;
-
-            if (!this.photoAttached) {
-                alert("Capture face first");
-                return;
-            }
-
-            this.loading = true;
-            this.gettingLocation = true;
-
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
-                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
-
-                    // optional: send face vector too (advanced)
-                    if (this.faceDescriptor) {
-                        const input = document.createElement("input");
-                        input.type = "hidden";
-                        input.name = "face_vector";
-                        input.value = JSON.stringify(this.faceDescriptor);
-                        form.appendChild(input);
-                    }
-
-                    this.gettingLocation = false;
-                    form.dispatchEvent(new Event('confirmedHTMXSubmit', { bubbles: true }));
-                },
-                () => {
-                    alert("GPS required");
-                    this.loading = false;
-                    this.gettingLocation = false;
-                }
-            );
-        }
-    }
-} {% endcomment %}
-
-function globalEnrollmentEngine() {
-    return {
-        gettingLocation: false,
-        loading: false,
-        stream: null,
-
-        photoAttached: false,
-        photoPreview: null,
-
-        facingMode: 'user',
-
-        init() {
-            this.$watch('regModal', (value) => {
-                if (value) {
-                    setTimeout(() => this.startCamera(), 150);
-                } else {
-                    this.stopCamera();
-                }
-            });
-        },
-
-        async startCamera() {
-            this.stopCamera();
-
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: this.facingMode },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                });
-
-                const video = this.$refs.liveFeed;
-                if (video) {
-                    video.srcObject = this.stream;
-                    await video.play();
-                }
-
-            } catch (err) {
-                console.error(err);
-                alert("Camera access failed. Use HTTPS and allow permissions.");
-            }
-        },
-
-        stopCamera() {
-            if (this.stream) {
-                this.stream.getTracks().forEach(t => t.stop());
-                this.stream = null;
-            }
-        },
-
-        async switchCamera() {
-            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-            await this.startCamera();
-        },
-
-        snapPhoto() {
-            const video = this.$refs.liveFeed;
-            const canvas = this.$refs.canvas;
-
-            if (!video || !video.videoWidth) {
-                alert("Camera not ready");
-                return;
-            }
-
-            const ctx = canvas.getContext("2d");
-
-            const SIZE = 640;
-            canvas.width = SIZE;
-            canvas.height = SIZE;
-
-            const size = Math.min(video.videoWidth, video.videoHeight);
-            const startX = (video.videoWidth - size) / 2;
-            const startY = (video.videoHeight - size) / 2;
-
-            ctx.drawImage(
-                video,
-                startX, startY, size, size,
-                0, 0, SIZE, SIZE
-            );
-
-            this.drawWatermark(ctx, canvas);
-
-            this.buildFile(canvas);
-        },
-
-        drawWatermark(ctx, canvas) {
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
-            ctx.fillStyle = "#2DD4BF";
-            ctx.font = "bold 14px sans-serif";
-            ctx.fillText("BIOMETRIC VERIFIED", 15, canvas.height - 30);
-
-            ctx.fillStyle = "#fff";
-            ctx.font = "10px monospace";
-            ctx.fillText(
-                new Date().toLocaleString(),
-                canvas.width - 200,
-                canvas.height - 30
-            );
-        },
-
-        buildFile(canvas) {
-            this.stopCamera();
-
-            canvas.toBlob(blob => {
-                const file = new File([blob], "capture.jpg", {
-                    type: "image/jpeg"
-                });
-
-                const dt = new DataTransfer();
-                dt.items.add(file);
-
-                this.$refs.hiddenFileInput.files = dt.files;
-
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL("image/jpeg");
-
-            }, "image/jpeg", 0.9);
-        },
-
-        secureHTMXSubmit(event) {
-            const form = event.target;
-
-            if (!this.photoAttached) {
-                alert("Photo required.");
-                return;
-            }
-
-            this.gettingLocation = true;
-            this.loading = true;
-
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
-                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
-
-                    this.gettingLocation = false;
-
-                    form.dispatchEvent(
-                        new Event('confirmedHTMXSubmit', { bubbles: true })
-                    );
-                },
-                () => {
-                    this.gettingLocation = false;
-                    this.loading = false;
-                    alert("GPS required for enrollment.");
-                },
-                { enableHighAccuracy: true }
-            );
-        }
-    };
-}
-</script>
-{% endblock %}
-
-
-{% comment %} 
-{% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
-
-{% block title %}Workforce | Global Registry{% endblock %}
-<style>
-   .scan-line {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        #2DD4BF,
-        transparent
-    );
-    animation: scanMove 2.4s linear infinite;
-    opacity: 0.85;
-    box-shadow: 0 0 20px rgba(45, 212, 191, 0.6);
-}
-
-@keyframes scanMove {
-    0% {
-        transform: translateY(0);
-    }
-    100% {
-        transform: translateY(100%);
-    }
-}
-</style>
-{% block content %}
-<div x-data="{ regModal: false, loading: false, search: '' }" class="container mx-auto p-4 md:p-6 pb-32">
-
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12 px-2">
-        <div class="w-full md:w-auto">
-            <h1 class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none">Workforce</h1>
-            <div class="flex items-center gap-2 mt-2">
-                <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse"></span>
-                <p class="text-innocoda-teal font-black uppercase text-[9px] tracking-[0.4em]">Global Personnel Registry</p>
-            </div>
-        </div>
-        
-        <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div class="bg-white/5 border border-white/10 px-6 py-3 rounded-2xl text-center min-w-30 w-full sm:w-auto">
-                <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest">Total Headcount</p>
-                <p class="text-2xl font-black text-white leading-none mt-1">{{ workers.count }}</p>
-            </div>
-            <button @click="regModal = true" class="w-full sm:w-auto bg-white text-innocoda-navy px-8 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-innocoda-teal transition-all shadow-xl active:scale-95">
-                + Register Personnel
-            </button>
+{% comment %} {% include 'site_management/htmx_components/site_nav.html' %} {% endcomment %}
+
+<div x-data="{ workerModal: false, stockModal: false, imgModal: false, imgUrl: '', payModal: false, isVideo: false, loading: false }" class="pb-32">
+    <div class="container mx-auto p-4 md:p-6 space-y-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+    <div>
+        <h1 class="text-5xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
+        <div class="flex items-center mt-2">
+            <span class="relative flex h-3 w-3 mr-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal"></span>
+            </span>
+            <p class="text-gray-400 text-[10px] font-black uppercase tracking-[0.4em]">Live Operations Control</p>
         </div>
     </div>
 
-    <div class="relative mb-12">
-        <input type="text" 
-            name="search" 
-            x-model="search" 
-            placeholder="Filter by name, role, or skill..." 
-            hx-get="{% url 'worker_search' %}" 
-            hx-trigger="keyup changed delay:500ms" 
-            hx-target="#worker-results-container" 
-            hx-indicator="#search-spinner"
-            class="glass w-full bg-white/5 border border-white/10 rounded-4xl p-6 pl-14 text-white text-sm focus:border-innocoda-teal outline-none transition-all shadow-inner">
-
-        <svg class="w-6 h-6 text-gray-600 absolute left-6 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-
-        <div id="search-spinner" class="htmx-indicator absolute right-6 top-1/2 -translate-y-1/2">
-            <div class="animate-spin h-5 w-5 border-2 border-innocoda-teal border-t-transparent rounded-full"></div>
-        </div>
-    </div>
-
-    <div id="worker-results-container" class="space-y-4">
-        {% include 'site_management/htmx_components/worker_list_results.html' %}
-    </div>
-
-    <div x-show="regModal" x-cloak 
-        class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl px-4 py-6"
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 scale-95"
-        x-transition:enter-end="opacity-100 scale-100">
-        
-        <div @click.away="regModal = false" 
-            class="glass w-full max-w-xl p-8 md:p-12 rounded-[3.5rem] border border-white/10 shadow-3xl overflow-y-auto max-h-full custom-scrollbar relative"
-            
-
-            x-data="globalEnrollmentEngine()"
-            x-init="$watch('regModal', value => { if(value) startCamera(); else stopCamera(); })"
-            
-            >
-            
-            <button @click="regModal = false" class="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+    <div class="flex flex-wrap gap-3">
+        <!-- 🔐 BOSS ONLY: PAY RATES & GATE QR -->
+        {% if request.user == site.company.owner or user_role == 'PROJECT_MANAGER' %}
+            <button @click="payModal = true" 
+                    class="glass px-6 py-4 rounded-2xl cursor-pointer text-[10px] font-black uppercase text-orange-400 border border-orange-400/30 hover:bg-orange-400 hover:text-white transition-all">
+                ₦ Set Pay Rates
             </button>
 
-            <div class="mb-10">
-                <h2 class="text-3xl font-black text-white uppercase tracking-tighter">Identity Enrollment</h2>
-                <p class="text-innocoda-teal text-[10px] font-black uppercase tracking-widest mt-1">Biometric & Bank Verification</p>
+            <!-- 🎯 THE GATE QR BUTTON -->
+            {% if is_boss %}
+            <button hx-get="{% url 'generate_site_qr' site.id %}" 
+                    hx-target="#modal-anchor" 
+                    hx-swap="innerHTML"
+                    class="bg-innocoda-teal text-black px-6 py-4 rounded-2xl cursor-pointer text-[10px] font-black uppercase hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,210,210,0.2)] flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                </svg>
+                Generate Gate QR
+            </button>
+            {% endif %}
+        {% endif %}
+
+        <button @click="workerModal = true" 
+                class="glass px-6 py-4 rounded-2xl cursor-pointer text-[10px] font-black uppercase text-white border border-white/10 hover:bg-white/10 transition-all">
+            + Register Personnel
+        </button>
+
+        <button hx-get="{% url 'site_warehouse' site.id %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="glass px-6 py-4 cursor-pointer rounded-2xl text-[10px] font-black uppercase text-innocoda-teal border border-innocoda-teal/30 hover:bg-innocoda-teal hover:text-innocoda-navy transition-all">
+            📦 Warehouse
+        </button>
+
+        <button hx-get="{% url 'daily_report' site.id %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase cursor-pointer text-white/40 border border-white/5 hover:border-white/20 transition-all">
+            View Daily Report
+        </button>
+    </div>
+</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            
+
+            <div class="glass p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between">
+                <div>
+                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
+                  
+                    <h3 id="onsite-counter" class="text-4xl font-black text-white tracking-tighter">
+                        {{ present_worker_ids|length }} 
+                        <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
+                    </h3>  
+
+                     {% comment %} <h3 id="onsite-counter" 
+                        hx-get="{% url 'your_view_to_get_just_the_counter' site.id %}" 
+                        hx-trigger="workerAdded from:body"
+                        class="text-4xl font-black text-white tracking-tighter">
+                        {{ present_worker_ids|length }} 
+                        <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
+                    </h3>  {% endcomment %}
+                </div>
+                <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
             </div>
 
-            <form hx-post="." 
-                  hx-encoding="multipart/form-data" 
-                  hx-trigger="confirmedHTMXSubmit"
-                  @submit.prevent="secureHTMXSubmit($event)"
-                  class="space-y-8">
-                
-                {% csrf_token %}
-                <input type="hidden" name="register_worker" value="true">
-                <input type="hidden" name="enrollment_lat" value="">
-                <input type="hidden" name="enrollment_long" value="">
+            {% comment %} {% if site.id %}
+                <div id="finance-cards-container" 
+                    class="md:col-span-2"
+                    hx-get="{% url 'htmx_finance_summary' site.id %}" 
+                    hx-trigger="load, every 30s, financeUpdate from:body" 
+                    hx-swap="innerHTML">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
+                    <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
+                    <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a project to enable site-specific financial auditing.</p>
+                </div>
+            {% endif %} {% endcomment %}
+            {% if site.id %}
+                <div id="finance-cards-container" 
+                    class="md:col-span-2"
+                    hx-get="{% url 'htmx_finance_summary' site.id %}" 
+                    hx-trigger="load, every 30s, financeUpdate from:body" 
+                    hx-swap="innerHTML">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
+                    <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
+                    <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a site to view local financial metrics.</p>
+                </div>
+            {% endif %}
+        </div>
 
-                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden">
-                <input type="file" name="video_id_proof" x-ref="videoFileInput" class="hidden">
-
-
-                
-                
-                <div class="space-y-3">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Secure Biometric Capture</p>
-                    <div class="group relative flex flex-col items-center justify-center w-full min-h-[420px] md:min-h-[520px] lg:min-h-[580px] bg-slate-950 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">                        
-                        <div x-show="!stream && !photoAttached" class="flex flex-col items-center animate-pulse">
-                            <div class="w-12 h-12 border-4 border-innocoda-teal/20 border-t-innocoda-teal rounded-full animate-spin mb-4"></div>
-                            <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Connecting Lens...</span>
+      
+        <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl">
+            <h2 class="text-white font-black uppercase text-lg tracking-tighter mb-6">Daily Audit Roll Call</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-112.5">
+                {% for worker in workers %}
+                <div class="flex flex-col p-6 bg-white/5 rounded-[2.5rem] border border-white/5 hover:border-innocoda-teal/30 transition-all group">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-white font-black uppercase text-base tracking-tight">{{ worker.name }}</p>
+                            <p class="text-[8px] text-gray-500 font-bold uppercase tracking-widest">{{ worker.category }}</p>
                         </div>
 
-                        <div x-show="stream" class="absolute inset-0 w-full h-full bg-black">
-                           <div class="absolute top-6 left-6 z-20 space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-innocoda-teal rounded-full animate-pulse"></span>
-                                    <span class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">
-                                        biometric core online
-                                    </span>
-                                </div>
-
-                                <template x-if="stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-white/60 uppercase tracking-widest animate-pulse">
-                                        scanning facial geometry...
-                                    </p>
-                                </template>
-
-                                <template x-if="photoAttached">
-                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
-                                        identity sealed ✓
-                                    </p>
-                                </template>
-
-                            </div>
-
-                            <div class="absolute top-6 left-6 z-20">
-                                <template x-if="!stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">
-                                        system idle
-                                    </p>
-                                </template>
-
-                                <template x-if="stream && !photoAttached">
-                                    <p class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest animate-pulse">
-                                        scanning identity...
-                                    </p>
-                                </template>
-
-                                <template x-if="photoAttached">
-                                    <p class="text-[9px] font-black text-green-400 uppercase tracking-widest">
-                                        verified capture locked
-                                    </p>
-                                </template>
-                            </div>
-
-                            <video
-                                    x-ref="liveFeed"
-                                    class="w-full h-full object-cover grayscale-[0.2] contrast-110"
-                                    autoplay
-                                    playsinline
-                                    muted
-                                >
-                            </video>
-
-                           
-                            <button type="button" @click="switchCamera()" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full hover:bg-innocoda-teal transition-colors z-30">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            </button>
-
-                            
-                            <div x-show="stream && !photoAttached" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20 w-full px-8">
-                                <template x-if="isRecording">
-                                    <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                                        <div class="bg-red-500 h-full transition-all duration-100" :style="`width: ${recordingProgress}%`"></div >
-                                    </div>
-                                </template>
-
-                                <button type="button" 
-                                        @click="startVideoEnrollment()" 
-                                        :disabled="isRecording"
-                                        :class="isRecording ? 'bg-red-600 animate-pulse' : 'bg-innocoda-teal'"
-                                        class="w-full max-w-[200px] text-white py-4 rounded-full font-black text-[10px] tracking-widest shadow-2xl active:scale-90 transition-all">
-                                    <span x-text="isRecording ? 'RECORDING ID...' : 'BEGIN BIO-CAPTURE'"></span>
+                        <div id="worker-action-{{ worker.id }}">
+                            {% if worker.id in present_worker_ids %}
+                                <button 
+                                    hx-post="{% url 'htmx_clock_out' site.id %}"
+                                    hx-vals='{"worker_id": "{{ worker.id }}"}'
+                                    hx-target="#worker-action-{{ worker.id }}"  hx-swap="outerHTML"
+                                    class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+                                    Clock Out
                                 </button>
+                            {% else %}
+
+                            <form id="clock-in-form-{{ worker.id }}" 
+                                hx-post="{% url 'htmx_clock_in' site.id %}" 
+                                hx-encoding="multipart/form-data" 
+                                hx-target="#worker-action-{{ worker.id }}" 
+                                hx-swap="outerHTML"
+                                class="inline-block">
                                 
-                                <p class="text-[8px] text-white/50 font-bold uppercase tracking-[0.2em]" x-text="isRecording ? 'Hold still: Face center' : 'Step 1: Start 3s Video ID'"></p>
-                            </div>
+                                {% csrf_token %}
+                                <input type="hidden" name="worker_id" value="{{ worker.id }}">
+                                <input type="hidden" name="lat" id="lat-{{ worker.id }}" value="">
+                                <input type="hidden" name="lng" id="lng-{{ worker.id }}" value="">
+                                
+                                <!-- The Magic HTML5 Camera Button -->
+                                {% comment %} <label class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-105 active:scale-95">
+                                    <span>📷 Snap & Clock-In</span>
+                                    <!-- capture="environment" forces the back camera to open instantly -->
+                                    <input type="file" name="daily_photo" accept="image/*" capture="environment" class="hidden" onchange="executeSecureClockIn(this, '{{ worker.id }}')">
+                                </label> {% endcomment %}
+                                <button type="button" 
+                                    @click="$dispatch('open-clock-in', { id: '{{ worker.id }}', name: '{{ worker.name }}' })"
+                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2">
+                                    <span>📸 Verify & Clock-In</span>
+                                </button>
+                                </form>
+                                {% comment %} <button 
+                                    x-data="{ clicking: false }"
+                                    @click="clicking = true; clockInWithGPS('{{ worker.id }}', '{{ site.id }}')"
+                                    :disabled="clicking"
+                                    :class="clicking ? 'opacity-50 cursor-wait' : 'hover:scale-105'"
+                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center justify-center gap-2">
+                                    
+                                    <template x-if="clicking">
+                                        <svg class="animate-spin h-3 w-3 text-innocoda-navy" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </template>
+
+                                    <span x-text="clicking ? 'Verifying...' : '⚡ Quick Clock-In'"></span>
+                                </button> {% endcomment %}
+                            {% endif %}
                         </div>
-
-                        <div x-show="photoAttached" class="absolute inset-0 w-full h-full">
-                            <img :src="photoPreview" class="w-full h-full object-cover">
-                            <button type="button" @click="photoAttached = false; startCamera()" class="absolute top-4 right-4 bg-black/60 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase z-20">Retake</button>
-                        </div>
-                        
-                        <canvas x-ref="canvas" class="hidden"></canvas>
                     </div>
                 </div>
+                {% endfor %}
+            </div>
+        </div>
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
+            <div class="space-y-4">
+                <h4 class="text-white/40 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Operations</h4>
+                <a href="{% url 'daily_report' site.id %}" class="block text-center w-full py-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-black rounded-[2rem] uppercase text-[10px] tracking-[0.3em] transition-all">Open Full Daily Log</a>
+            </div>
+            <div class="space-y-4">
+                <h4 class="text-red-400/60 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Closeout</h4>
+                <form action="{% url 'close_site_day' site.id %}" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-black rounded-[2rem] uppercase text-[10px] tracking-[0.3em] transition-all">Finalize & Send PDF</button>
+                </form>
+            </div>
+        </div>
 
-                <div class="space-y-4">
-                    <p class="text-[8px] text-gray-500 font-black uppercase tracking-widest ml-2">Personal Data</p>
-                    <input type="text" name="name" required placeholder="FULL LEGAL NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="category" required placeholder="ROLE (MASON, ETC)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                        <input type="text" name="id_number" required placeholder="STAFF ID / NIN" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" name="phone" required placeholder="PRIMARY PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all"> 
-                        <input type="text" name="emergency_contact" placeholder="EMERGENCY CONTACT & PHONE" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-innocoda-teal transition-all">
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="bank_name" placeholder="BANK (OPAY, UBA...)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                        <input type="number" name="daily_rate" placeholder="DAILY RATE (₦)" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" name="account_number" maxlength="10" placeholder="ACCOUNT NUMBER" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                        <input type="text" name="account_name" placeholder="ACCOUNT HOLDER NAME" class="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-bold placeholder:text-gray-700 outline-none focus:border-orange-400 transition-all">
-                    </div>
-                    <input type="hidden" name="pay_frequency" value="Daily">
-                </div>
-
-                <button type="submit" :disabled="loading" class="w-full bg-white text-innocoda-navy py-6 rounded-4xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-innocoda-teal transition-all flex items-center justify-center active:scale-95">
-                    <span x-show="!loading">Finalize Enrollment</span>
-                    <span x-show="loading" class="flex items-center gap-3" x-cloak>
-                        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Processing...
-                    </span>
-                </button>
+        <div class="p-8 glass rounded-[3rem] border border-innocoda-teal/20 shadow-2xl">
+            <h4 class="text-innocoda-teal font-black uppercase text-[9px] mb-4 ml-2 tracking-[0.3em]">Weekly Executive Audit</h4>
+            <form method="POST" action="{% url 'send_weekly_report' site.id %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full py-6 bg-innocoda-teal hover:bg-emerald-400 text-innocoda-navy font-black rounded-[2.5rem] uppercase text-[12px] tracking-[0.4em] transition-all">Generate & Dispatch Weekly Summary</button>
             </form>
         </div>
     </div>
+
+    <div x-show="stockModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+        <div @click.away="stockModal = false" class="glass w-full max-w-md p-8 rounded-[2.5rem] border border-white/20 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-white uppercase tracking-tighter">Receive Materials</h2>
+                <button @click="stockModal = false" class="text-gray-500 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="add_stock" value="true">
+                <input type="text" name="item_name" required placeholder="Material Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white">
+                    <input type="text" name="unit" required placeholder="Unit (Bags)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <label class="flex flex-col items-center justify-center p-4 bg-white/5 border border-dashed border-white/20 rounded-2xl cursor-pointer hover:border-innocoda-teal transition-all">
+                        <span class="text-[8px] text-gray-500 uppercase font-bold text-center">Snap Photo</span>
+                        <input type="file" name="evidence_image" accept="image/*" capture="environment" class="hidden">
+                    </label>
+                    <label class="flex flex-col items-center justify-center p-4 bg-white/5 border border-dashed border-white/20 rounded-2xl cursor-pointer hover:border-innocoda-teal transition-all">
+                        <span class="text-[8px] text-gray-500 uppercase font-bold text-center">Record Video</span>
+                        <input type="file" name="evidence_video" accept="video/*" capture="environment" class="hidden">
+                    </label>
+                </div>
+                <button type="submit" class="w-full bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase text-xs tracking-widest mt-4">Update Inventory</button>
+            </form>
+        </div>
+    </div>
+
+  <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+        <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+            
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Personnel Management</h2>
+                <button @click="workerModal = false" class="text-gray-500 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
+                <button @click="enrollmentMode = 'select'" :class="enrollmentMode === 'select' ? 'bg-innocoda-teal text-innocoda-navy shadow-lg' : 'text-gray-400'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">Select Existing</button>
+                <button @click="enrollmentMode = 'new'" :class="enrollmentMode === 'new' ? 'bg-orange-400 text-white shadow-lg' : 'text-gray-400'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">Register New</button>
+            </div>
+
+            <div x-show="enrollmentMode === 'select'">
+                <form method="POST" class="space-y-6" @submit="loading = true">
+                    {% csrf_token %}
+                    <input type="hidden" name="deploy_worker" value="true">
+                    
+                    <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
+                        <option value="" disabled selected>Search Available Workers...</option>
+                        {% for reg_worker in global_workers_pool %}
+                            <option value="{{ reg_worker.id }}">
+                                {{ reg_worker.name }} — {{ reg_worker.category }} 
+                                {% if reg_worker.site %}(at {{ reg_worker.site.name }}){% else %}(General Pool){% endif %}
+                            </option>
+                        {% empty %}
+                            <option value="" disabled>No unassigned workers found in company pool</option>
+                        {% endfor %}
+                    </select>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="update_category" placeholder="Role (e.g. Lead Mason)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
+                        <input type="number" min="0" step="100" name="update_rate" placeholder="Daily Rate (₦)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
+                    </div>
+                    <button type="submit" :disabled="loading" :class="{'opacity-50 cursor-not-allowed': loading}" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest transition-all">
+                        <span x-text="loading ? 'Deploying...' : 'Deploy to Site'"></span>
+                    </button>
+                </form>
+            </div>
+            
+
+            <div x-show="enrollmentMode === 'new'" x-transition>
+               
+
+                    <form 
+                        action="{% url 'add_worker' site.id %}" 
+                        method="POST" 
+                        enctype="multipart/form-data" 
+                        x-data="workerEnrollmentEngine()" x-init="init()"
+                        @submit.prevent="secureSubmit($event)"
+                        class="space-y-6"
+                    >
+                    <form 
+        action="{% url 'add_worker' site.id %}" 
+        method="POST" 
+        enctype="multipart/form-data" 
+        x-data="globalEnrollmentEngine()" 
+        x-init="init()"
+        @submit.prevent="secureSubmit($event)"
+        class="space-y-6"
+    >
+
+                    {% csrf_token %}
+                    <input type="hidden" name="enrollment_lat" :value="lat">
+                    <input type="hidden" name="enrollment_long" :value="long">
+                    
+                    <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
+
+                    <div class="space-y-2">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
+                        
+                         <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
+                            
+                            <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
+                                <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
+                            </div>
+
+                <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
+                    <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
+                    
+                    <button 
+                        type="button" 
+                        @click="toggleCamera()" 
+                        class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+
+                    <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10">
+                        Capture
+                    </button>
+                </div>
+
+
+
+
+                            <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
+                                <img :src="photoPreview" class="w-full h-auto">
+                                <button 
+                               
+                                 type="button" 
+                                @click="photoAttached = false; photoPreview = null; startCamera()" 
+                                 class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500"
+                                >
+                                    Retake
+                                </button>
+                            </div>
+
+                            <canvas x-ref="canvas" class="hidden"></canvas>
+                        </div>
+
+                
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                        
+                        <input type="text" name="name" required maxlength="100" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only. No numbers or symbols." placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="category" required maxlength="50" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only." placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="text" name="id_number" required maxlength="20" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" title="Letters and numbers only. No symbols." placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        </div>
+                        
+                        <input type="tel" name="phone" required maxlength="15" oninput="this.value = this.value.replace(/[^0-9+]/g, '')" title="Valid phone numbers only." placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                        
+                        <input type="text" name="emergency_contact" required maxlength="100" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="bank_name" required maxlength="50" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="number" min="0" max="1000000" step="100" name="pay_frequency" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" name="account_number" required maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="Exactly 10 digits required for Nigerian bank accounts." placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                            
+                            <input type="text" name="account_name" required maxlength="100" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        </div>
+                    </div>
+
+                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
+                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
+                    </button>
+                </form>
+            </div> 
+        </div>
+    </div>
+
+
+    <div x-show="payModal" x-cloak class="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+        <div @click.away="payModal = false" class="glass w-full max-w-2xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl">
+            <h2 class="text-xl font-black text-white uppercase tracking-tighter mb-6">Labor Price Settings</h2>
+            <form method="POST" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {% csrf_token %}
+                <input type="hidden" name="update_all_rates" value="true">
+                {% for worker in workers %}
+                <div class="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div>
+                        <p class="text-white font-bold text-sm">{{ worker.name }}</p>
+                        <p class="text-[8px] text-gray-500 uppercase">{{ worker.category }}</p>
+                    </div>
+                    <div class="flex items-center bg-white/5 rounded-xl px-3 border border-white/10">
+                        <span class="text-innocoda-teal font-bold mr-2">₦</span>
+                        <input type="number" name="rate_{{ worker.id }}" value="{{ worker.daily_rate|floatformat:0 }}" class="bg-transparent border-none py-2 text-white font-black w-24 outline-none">
+                    </div>
+                </div>
+                {% endfor %}
+                <button type="submit" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-2xl font-black uppercase text-xs tracking-widest sticky bottom-0">Save All Rates</button>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="imgModal" x-cloak class="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+        <button @click="imgModal = false" class="absolute top-8 right-8 text-white glass p-4 rounded-full z-[310] hover:rotate-90 transition-all"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        <div class="w-full max-w-5xl flex items-center justify-center">
+            <template x-if="isVideo"><video :src="imgUrl" controls autoplay class="max-w-full max-h-[80vh] rounded-3xl shadow-2xl border border-white/10"></video></template>
+            <template x-if="!isVideo"><img :src="imgUrl" class="max-w-full max-h-[80vh] rounded-3xl shadow-2xl object-contain border border-white/10"></template>
+        </div>
+    </div>
+
+{% comment %} Active Stafe {% endcomment %}
+    <div class="glass p-6 rounded-[2.5rem] mt-8 border border-white/10">
+    <h3 class="text-white font-black uppercase text-xs mb-4 tracking-widest">Site Personnel</h3>
+    <div class="space-y-4">
+        {% for member in site.invitation_set.all %}
+            <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl">
+                <div>
+                    <p class="text-white font-bold text-sm">{{ member.email }}</p>
+                    <p class="text-innocoda-teal text-[10px] uppercase font-black">{{ member.role_assigned }}</p>
+                </div>
+                
+                {% if is_boss %}
+                    <form action="{% url 'manage_staff_access' member.id %}" method="POST">
+                        {% csrf_token %}
+                        {% if member.is_used %}
+                            <input type="hidden" name="action" value="block">
+                            <button class="text-red-400 text-[10px] font-black uppercase tracking-widest">Block</button>
+                        {% else %}
+                            <input type="hidden" name="action" value="unblock">
+                            <button class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Unblock</button>
+                        {% endif %}
+                    </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
 </div>
 
-<style>
-    [x-cloak] { display: none !important; }
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-</style>
+</div>
+{% comment %} Dispaying workers cloing message  {% endcomment %}
+<div id="toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>
 
+<!-- THE UNIVERSAL CLOCK-IN MODAL -->
+<div x-data="universalClockInEngine()" 
+     @open-clock-in.window="openModal($event.detail)"
+     x-show="isOpen" x-cloak 
+     class="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-md px-4">
+    
+    <div @click.away="closeModal()" class="glass w-full max-w-md p-6 rounded-[2.5rem] border border-white/20 shadow-2xl relative">
+        <!-- Close Button -->
+        <button @click="closeModal()" class="absolute top-4 right-4 text-white hover:text-red-500 z-50">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+
+        <h3 class="text-white font-black uppercase text-sm text-center mb-4">
+            Clocking In: <span x-text="workerName" class="text-innocoda-teal"></span>
+        </h3>
+        
+        <!-- Live Video Feed -->
+        {% comment %} <div class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border-2 border-white/10">
+            <video x-ref="liveVideo" class="w-full h-[500px] object-cover" autoplay playsinline muted></video>
+            
+            <button type="button" @click="snapAndSubmit()" :disabled="processing" 
+                    :class="processing ? 'bg-gray-500 scale-95' : 'bg-red-500 hover:scale-105'"
+                    class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white px-8 py-3 rounded-full font-black uppercase text-xs shadow-xl transition-all flex items-center gap-2">
+                <span x-text="processing ? 'Verifying...' : '📸 SNAP & VERIFY'"></span>
+            </button>
+        </div> {% endcomment %}
+
+        <div class="relative rounded-3xl overflow-hidden bg-black h-[60vh] max-h-[550px] mb-4 border-2 border-white/10 group">
+            <!-- Removed aspect-video, changed to h-full so it fills the parent perfectly -->
+            <video x-ref="liveVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            
+            <!-- The Camera Switch Button -->
+            <button type="button" @click="toggleCamera()" 
+                    class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+
+            <!-- The Snap Button -->
+            <button type="button" @click="snapAndSubmit()" :disabled="processing" 
+                    :class="processing ? 'bg-gray-500 scale-95' : 'bg-red-500 hover:scale-105'"
+                    class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white px-10 py-4 rounded-full font-black  text-sm shadow-xl transition-all flex items-center gap-2 z-20">
+                <span x-text="processing ? 'Verifying...' : 'snap & verify'"></span>
+            </button>
+        </div>
+        
+        <!-- Hidden Canvas for capturing the frame -->
+        <canvas x-ref="clockInCanvas" class="hidden"></canvas>
+        
+        <!-- The Hidden HTMX Form -->
+        <form x-ref="clockInForm" 
+              hx-post="{% url 'htmx_clock_in' site.id %}" 
+              hx-encoding="multipart/form-data"
+              :hx-target="'#worker-action-' + workerId"
+              hx-swap="outerHTML"
+              @htmx:after-request="closeModal()">
+            {% csrf_token %}
+            <input type="hidden" name="worker_id" :value="workerId">
+            <input type="hidden" name="lat" x-ref="latInput">
+            <input type="hidden" name="lng" x-ref="lngInput">
+            <input type="file" name="daily_photo" x-ref="photoInput" class="hidden">
+        </form>
+    </div>
+</div>
 <script>
-function globalEnrollmentEngine() {
+    {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
+  
+
+
+function workerEnrollmentEngine() {
     return {
-        stream: null,
-        photoAttached: false,
-        photoPreview: '',
-        isRecording: false,
-        loading: false,
-        facingMode: 'user',
-        gettingLocation: false,
-        regModal: false, 
-        recordingProgress: 0,
-        mediaRecorder: null,
-        videoChunks: [],
-        recordingStatus: 'Stand still for 3s',
+        lat: '', long: '', gettingLocation: false, loading: false,
+        stream: null, photoAttached: false, photoPreview: null, facingMode: 'user',
 
-        init() {
-            this.$watch('regModal', (value) => {
-                if (value) {
-                    // Slight delay to ensure the modal DOM is ready for the video ref
-                    setTimeout(() => this.startCamera(), 500);
-                } else {
-                    this.stopCamera();
-                }
-            });
+        startCamera() {
+            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facingMode }, audio: false })
+            .then(s => {
+                this.stream = s;
+                this.$refs.videoFeed.srcObject = s;
+                this.$refs.videoFeed.play();
+            }).catch(err => alert("Camera access is required."));
         },
 
-        async startCamera() {
-            this.stopCamera();
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: this.facingMode },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                });
-
-                const video = this.$refs.liveFeed;
-                if (video) {
-                    video.srcObject = this.stream;
-                    // play() returns a promise, it's safer to await it
-                    await video.play();
-                }
-            } catch (err) {
-                console.error("Camera error:", err);
-                alert("Camera access failed. Ensure you are using HTTPS (or localhost) and have granted permissions.");
-            }
+        toggleCamera() {
+            this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
+            this.startCamera();
         },
 
-        async startVideoEnrollment() {
-            if (!this.stream) return;
+        snapPhoto() {
+            const canvas = this.$refs.canvas;
+            const video = this.$refs.videoFeed;
+            const ctx = canvas.getContext('2d');
             
-            this.isRecording = true;
-            this.recordingProgress = 0;
-            this.videoChunks = [];
+            const MAX_WIDTH = 640; // Slightly higher quality for the watermark
+            const scale = MAX_WIDTH / video.videoWidth;
+            canvas.width = MAX_WIDTH;
+            canvas.height = video.videoHeight * scale;
 
-            // Configuration for mobile-friendly recording
-            const options = { videoBitsPerSecond: 1000000 };
-            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-                options.mimeType = 'video/webm;codecs=vp8';
-            }
+            // 1. Draw the actual photo
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            try {
-                this.mediaRecorder = new MediaRecorder(this.stream, options);
-            } catch (e) {
-                this.mediaRecorder = new MediaRecorder(this.stream);
-            }
+            // 2. APPLY THE WATERMARK (This stays on the image forever)
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            
+            ctx.font = "bold 18px sans-serif";
+            ctx.fillStyle = "#2DD4BF"; // Innocoda Teal
+            ctx.fillText("🔒 BIOMETRIC VERIFIED", 20, canvas.height - 20);
+            
+            ctx.font = "12px sans-serif";
+            ctx.fillStyle = "#ffffff";
+            const timestamp = new Date().toLocaleString();
+            ctx.fillText(timestamp, canvas.width - 200, canvas.height - 20);
 
-            this.mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) this.videoChunks.push(e.data);
-            };
+            // 3. Close the stream
+            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+            this.stream = null;
 
-            this.mediaRecorder.onstop = async () => {
-                const mimeType = this.mediaRecorder.mimeType || 'video/mp4';
-                const videoBlob = new Blob(this.videoChunks, { type: mimeType });
-                const videoFile = new File([videoBlob], "id_proof.mp4", { type: mimeType });
-
+            // 4. Convert to File for the Database
+            canvas.toBlob((blob) => {
+                const file = new File([blob], "enrolled_worker.jpg", { type: "image/jpeg" });
                 const dt = new DataTransfer();
-                dt.items.add(videoFile);
+                dt.items.add(file);
+                this.$refs.hiddenFileInput.files = dt.files; // This puts the watermarked image in the form
                 
-                if (this.$refs.videoFileInput) {
-                    this.$refs.videoFileInput.files = dt.files;
-                }
-
-                // Snap the photo preview automatically after recording
-                this.snapPhoto(); 
-                this.isRecording = false;
-            };
-
-            this.mediaRecorder.start();
-            
-            let duration = 3000; 
-            let elapsed = 0;
-            const interval = 100;
-
-            const timer = setInterval(() => {
-                elapsed += interval;
-                this.recordingProgress = (elapsed / duration) * 100;
-                
-                if (elapsed >= duration) {
-                    clearInterval(timer);
-                    if (this.mediaRecorder.state !== "inactive") {
-                        this.mediaRecorder.stop();
-                    }
-                }
-            }, interval);
+                this.photoAttached = true;
+                this.photoPreview = canvas.toDataURL('image/jpeg');
+            }, 'image/jpeg', 0.9); 
         },
 
-        stopCamera() {
+        {% comment %} secureSubmit(event) {
+            // We use event.target to get the actual HTML Form element
+            const formElement = event.target;
+
+            if (!this.photoAttached) {
+                alert("Please capture a biometric photo first.");
+                return;
+            }
+
+            this.gettingLocation = true;
+            this.loading = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    // MANUAL INJECTION: This prevents the "Ghost Worker" error
+                    // We put the GPS data directly into the inputs right before the refresh
+                    formElement.querySelector('input[name="enrollment_lat"]').value = pos.coords.latitude;
+                    formElement.querySelector('input[name="enrollment_long"]').value = pos.coords.longitude;
+
+                    this.gettingLocation = false;
+                    
+                    // THE RELOAD TRIGGER:
+                    // form.submit() is a native browser function. 
+                    // It saves data to the database and forces the page to reload.
+                    formElement.submit(); 
+                },
+                (err) => {
+                    alert('GPS location is required to verify site presence.');
+                    this.gettingLocation = false;
+                    this.loading = false;
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        } {% endcomment %}
+        // Replace secureHTMXSubmit with this:
+        secureSubmit(event) {
+            if (!this.photoAttached) { 
+                alert("Please capture a photo first."); 
+                return; 
+            }
+            this.loading = true;
+            
+            const form = event.target; // Grab the form
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    form.querySelector('[name="enrollment_lat"]').value = pos.coords.latitude;
+                    form.querySelector('[name="enrollment_long"]').value = pos.coords.longitude;
+                    form.submit(); // 🔥 NATIVE SUBMIT: Forces a full page reload!
+                },
+                () => { 
+                    form.submit(); // Fallback if GPS fails
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        }
+    }
+}
+
+    
+{% comment %} The utimat pictur security ☝🏻 {% endcomment %}
+// 🔊 1. The Voice Function (Missing in your snippet)
+function speakMessage(text) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// 🛰️ 2. The GPS Clock-In Function
+function clockInWithGPS(workerId, siteId) {
+    if (navigator.geolocation) {
+        speakMessage("Scanning site coordinates...");
+        
+        // 🛰️ Add Options for "Real" GPS Hardware
+        const gpsOptions = {
+            enableHighAccuracy: true, // 🚀 FORCE THE GPS CHIP (Not just Wi-Fi)
+            timeout: 10000,           // ⏳ Stop waiting after 10 seconds
+            maximumAge: 0             // 🔄 Don't use an old location from 5 mins ago
+        };
+
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            // 🚀 Your Ajax call stays here (It's already perfect)
+            const cleanUrl = "/htmx/clock-in/" + siteId + "/";
+            htmx.ajax('POST', cleanUrl, {
+                values: { 'worker_id': workerId, 'lat': lat, 'lng': lng },
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                target: '#worker-action-' + workerId,
+                swap: 'outerHTML' 
+            });
+
+        }, function(error) {
+            // 🕵️‍♂️ Precise Error Handling
+            let msg = "GPS Error.";
+            if (error.code === 1) msg = "Permission Denied. Enable Location.";
+            if (error.code === 3) msg = "Signal too weak. Move to an open area.";
+            
+            showToast(`🚨 ${msg}`, "error");
+            speakMessage(msg);
+            
+            // 🔄 If you're using a loading spinner, reset it here
+            if (window.Alpine) { window.location.reload(); } 
+        }, gpsOptions); // 👈 Pass the options here
+    } else {
+        showToast("❌ Browser does not support GPS", "error");
+    }
+}
+
+function executeSecureClockIn(fileInput, workerId) {
+    if (!fileInput.files.length) return; // User canceled camera
+    
+    speakMessage("Verifying identity and location...");
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                // 1. Inject GPS data into the hidden fields
+                document.getElementById('lat-' + workerId).value = position.coords.latitude;
+                document.getElementById('lng-' + workerId).value = position.coords.longitude;
+                
+                // 2. Trigger HTMX to send the photo and GPS to Django
+                htmx.trigger('#clock-in-form-' + workerId, 'submit');
+            }, 
+            function(error) {
+                showToast("🚨 GPS Required to Clock In!", "error");
+                speakMessage("GPS Error. Access Denied.");
+                fileInput.value = ""; // Clear the file
+            }, 
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    } else {
+        showToast("❌ Browser does not support GPS", "error");
+    }
+}
+
+
+function universalClockInEngine() {
+    return {
+        isOpen: false,
+        workerId: null,
+        workerName: '',
+        stream: null,
+        processing: false,
+        facingMode: 'environment', // Starts with the back camera by default
+
+        openModal(data) {
+            this.workerId = data.id;
+            this.workerName = data.name;
+            this.isOpen = true;
+            this.processing = false;
+            
+            // Fix HTMX target dynamically so it updates the correct worker row
+            this.$refs.clockInForm.setAttribute('hx-target', '#worker-action-' + this.workerId);
+            htmx.process(this.$refs.clockInForm); 
+            
+            // Delay camera start slightly so the modal transition finishes first
+            setTimeout(() => this.startCamera(), 150);
+        },
+
+        closeModal() {
+            this.isOpen = false;
             if (this.stream) {
                 this.stream.getTracks().forEach(t => t.stop());
                 this.stream = null;
             }
         },
 
-        async switchCamera() {
-            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-            await this.startCamera();
-        },
-
-        snapPhoto() {
-            const video = this.$refs.liveFeed;
-            const canvas = this.$refs.canvas;
-
-            if (!video || !video.videoWidth) {
-                console.error("Camera not ready for snap");
-                return;
+        startCamera() {
+            // Stop existing tracks before starting a new one
+            if (this.stream) {
+                this.stream.getTracks().forEach(t => t.stop());
             }
 
-            const ctx = canvas.getContext("2d");
-            const SIZE = 640;
-            canvas.width = SIZE;
-            canvas.height = SIZE;
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: this.facingMode }, 
+                audio: false 
+            })
+            .then(s => {
+                this.stream = s;
+                this.$refs.liveVideo.srcObject = s;
+                this.$refs.liveVideo.play();
+            }).catch(err => {
+                console.error("Camera error:", err);
+                // Fallback: If 'environment' (back cam) fails, try 'user' (webcam)
+                if (this.facingMode === 'environment') {
+                    this.facingMode = 'user';
+                    this.startCamera();
+                } else {
+                    alert("Camera access is blocked. Please check browser permissions.");
+                }
+            });
+        },
 
+        toggleCamera() {
+            // Flip the camera mode and restart the stream
+            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
+            this.startCamera();
+        },
+
+        snapAndSubmit() {
+            this.processing = true;
+            speakMessage("Verifying identity..."); // Triggers your voice function
+
+            const video = this.$refs.liveVideo;
+            const canvas = this.$refs.clockInCanvas;
+            const ctx = canvas.getContext('2d');
+            
+            // Standardize resolution for fast uploads
+            canvas.width = 480;
+            canvas.height = 360;
+            
+            // Fix stretch by calculating aspect ratio crop
             const size = Math.min(video.videoWidth, video.videoHeight);
             const startX = (video.videoWidth - size) / 2;
             const startY = (video.videoHeight - size) / 2;
+            
+            ctx.drawImage(video, startX, startY, size, size, 0, 0, canvas.width, canvas.height);
 
-            ctx.drawImage(
-                video,
-                startX, startY, size, size,
-                0, 0, SIZE, SIZE
-            );
-
-            this.drawWatermark(ctx, canvas);
-            this.buildFile(canvas);
-        },
-
-        drawWatermark(ctx, canvas) {
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-            ctx.fillStyle = "#2DD4BF";
-            ctx.font = "bold 14px sans-serif";
-            ctx.fillText("BIOMETRIC VERIFIED", 15, canvas.height - 30);
-            ctx.fillStyle = "#fff";
-            ctx.font = "10px monospace";
-            ctx.fillText(new Date().toLocaleString(), canvas.width - 200, canvas.height - 30);
-        },
-
-        buildFile(canvas) {
-            canvas.toBlob(blob => {
-                const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+            // Convert to a file and attach to hidden form
+            canvas.toBlob((blob) => {
+                const file = new File([blob], "daily_clock_in.jpg", { type: "image/jpeg" });
                 const dt = new DataTransfer();
                 dt.items.add(file);
+                this.$refs.photoInput.files = dt.files;
 
-                if (this.$refs.hiddenFileInput) {
-                    this.$refs.hiddenFileInput.files = dt.files;
+                // Stop the camera feed immediately so it feels snappy
+                if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+
+                // Grab GPS and fire off HTMX
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            this.$refs.latInput.value = position.coords.latitude;
+                            this.$refs.lngInput.value = position.coords.longitude;
+                            
+                            // Trigger the HTMX submission natively
+                            htmx.trigger(this.$refs.clockInForm, 'submit');
+                        },
+                        (error) => {
+                            showToast("🚨 GPS location required to clock in!", "error");
+                            this.processing = false;
+                            this.closeModal();
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                } else {
+                    alert("Your browser does not support GPS.");
                 }
-
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL("image/jpeg");
-                this.stopCamera(); // Close stream after capture
-            }, "image/jpeg", 0.9);
-        },
-
-        secureHTMXSubmit(event) {
-            const form = event.target;
-
-            if (!this.photoAttached) {
-                alert("Please complete the Biometric Capture first.");
-                return;
-            }
-
-            this.loading = true;
-
-            // Simplified: No GPS check here since it's a general registration
-            form.dispatchEvent(
-                new Event('confirmedHTMXSubmit', { bubbles: true })
-            );
+            }, 'image/jpeg', 0.8);
         }
     };
 }
-</script>
-{% endblock %}
 
-{% endcomment %}
+// 🍞 3. The Toast UI Function
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return; // Guard clause
+
+    const toast = document.createElement('div');
+    const borderColor = type === 'success' ? 'border-innocoda-teal/50' : 'border-red-500/50';
+    const textColor = type === 'success' ? 'text-innocoda-teal' : 'text-red-400';
+    const icon = type === 'success' ? '✅' : '🚨';
+
+    toast.className = `glass p-6 rounded-[2rem] border ${borderColor} ${textColor} shadow-2xl animate-fade-in flex items-center gap-4 min-w-[300px] pointer-events-auto`;
+    toast.innerHTML = `
+        <span class="text-xl">${icon}</span>
+        <div class="flex flex-col">
+            <p class="text-[10px] font-black uppercase tracking-widest opacity-50">${type}</p>
+            <p class="text-sm font-bold text-white">${message}</p>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.transform = "translateX(100%)";
+        toast.style.opacity = "0";
+        toast.style.transition = "all 0.5s ease";
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+// 🔔 4. THE SINGLE LISTENER: Handlers Toast & Voice after HTMX
+{% comment %} document.body.addEventListener('htmx:afterRequest', function(evt) {
+    const targetId = evt.detail.target.id;
+    
+    if (targetId && targetId.startsWith('worker-action-')) {
+        const responseText = evt.detail.xhr.responseText;
+        
+        // 1️⃣ Check for THE SECURITY GATE BLOCK (Completed Shift)
+        if (responseText.includes("SECURITY: Shift already completed")) {
+            showToast("🚨 Shift already finished for today!", "error");
+            speakMessage("Security Alert. Shift already completed. Access denied until tomorrow.");
+            return; // Stop here
+        }
+
+        // 2️⃣ Check for GPS DISTANCE BLOCK
+        if (responseText.includes("Access Denied") || responseText.includes("Distance Error")) {
+            showToast("🚨 Access Denied: Out of Range!", "error");
+            speakMessage("Access Denied. You are outside the site boundary.");
+            return; // Stop here
+        }
+
+        // 3️⃣ Standard Success/Error Handling
+        if (evt.detail.successful) {
+            // Check if we just Clocked In or Out based on the button returned
+            if (responseText.includes("Clock Out")) {
+                showToast("✅ Clocked In Successfully!", "success");
+                speakMessage("Clock in successful. Have a productive shift.");
+            } else {
+                showToast("🏁 Clocked Out Successfully!", "success");
+                speakMessage("Clock out successful. See you tomorrow.");
+            }
+        } else {
+            showToast("❌ Connection Error", "error");
+            speakMessage("System error. Please check your internet.");
+        }
+    }
+}); {% endcomment %}
+
+// 🔑 This tells HTMX to ALWAYS include the CSRF token in every request
+document.body.addEventListener('htmx:configRequest', (event) => {
+    event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+});
+</script>
+
+{% comment %} lifop {% endcomment %}
+<div id="live-ops-anchor" class="flex flex-1 justify-center" hx-swap-oob="true">
+    <div hx-get="/site/{{ site.id }}/" 
+        hx-target="#main-content" 
+        hx-push-url="true"
+        hx-trigger="click" 
+        hx-swap="innerHTML transition:true"
+        hx-indicator=".htmx-progress"
+        class="cursor-pointer flex flex-col items-center transition-all group text-innocoda-teal">
+        
+        <div class="relative">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            
+            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-innocoda-teal shadow-[0_0_8px_#00D2D2]"></span>
+            </span>
+        </div>
+        
+        <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
+    </div>
+</div>
+{% endblock %}

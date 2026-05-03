@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.db import transaction, IntegrityError
 from django.http import JsonResponse
@@ -61,6 +62,9 @@ from decimal import Decimal
 # company profile
 import json
 from django.http import HttpResponse
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 
 # @login_required
@@ -348,29 +352,104 @@ def site_dashboard(request, site_id):
             messages.success(request, f"{worker.name} deployed to {site.name}")
 
         # --- 2. REGISTER NEW WORKER DIRECTLY TO SITE ---
+        # elif 'register_worker' in request.POST:
+        #     id_num = request.POST.get('id_number', '').strip()
+
+        #     # 🛡️ GHOST CHECK: Prevent duplicate IDs in the company
+        #     if SkilledWorker.objects.filter(company=company, id_number=id_num).exists():
+        #         messages.error(
+        #             request, "Identity Error: Personnel already exists in registry.")
+
+        #     else:
+        #         SkilledWorker.objects.create(
+        #             company=company,
+        #             site=site,  # 📍 Direct deployment
+        #             name=request.POST.get('name'),
+        #             category=request.POST.get('category'),
+        #             id_number=id_num,
+        #             phone=request.POST.get('phone'),
+        #             daily_rate=Decimal(request.POST.get(
+        #                 'pay_frequency') or '0.00'),
+        #             profile_picture=request.FILES.get('profile_picture')
+        #         )
+        #         messages.success(
+        #             request, f"New Personnel enrolled and deployed to {site.name}.")
+        # --- 2. REGISTER NEW WORKER DIRECTLY TO SITE ---
         elif 'register_worker' in request.POST:
-            id_num = request.POST.get('id_number', '').strip()
+            # Data Extraction
+            id_num = request.POST.get('id_number', '').strip().upper()
+            phone_num = request.POST.get('phone', '').strip()
+            worker_name = request.POST.get('name', '').strip()
+            emergency_contact = request.POST.get(
+                'emergency_contact', '').strip()  # Added from previous step!
 
-            # 🛡️ GHOST CHECK: Prevent duplicate IDs in the company
-            if SkilledWorker.objects.filter(company=company, id_number=id_num).exists():
+            # Financial Data
+            bank_name = request.POST.get('bank_name', '').strip().upper()
+            account_num = request.POST.get('account_number', '').strip()
+            account_name = request.POST.get('account_name', '').strip().upper()
+
+            try:
+                daily_rate = Decimal(request.POST.get('daily_rate') or '0.00')
+            except:
+                daily_rate = Decimal('0.00')
+
+            # ⚡ Auto-Generate Staff ID (If left blank)
+            if not id_num:
+                year = timezone.now().year
+                count = SkilledWorker.objects.filter(
+                    company=company).count() + 1
+                id_num = f"IC-{year}-{count:03d}"
+
+            # 🛡️ Identity Collision Check
+            if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
                 messages.error(
-                    request, "Identity Error: Personnel already exists in registry.")
+                    request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
+                return redirect('site_dashboard', site_id=site.id)
 
-            else:
-                SkilledWorker.objects.create(
-                    company=company,
-                    site=site,  # 📍 Direct deployment
-                    name=request.POST.get('name'),
-                    category=request.POST.get('category'),
-                    id_number=id_num,
-                    phone=request.POST.get('phone'),
-                    daily_rate=Decimal(request.POST.get(
-                        'pay_frequency') or '0.00'),
-                    profile_picture=request.FILES.get('profile_picture')
-                )
+            try:
+                # ☁️ Cloudinary Upload (Profile Picture)
+                secure_image_url = None
+                profile_picture = request.FILES.get('profile_picture')
+                if profile_picture:
+                    upload_result = cloudinary.uploader.upload(
+                        profile_picture, folder="codasite_personnel")
+                    secure_image_url = upload_result['public_id']
+
+                # 🔒 Atomic Database Transaction
+                with transaction.atomic():
+                    # A. Create the Shadow User
+                    username = slugify(id_num)
+                    default_password = f"Coda{phone_num[-4:] if len(phone_num) >= 4 else '2026'}"
+
+                    worker_user = User.objects.create_user(
+                        username=username, password=default_password)
+
+                    # B. Create SkilledWorker Profile linked DIRECTLY to this site
+                    worker = SkilledWorker.objects.create(
+                        user=worker_user,
+                        contractor=request.user,
+                        site=site,  # 📍 Direct deployment to this site
+                        company=company,
+                        name=worker_name,
+                        category=request.POST.get('category', '').upper(),
+                        id_number=id_num,
+                        phone=phone_num,
+                        emergency_contact=emergency_contact,  # Saved to DB!
+                        daily_rate=daily_rate,
+                        profile_picture=secure_image_url,
+                        bank_name=bank_name,
+                        account_number=account_num,
+                        account_name=account_name
+                    )
+
                 messages.success(
-                    request, f"New Personnel enrolled and deployed to {site.name}.")
+                    request, f"SUCCESS: {worker.name} deployed to {site.name}. LOGIN: {username} | PASS: {default_password}")
 
+            except Exception as e:
+                messages.error(request, f"Registry Error: {str(e)}")
+
+            # 🔥 The page naturally reloads here!
+            return redirect('site_dashboard', site_id=site.id)
         # --- 3. MASS RATE UPDATE ---
         elif 'update_all_rates' in request.POST:
             for worker in workers:
@@ -1341,13 +1420,17 @@ def all_workers(request):
 # allworkers sers
 
 
-# In views.py
+@login_required
 def worker_search(request):
     search_query = request.GET.get('search', '').strip()
 
-    # 🔥 SECURITY FIX: Lock search to THIS company only
-    workers = SkilledWorker.objects.filter(company=request.user.company)
+    # 🛡️ THE FIX: Safely filter for workers belonging to this specific user's projects/company
+    # This checks if the user is the owner of the company OR the person who registered them.
+    workers = SkilledWorker.objects.filter(
+        Q(company__owner=request.user) | Q(contractor=request.user)
+    ).distinct()
 
+    # Apply the search text if they typed something
     if search_query:
         workers = workers.filter(
             Q(name__icontains=search_query) |
@@ -1356,7 +1439,6 @@ def worker_search(request):
         )
 
     return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
-
 
 # Make sure to import your User, SkilledWorker, SiteLocation, Invitation, cloudinary etc.
 
@@ -1421,10 +1503,13 @@ def add_worker(request, site_id):
                 secure_image_url = upload_result['public_id']
 
             # 5. 🔒 Atomic Database Transaction
+          # Inside your add_worker view, under # 5. 🔒 Atomic Database Transaction
             with transaction.atomic():
                 # A. Create the Shadow User
                 username = slugify(id_num)
-                default_password = f"Coda{phone_num[-4:] if len(phone_num) >= 4 else '2026'}"
+                # Generate the 4-digit pin from phone or default to 2026
+                raw_pin = phone_num[-4:] if len(phone_num) >= 4 else "2026"
+                default_password = f"Coda{raw_pin}"
 
                 worker_user = User.objects.create_user(
                     username=username, password=default_password)
@@ -1439,13 +1524,13 @@ def add_worker(request, site_id):
                     category=request.POST.get('category', '').upper(),
                     id_number=id_num,
                     phone=phone_num,
+                    gate_pass=raw_pin,  # ✨ SAVING THE PIN HERE FOR QR CLOCKING
                     daily_rate=daily_rate,
                     profile_picture=secure_image_url,
                     bank_name=bank_name,
                     account_number=account_num,
                     account_name=account_name
                 )
-
             messages.success(
                 request, f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}")
 

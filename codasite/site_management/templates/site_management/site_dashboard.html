@@ -314,118 +314,101 @@
             </div>
             
 
-             <div x-show="enrollmentMode === 'new'" x-transition>
-               
+            <div x-show="enrollmentMode === 'new'" x-transition>
+                <form 
+                    action="{% url 'add_worker' site.id %}" 
+                    method="POST" 
+                    enctype="multipart/form-data" 
+                    {% comment %} x-data="globalEnrollmentEngine()"  {% endcomment %}
+                    x-data="workerEnrollmentEngine()"
+                    x-init="init()"
+                    @submit.prevent="secureSubmit($event)"
+                    class="space-y-6"
+                >
+                {% csrf_token %}
+                <input type="hidden" name="register_worker" value="true">
+                <input type="hidden" name="enrollment_lat" value="">
+                <input type="hidden" name="enrollment_long" value="">
+                
+                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
 
-                    <form 
-                        {% comment %} hx-post="{% url 'add_worker' site.id %}" 
-                        hx-encoding="multipart/form-data" 
-                        hx-trigger="htmx-secure-submit" 
-                        hx-swap="none"  @htmx:before-request="loading = true"
-                        @htmx:after-request="if($event.detail.successful) { workerModal = false; loading = false; gettingLocation = false; }"
-                        x-data="workerEnrollmentEngine()"
-                        x-data="workerEnrollmentEngine()" x-init="init()"
-                        @submit.prevent="secureSubmit($event)"
-                        class="space-y-6" {% endcomment %}
-
-                        
-                         action="{% url 'add_worker' site.id %}" 
-                        method="POST" 
-                        enctype="multipart/form-data" 
-                        x-data="workerEnrollmentEngine()" x-init="init()"
-                        @submit.prevent="secureSubmit($event)"
-                        class="space-y-6"
-                        
-                        >
-                    {% csrf_token %}
-                    <input type="hidden" name="enrollment_lat" :value="lat">
-                    <input type="hidden" name="enrollment_long" :value="long">
+                <div class="space-y-2">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
                     
-                    <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
-
-                    <div class="space-y-2">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
+                    <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
                         
-                         <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
-                            
-                            <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
-                                <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
-                            </div>
+                        <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
+                            <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
+                        </div>
 
-                <div x-show="stream" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
-                    <video x-ref="videoFeed" class="w-full h-auto" autoplay playsinline></video>
-                    
-                    <button 
-                        type="button" 
-                        @click="toggleCamera()" 
-                        class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
+                        <div x-show="stream && !photoAttached" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
+                            {% comment %} <video x-ref="liveFeed" class="w-full h-auto object-cover grayscale-[0.2] contrast-110" autoplay playsinline muted></video> {% endcomment %}
+                            <video x-ref="videoFeed" class="w-full h-64 object-cover grayscale-[0.2] contrast-110" autoplay playsinline muted></video>
+                            <button type="button" @click="switchCamera()" class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
 
-                    <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10">
-                        Capture
-                    </button>
+                            {% comment %} <button type="button" @click="instantCapture()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10 active:scale-95 transition-transform">
+                                Capture
+                            </button> {% endcomment %}
+                            <!-- 🛠️ FIX 2: Changed instantCapture() to snapPhoto() so it actually takes the picture -->
+                            <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10 active:scale-95 transition-transform">
+                                Capture
+                            </button>
+                        </div>
+
+                        <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
+                            <img :src="photoPreview" class="w-full h-auto">
+                            <button type="button" @click="photoAttached = false; photoPreview = ''; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
+                                Retake
+                            </button>
+                        </div>
+
+                        <canvas x-ref="canvas" class="hidden"></canvas>
+                    </div>
                 </div>
 
-
-
-
-                            <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
-                                <img :src="photoPreview" class="w-full h-auto">
-                                <button 
-                               
-                                 type="button" 
-                                @click="photoAttached = false; photoPreview = null; startCamera()" 
-                                 class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500"
-                                >
-                                    Retake
-                                </button>
-                            </div>
-
-                            <canvas x-ref="canvas" class="hidden"></canvas>
-                        </div>
-
-                
+                <div class="space-y-3">
+                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                    
+                    <input type="text" name="name" required maxlength="100" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only. No numbers or symbols." placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="category" required maxlength="50" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only." placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        
+                        <input type="text" name="id_number" maxlength="20" oninput="this.value = this.value.replace(/[^a-zA-Z0-9-]/g, '')" title="Letters and numbers only. No symbols." placeholder="Staff ID (Auto)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
                     </div>
+                    
+                    <input type="tel" name="phone" required maxlength="15" oninput="this.value = this.value.replace(/[^0-9+]/g, '')" title="Valid phone numbers only." placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
+                    
+                    <input type="text" name="emergency_contact" required maxlength="100" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                </div>
 
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
+                <div class="space-y-3">
+                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="bank_name" required maxlength="50" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Bank (e.g. OPay)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                         
-                        <input type="text" name="name" required maxlength="100" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only. No numbers or symbols." placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="category" required maxlength="50" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only." placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            
-                            <input type="text" name="id_number" required maxlength="20" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" title="Letters and numbers only. No symbols." placeholder="Staff ID/NIN" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        </div>
-                        
-                        <input type="tel" name="phone" required maxlength="15" oninput="this.value = this.value.replace(/[^0-9+]/g, '')" title="Valid phone numbers only." placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                        
-                        <input type="text" name="emergency_contact" required maxlength="100" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        <input type="number" min="0" max="1000000" step="100" name="daily_rate" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                     </div>
-
-                    <div class="space-y-3">
-                        <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="bank_name" required maxlength="50" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Bank (e.g. OPay/UBA)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            
-                            <input type="number" min="0" max="1000000" step="100" name="pay_frequency" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <input type="text" name="account_number" required maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="Exactly 10 digits required for Nigerian bank accounts." placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                            
-                            <input type="text" name="account_name" required maxlength="100" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" name="account_number" required maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="Exactly 10 digits required for Nigerian bank accounts." placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                        
+                        <input type="text" name="account_name" required maxlength="100" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                     </div>
+                </div>
 
-                    <button type="submit" :disabled="loading || gettingLocation" :class="{'opacity-50 cursor-not-allowed': loading || gettingLocation}" class="w-full bg-orange-400 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
-                        <span x-text="gettingLocation ? 'Verifying Site Location 📍...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
-                    </button>
-                </form>
-            </div> 
+                <button type="submit" 
+                    :disabled="loading || !photoAttached" 
+                    :class="(loading || !photoAttached) ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-orange-400 text-white hover:bg-orange-500'" 
+                    class="w-full py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
+                    <span x-text="(!photoAttached) ? 'Awaiting Biometrics...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
+                </button>
+            </form>
+            </div>
         </div>
     </div>
 
@@ -889,42 +872,7 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 // 🔔 4. THE SINGLE LISTENER: Handlers Toast & Voice after HTMX
-{% comment %} document.body.addEventListener('htmx:afterRequest', function(evt) {
-    const targetId = evt.detail.target.id;
-    
-    if (targetId && targetId.startsWith('worker-action-')) {
-        const responseText = evt.detail.xhr.responseText;
-        
-        // 1️⃣ Check for THE SECURITY GATE BLOCK (Completed Shift)
-        if (responseText.includes("SECURITY: Shift already completed")) {
-            showToast("🚨 Shift already finished for today!", "error");
-            speakMessage("Security Alert. Shift already completed. Access denied until tomorrow.");
-            return; // Stop here
-        }
 
-        // 2️⃣ Check for GPS DISTANCE BLOCK
-        if (responseText.includes("Access Denied") || responseText.includes("Distance Error")) {
-            showToast("🚨 Access Denied: Out of Range!", "error");
-            speakMessage("Access Denied. You are outside the site boundary.");
-            return; // Stop here
-        }
-
-        // 3️⃣ Standard Success/Error Handling
-        if (evt.detail.successful) {
-            // Check if we just Clocked In or Out based on the button returned
-            if (responseText.includes("Clock Out")) {
-                showToast("✅ Clocked In Successfully!", "success");
-                speakMessage("Clock in successful. Have a productive shift.");
-            } else {
-                showToast("🏁 Clocked Out Successfully!", "success");
-                speakMessage("Clock out successful. See you tomorrow.");
-            }
-        } else {
-            showToast("❌ Connection Error", "error");
-            speakMessage("System error. Please check your internet.");
-        }
-    }
-}); {% endcomment %}
 
 // 🔑 This tells HTMX to ALWAYS include the CSRF token in every request
 document.body.addEventListener('htmx:configRequest', (event) => {

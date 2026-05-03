@@ -189,6 +189,8 @@ class SkilledWorker(models.Model):
     account_name = models.CharField(
         max_length=255, db_index=True, null=True, blank=True)
 
+    gate_pass = models.CharField(max_length=10, blank=True, null=True)
+
     class Meta:
         # '-' means descending order (Newest/Latest ID first)
         ordering = ['-id']
