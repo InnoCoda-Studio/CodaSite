@@ -134,6 +134,13 @@ class SkilledWorker(models.Model):
     # IDENTITY
     company = models.ForeignKey(
         'account.Company', on_delete=models.CASCADE, related_name='workers', null=True, blank=True)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='worker_profile'
+    )
     name = models.CharField(max_length=255, db_index=True)
     slug = models.SlugField(unique=True, blank=True, null=True, max_length=100)
     id_number = models.CharField(
@@ -190,7 +197,8 @@ class SkilledWorker(models.Model):
         # ID NUMBER
         if not self.id_number:
             short_uuid = str(uuid.uuid4())[:4].upper()
-            year = datetime.now().year
+
+            year = timezone.now().year
             self.id_number = f"CS-{year}-{short_uuid}"
 
         if not self.slug:
