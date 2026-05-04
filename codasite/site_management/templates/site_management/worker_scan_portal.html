@@ -48,155 +48,64 @@
 
 <script>
 
-formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-async processAttendance(type) {
-    if (!this.lat || !this.lng) {
-        this.isError = true;
-        this.message = "GPS not ready. Please wait for coordinates.";
-        return;
-    }
-
-    this.loading = true;
-    this.message = 'Processing... stay still';
-
-    // 1. Capture & COMPRESS Image
-    const canvas = this.$refs.canvas;
-    const video = this.$refs.video;
-    
-    // 🛠️ Optimization: Force 640px width (Perfect for biometric verification)
-    const scale = 640 / video.videoWidth;
-    canvas.width = 640;
-    canvas.height = video.videoHeight * scale;
-    
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // 🛠️ Optimization: JPEG at 0.6 quality (Drastically reduces data size)
-    const photoData = canvas.toDataURL('image/jpeg', 0.6);
-
-    // 2. Prepare Data
-    const formData = new FormData();
-    formData.append('type', type);
-    formData.append('photo', photoData);
-    formData.append('lat', this.lat);
-    formData.append('lng', this.lng);
     formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-
-    try {
-        const response = await fetch('{% url "process_biometric_clock" site.id %}', {
-            method: 'POST',
-            body: formData,
-            // 🛠️ Optimization: Add a timeout to the fetch
-            signal: AbortSignal.timeout(15000) 
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
-        } else {
+    async processAttendance(type) {
+        if (!this.lat || !this.lng) {
             this.isError = true;
-            this.message = result.error;
+            this.message = "GPS not ready. Please wait for coordinates.";
+            return;
         }
-    } catch (err) {
-        this.isError = true;
-        this.message = err.name === 'TimeoutError' 
-            ? "Connection Timeout: Site signal is too weak." 
-            : "Network Error: Check your data connection.";
-    } finally {
-        this.loading = false;
-    }
-}
-{% comment %} function attendanceHandler() {
-    return {
-        loading: false,
-        message: 'Camera active. Center your face.',
-        isError: false,
-        stream: null,
-        lat: null,
-        lng: null,
 
-        async init() {
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                this.$refs.video.srcObject = this.stream;
-                
-                // Start tracking GPS immediately
-                navigator.geolocation.getCurrentPosition(pos => {
-                    this.lat = pos.coords.latitude;
-                    this.lng = pos.coords.longitude;
-                }, err => {
-                    this.isError = true;
-                    this.message = 'GPS Permission Denied. Please enable location.';
-                });
-            } catch (err) {
+        this.loading = true;
+        this.message = 'Processing... stay still';
+
+        // 1. Capture & COMPRESS Image
+        const canvas = this.$refs.canvas;
+        const video = this.$refs.video;
+        
+        // 🛠️ Optimization: Force 640px width (Perfect for biometric verification)
+        const scale = 640 / video.videoWidth;
+        canvas.width = 640;
+        canvas.height = video.videoHeight * scale;
+        
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // 🛠️ Optimization: JPEG at 0.6 quality (Drastically reduces data size)
+        const photoData = canvas.toDataURL('image/jpeg', 0.6);
+
+        // 2. Prepare Data
+        const formData = new FormData();
+        formData.append('type', type);
+        formData.append('photo', photoData);
+        formData.append('lat', this.lat);
+        formData.append('lng', this.lng);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        try {
+            const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+                method: 'POST',
+                body: formData,
+                // 🛠️ Optimization: Add a timeout to the fetch
+                signal: AbortSignal.timeout(15000) 
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
+            } else {
                 this.isError = true;
-                this.message = 'Camera access denied.';
+                this.message = result.error;
             }
-        },
-
-        async processAttendance(type) {
-            this.loading = true;
-            this.message = 'Processing... stay still';
-
-            // 1. Capture Image
-            const canvas = this.$refs.canvas;
-            canvas.width = this.$refs.video.videoWidth;
-            canvas.height = this.$refs.video.videoHeight;
-            canvas.getContext('2d').drawImage(this.$refs.video, 0, 0);
-            const photoData = canvas.toDataURL('image/jpeg');
-
-            // 2. Prepare Data
-            const formData = new FormData();
-            formData.append('type', type);
-            formData.append('photo', photoData);
-            formData.append('lat', this.lat);
-            formData.append('lng', this.lng);
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-
-            {% comment %} try {
-                // We will build this endpoint next
-                const response = await fetch('{% url "process_biometric_clock" site.id %}', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
-                } else {
-                    this.isError = true;
-                    this.message = result.error;
-                }
-            } {% endcomment %}
-
-            try {
-                const response = await fetch('{% url "process_biometric_clock" site.id %}', {
-                    method: 'POST',
-                    body: formData
-                });
-    
-                const result = await response.json();
-                
-                if (result.success) {
-                    // 🎉 Success! Take them back to the dashboard
-                    window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
-                } else {
-                    // ❌ This is where we show the "Worker not found" or "Too far" error
-                    this.isError = true;
-                    this.message = result.error; // Displays the actual error from Django
-                }
-            } catch (err) {
-                this.isError = true;
-                this.message = "Network Error: Check your data connection.";
-            }
-             
-
-             finally {
-                this.loading = false;
-            }
+        } catch (err) {
+            this.isError = true;
+            this.message = err.name === 'TimeoutError' 
+                ? "Connection Timeout: Site signal is too weak." 
+                : "Network Error: Check your data connection.";
+        } finally {
+            this.loading = false;
         }
     }
-} {% endcomment %}
+
 </script>
 {% endblock %}
