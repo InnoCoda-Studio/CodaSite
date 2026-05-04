@@ -469,64 +469,6 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         return 999999  # Fail safe for missing GPS
 
 
-@login_required
-def process_biometric_clock(request, site_id):
-    if request.method == 'POST':
-        site = get_object_or_404(SiteLocation, id=site_id)
-
-        # 1. Identify the worker (Safely)
-        worker = SkilledWorker.objects.filter(user=request.user).first()
-        if not worker:
-            return JsonResponse({'success': False, 'error': 'You are logged in, but you don\'t have a WORKER PROFILE yet. Ask the PM to link your account.'})
-
-        # 2. Get Data (Safely)
-        clock_type = request.POST.get('type')
-        photo_data = request.POST.get('photo')
-
-        # 🛰️ GPS Extraction with a safety net
-        try:
-            lat = float(request.POST.get('lat') or 0)
-            lng = float(request.POST.get('lng') or 0)
-        except (TypeError, ValueError):
-            return JsonResponse({'success': False, 'error': 'GPS Data is corrupted. Refresh and try again.'})
-
-        # 3. Proximity Check
-        dist = calculate_distance(site.latitude, site.longitude, lat, lng)
-        if dist > 200:
-            return JsonResponse({'success': False, 'error': f'Too far from gate ({int(dist)}m). Move closer.'})
-
-        # 4. Process the Selfie
-        try:
-            format, imgstr = photo_data.split(';base64,')
-            ext = format.split('/')[-1]
-            photo_file = ContentFile(base64.b64decode(
-                imgstr), name=f"biometric_{worker.id}_{timezone.now().timestamp()}.{ext}")
-        except Exception:
-            return JsonResponse({'success': False, 'error': 'Camera capture failed. Check browser permissions.'})
-
-        # 5. Record Attendance
-        if clock_type == 'IN':
-            StaffAttendance.objects.create(
-                worker=worker,
-                site=site,
-                user=request.user,
-                clock_in_photo=photo_file,
-                latitude=lat,
-                longitude=lng
-            )
-        else:
-            attendance = StaffAttendance.objects.filter(
-                worker=worker, site=site, time_out__isnull=True).last()
-            if attendance:
-                attendance.time_out = timezone.now()
-                attendance.save()
-            else:
-                return JsonResponse({'success': False, 'error': 'No active shift found.'})
-
-        return JsonResponse({'success': True})
-
-    return JsonResponse({'success': False, 'error': 'Invalid request.'})
-
 # def htmx_clock_in(request, site_id):
 
 #     if request.method == "POST":
