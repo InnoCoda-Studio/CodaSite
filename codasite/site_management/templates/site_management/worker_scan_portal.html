@@ -47,9 +47,66 @@
 </div>
 
 <script>
-const formData = new FormData();
+
 formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-function attendanceHandler() {
+async processAttendance(type) {
+    if (!this.lat || !this.lng) {
+        this.isError = true;
+        this.message = "GPS not ready. Please wait for coordinates.";
+        return;
+    }
+
+    this.loading = true;
+    this.message = 'Processing... stay still';
+
+    // 1. Capture & COMPRESS Image
+    const canvas = this.$refs.canvas;
+    const video = this.$refs.video;
+    
+    // 🛠️ Optimization: Force 640px width (Perfect for biometric verification)
+    const scale = 640 / video.videoWidth;
+    canvas.width = 640;
+    canvas.height = video.videoHeight * scale;
+    
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // 🛠️ Optimization: JPEG at 0.6 quality (Drastically reduces data size)
+    const photoData = canvas.toDataURL('image/jpeg', 0.6);
+
+    // 2. Prepare Data
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('photo', photoData);
+    formData.append('lat', this.lat);
+    formData.append('lng', this.lng);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    try {
+        const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+            method: 'POST',
+            body: formData,
+            // 🛠️ Optimization: Add a timeout to the fetch
+            signal: AbortSignal.timeout(15000) 
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = "{% url 'site_dashboard' site.id %}?success=1";
+        } else {
+            this.isError = true;
+            this.message = result.error;
+        }
+    } catch (err) {
+        this.isError = true;
+        this.message = err.name === 'TimeoutError' 
+            ? "Connection Timeout: Site signal is too weak." 
+            : "Network Error: Check your data connection.";
+    } finally {
+        this.loading = false;
+    }
+}
+{% comment %} function attendanceHandler() {
     return {
         loading: false,
         message: 'Camera active. Center your face.',
@@ -140,6 +197,6 @@ function attendanceHandler() {
             }
         }
     }
-}
+} {% endcomment %}
 </script>
 {% endblock %}
