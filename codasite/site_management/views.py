@@ -869,38 +869,65 @@ def generate_site_qr(request, site_id):
 # Temporary placeholder so the server can start
 
 
+# 1. THE SCAN PORTAL (No login required - anyone can scan the QR to see the form)
 def attendance_scan_portal(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
     return render(request, 'site_management/worker_scan_portal.html', {'site': site})
 
-
 # Ensure you have your models imported (SkilledWorker, StaffAttendance, etc.)
+# 2. THE VERIFICATION ENDPOINT (For the Alpine.js frontend to check the PIN instantly)
 
 
-@login_required
+def verify_worker_identity(request, site_id):
+    """API endpoint to check Phone + PIN before opening the camera"""
+    if request.method == "POST":
+        phone = request.POST.get('phone', '').strip()
+        pin = request.POST.get('pin', '').strip()
+
+        # Look for the worker on this specific site
+        worker = SkilledWorker.objects.filter(
+            site_id=site_id,
+            phone=phone,
+            gate_pass=pin
+        ).first()
+
+        if worker:
+            return JsonResponse({'valid': True, 'name': worker.name})
+
+        return JsonResponse({'valid': False, 'error': 'Invalid Phone or PIN'})
+    return JsonResponse({'valid': False, 'error': 'Invalid request'})
+
+
 def process_biometric_clock(request, site_id):
     if request.method == 'POST':
         site = get_object_or_404(SiteLocation, id=site_id)
 
-        # 1. Identify who is scanning
-        try:
-            # Assuming the worker is logged in on their phone
-            worker = SkilledWorker.objects.get(user=request.user)
-        except SkilledWorker.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Worker profile not found for this user.'})
+        # 1. Extract Identity Data
+        phone = request.POST.get('phone', '').strip()
+        pin = request.POST.get('pin', '').strip()
 
-        # 2. Extract data from the scan
+        # 2. Verify the Worker
+        worker = SkilledWorker.objects.filter(
+            site=site, phone=phone, gate_pass=pin).first()
+        if not worker:
+            return JsonResponse({'success': False, 'error': 'Identity verification failed. Invalid Phone or PIN.'})
+
+        # 3. Extract Biometric & GPS Data
         clock_type = request.POST.get('type')  # 'IN' or 'OUT'
-        photo_data = request.POST.get('photo')  # The Base64 image string
-        lat = float(request.POST.get('lat', 0))
-        lng = float(request.POST.get('lng', 0))
+        photo_data = request.POST.get('photo')
 
-        # 3. Proximity Check (The 200m Buffer)
-        # Using the check_proximity function we discussed earlier
+        try:
+            lat = float(request.POST.get('lat', 0))
+            lng = float(request.POST.get('lng', 0))
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Corrupt GPS data. Try again.'})
+
+        # 4. Proximity Check
+        # (Make sure check_proximity is defined above this in your file)
         if not check_proximity(site.latitude, site.longitude, lat, lng):
             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
 
-        # 4. Process the Selfie
+        # 5. Process the Selfie
         try:
             format, imgstr = photo_data.split(';base64,')
             ext = format.split('/')[-1]
@@ -909,20 +936,25 @@ def process_biometric_clock(request, site_id):
         except Exception:
             return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
 
-        # 5. Save the Record
+        # 6. Save the Record
         if clock_type == 'IN':
-            # Create a new attendance log
+            # Security Gate: Check if they are already clocked in
+            already_in = StaffAttendance.objects.filter(
+                worker=worker, site=site, time_out__isnull=True).exists()
+            if already_in:
+                return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
+
             StaffAttendance.objects.create(
                 worker=worker,
                 site=site,
-                user=request.user,
+                user=worker.user,  # Safely tie the log to their shadow user account
                 time_in=timezone.now(),
                 clock_in_photo=photo_file,
-                # Store coordinates for the audit trail
-                # Make sure your model has these fields or skip this part
+                latitude=lat,  # Assuming your model has these fields based on earlier code
+                longitude=lng
             )
         else:
-            # Find the last active clock-in for today and close it
+            # Find the active clock-in
             attendance = StaffAttendance.objects.filter(
                 worker=worker,
                 site=site,
@@ -1325,18 +1357,15 @@ def add_worker(request, site_id):
         if not id_num:
             year = timezone.now().year
             count = SkilledWorker.objects.filter(company=company).count() + 1
-            id_num = f"IC-{year}-{count:03d}"
+            # Switched to CS to match your model's save method!
+            id_num = f"CS-{year}-{count:03d}"
 
         # 3. 🛡️ Identity Collision Check
         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
             messages.error(
                 request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
-
-            # 🔥 HTMX Error Fix: Force a clean full-page redirect so it doesn't break the UI
-            response = redirect('site_dashboard', site_id=site_id)
-            if request.headers.get('HX-Request'):
-                response['HX-Redirect'] = response.url
-            return response
+            # 👈 Clean full-page redirect
+            return redirect('site_dashboard', site_id=site_id)
 
         try:
             # 4. ☁️ Cloudinary Upload (Profile Picture)
@@ -1348,7 +1377,6 @@ def add_worker(request, site_id):
                 secure_image_url = upload_result['public_id']
 
             # 5. 🔒 Atomic Database Transaction
-          # Inside your add_worker view, under # 5. 🔒 Atomic Database Transaction
             with transaction.atomic():
                 # A. Create the Shadow User
                 username = slugify(id_num)
@@ -1376,22 +1404,15 @@ def add_worker(request, site_id):
                     account_number=account_num,
                     account_name=account_name
                 )
+
             messages.success(
                 request, f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}")
 
-            # 🔥 THE FIX: If HTMX, return ONLY the updated worker list so the modal auto-closes smoothly!
-            if request.headers.get('HX-Request'):
-                workers = SkilledWorker.objects.filter(
-                    company=company).order_by('-id')
-                return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
-
         except Exception as e:
             messages.error(request, f"Registry Error: {str(e)}")
-            response = redirect('site_dashboard', site_id=site_id)
-            if request.headers.get('HX-Request'):
-                response['HX-Redirect'] = response.url
-            return response
+            return redirect('site_dashboard', site_id=site_id)
 
+        # 🚀 THE FIX: Standard Full-Page Redirect after success
         return redirect('site_dashboard', site_id=site_id)
 
     return redirect('site_dashboard', site_id=site_id)

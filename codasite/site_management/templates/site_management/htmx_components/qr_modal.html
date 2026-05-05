@@ -2,8 +2,8 @@
      class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
     
     <!-- Modal Card -->
-    <div @click.away="show = false; setTimeout(() => $el.remove(), 300)" 
-         class="glass max-w-sm w-full p-8 rounded-[3rem] border border-white/20 text-center shadow-2xl">
+    <div @click.away="show = false; setTimeout(() => document.getElementById('qr-modal').remove(), 300)" 
+        class="glass max-w-sm w-full p-8 rounded-[3rem] border border-white/20 text-center shadow-2xl">
         
         <h3 class="text-2xl font-black text-white uppercase tracking-tighter mb-2">{{ site.name }}</h3>
         <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.2em] mb-6">Gate Entry Pass</p>
