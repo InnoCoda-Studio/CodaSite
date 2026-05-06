@@ -68,11 +68,41 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+# def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200):
+#     """
+#     Calculates the distance between two sets of GPS coordinates
+#     and checks if they are within a specific meter threshold.
+#     """
+#     # Earth's radius in meters
+#     R = 6371000
+
+#     # Convert degrees to radians
+#     phi1 = math.radians(site_lat)
+#     phi2 = math.radians(user_lat)
+#     delta_phi = math.radians(user_lat - site_lat)
+#     delta_lambda = math.radians(user_lng - site_lng)
+
+#     # Haversine formula logic
+#     a = math.sin(delta_phi / 2)**2 + \
+#         math.cos(phi1) * math.cos(phi2) * \
+#         math.sin(delta_lambda / 2)**2
+#     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+#     distance = R * c
+
+#     # Return True if the worker is within the buffer (default 200m)
+#     return distance <= tolerance_meters
 def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200):
     """
     Calculates the distance between two sets of GPS coordinates 
     and checks if they are within a specific meter threshold.
     """
+    # 🛑 THE FIX: Force all incoming coordinates to be floats
+    site_lat = float(site_lat)
+    site_lng = float(site_lng)
+    user_lat = float(user_lat)
+    user_lng = float(user_lng)
+
     # Earth's radius in meters
     R = 6371000
 
