@@ -175,9 +175,12 @@ function attendanceHandler() {
 
                 //const response = await fetch('{% url "process_biometric_clock" site.id %}', {
                 const response = await fetch('{% url "process_clock" site.id %}', {
-                    method: 'POST',
-                    body: formData
-                });
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'  // 👈 THIS IS THE MAGIC KEY
+                        },
+                        body: formData
+                    });
 
                 const result = await response.json();
                 
