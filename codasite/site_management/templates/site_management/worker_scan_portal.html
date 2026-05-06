@@ -173,7 +173,8 @@ function attendanceHandler() {
                 formData.append('lng', this.lng);
                 formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-                const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+                //const response = await fetch('{% url "process_biometric_clock" site.id %}', {
+                const response = await fetch('{% url "process_clock" site.id %}', {
                     method: 'POST',
                     body: formData
                 });
