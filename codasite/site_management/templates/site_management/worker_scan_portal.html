@@ -4,6 +4,7 @@
 {% block title %}Gate Entry | {{ site.name }}{% endblock %}
 
 {% block content %}
+<form id="safe-csrf-form" style="display:none;">{% csrf_token %}</form>
 <div x-data="attendanceHandler()" x-init="initGPS()" class="min-h-screen bg-[#0a0f1a] p-6 pb-20 flex flex-col items-center justify-center">
     
     <!-- Header -->
@@ -75,7 +76,151 @@
 </div>
 
 <script>
+   
 function attendanceHandler() {
+    return {
+        loading: false,
+        message: 'Awaiting GPS Lock...',
+        isError: false,
+        identityVerified: false,
+        workerName: '',
+        phone: '',
+        pin: '',
+        stream: null,
+        lat: null,
+        lng: null,
+
+        initGPS() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                this.lat = pos.coords.latitude;
+                this.lng = pos.coords.longitude;
+                this.message = "GPS Locked. Enter phone and PIN.";
+            }, err => {
+                this.isError = true;
+                this.message = "GPS Required. Enable Location.";
+            });
+        },
+
+        async verifyIdentity() {
+            this.loading = true;
+            this.message = "Checking registry...";
+            this.isError = false;
+
+            try {
+                // 1. Grab the clean token string safely!
+                const cleanToken = document.querySelector('#safe-csrf-form input').value;
+                
+                const formData = new FormData();
+                formData.append('phone', this.phone);
+                formData.append('pin', this.pin);
+                formData.append('csrfmiddlewaretoken', cleanToken);
+
+                const response = await fetch('{% url "verify_worker_identity" site.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': cleanToken
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+
+                if (data.valid) {
+                    this.workerName = data.name;
+                    this.identityVerified = true;
+                    this.message = "Identity Verified. Center face for scan.";
+                    this.startCamera(); 
+                } else {
+                    this.isError = true;
+                    this.message = data.error || "Invalid Phone or PIN.";
+                }
+            } catch (err) {
+                this.isError = true;
+                this.message = "Network error. Check connection.";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async startCamera() {
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 640 } } 
+                });
+                this.$refs.video.srcObject = this.stream;
+            } catch (err) {
+                this.isError = true;
+                this.message = "Camera Error. Check Permissions.";
+            }
+        },
+
+        async processAttendance(type) {
+            if (!this.lat) {
+                this.isError = true;
+                this.message = "Waiting for GPS Lock...";
+                return;
+            }
+
+            this.loading = true;
+            this.message = 'Verifying Biometrics... Stay Still';
+
+            try {
+                const canvas = this.$refs.canvas;
+                const video = this.$refs.video;
+                canvas.width = 640;
+                canvas.height = 480;
+                canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
+                const photoData = canvas.toDataURL('image/jpeg', 0.6);
+
+                // 1. Grab the clean token string safely again!
+                const cleanToken = document.querySelector('#safe-csrf-form input').value;
+
+                const formData = new FormData();
+                formData.append('type', type);
+                formData.append('photo', photoData);
+                formData.append('phone', this.phone); 
+                formData.append('pin', this.pin);     
+                formData.append('lat', this.lat);
+                formData.append('lng', this.lng);
+                formData.append('csrfmiddlewaretoken', cleanToken); 
+
+                const response = await fetch('{% url "process_clock" site.id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': cleanToken  // 👈 CLEAN STRING NOW!
+                        },
+                        body: formData
+                    });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.isError = false;
+                    this.message = "✅ SUCCESS! " + this.workerName + " Clocked " + type;
+                    
+                    if(this.stream) {
+                        this.stream.getTracks().forEach(track => track.stop());
+                    }
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2500);
+
+                } else {
+                    this.isError = true;
+                    this.message = result.error;
+                }
+            } catch (err) {
+                this.isError = true;
+                this.message = "Connection Error during scan.";
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+
+{% comment %} function attendanceHandler() {
     return {
         loading: false,
         message: 'Awaiting GPS Lock...',
@@ -210,6 +355,6 @@ function attendanceHandler() {
             }
         }
     }
-}
+} {% endcomment %}
 </script>
 {% endblock %}

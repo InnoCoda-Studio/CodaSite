@@ -263,5 +263,7 @@ ANYMAIL = {
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # Tell Django it's sitting behind a secure proxy (Render)
+# SECURITY SETTINGS FOR RENDER
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-AWS_S3_SECURE_URLS = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
