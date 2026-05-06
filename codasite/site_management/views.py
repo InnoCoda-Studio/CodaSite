@@ -983,36 +983,110 @@ def verify_worker_identity(request, site_id):
     return JsonResponse({'valid': False, 'error': 'Invalid request'})
 
 
+# def process_biometric_clock(request, site_id):
+#     if request.method == 'POST':
+#         site = get_object_or_404(SiteLocation, id=site_id)
+
+#         # 1. Extract Identity Data
+#         phone = request.POST.get('phone', '').strip()
+#         pin = request.POST.get('pin', '').strip()
+
+#         # 2. Verify the Worker
+#         worker = SkilledWorker.objects.filter(
+#             site=site, phone=phone, gate_pass=pin).first()
+#         if not worker:
+#             return JsonResponse({'success': False, 'error': 'Identity verification failed. Invalid Phone or PIN.'})
+
+#         # 3. Extract Biometric & GPS Data
+#         clock_type = request.POST.get('type')  # 'IN' or 'OUT'
+#         photo_data = request.POST.get('photo')
+
+#         try:
+#             lat = float(request.POST.get('lat', 0))
+#             lng = float(request.POST.get('lng', 0))
+#         except ValueError:
+#             return JsonResponse({'success': False, 'error': 'Corrupt GPS data. Try again.'})
+
+#         # 4. Proximity Check
+#         # (Make sure check_proximity is defined above this in your file)
+#         if not check_proximity(site.latitude, site.longitude, lat, lng):
+#             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
+
+#         # 5. Process the Selfie
+#         try:
+#             format, imgstr = photo_data.split(';base64,')
+#             ext = format.split('/')[-1]
+#             photo_file = ContentFile(base64.b64decode(
+#                 imgstr), name=f"gate_{worker.id}_{timezone.now().strftime('%Y%m%d%H%M')}.{ext}")
+#         except Exception:
+#             return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
+
+#         # 6. Save the Record
+#         if clock_type == 'IN':
+#             # Security Gate: Check if they are already clocked in
+#             already_in = StaffAttendance.objects.filter(
+#                 worker=worker, site=site, time_out__isnull=True).exists()
+#             if already_in:
+#                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
+
+#             StaffAttendance.objects.create(
+#                 worker=worker,
+#                 site=site,
+#                 user=worker.user,  # Safely tie the log to their shadow user account
+#                 time_in=timezone.now(),
+#                 clock_in_photo=photo_file,
+#                 latitude=lat,  # Assuming your model has these fields based on earlier code
+#                 longitude=lng
+#             )
+#         else:
+#             # Find the active clock-in
+#             attendance = StaffAttendance.objects.filter(
+#                 worker=worker,
+#                 site=site,
+#                 time_out__isnull=True
+#             ).last()
+
+#             if attendance:
+#                 attendance.time_out = timezone.now()
+#                 attendance.save()
+#             else:
+#                 return JsonResponse({'success': False, 'error': 'No active clock-in found to close.'})
+
+#         return JsonResponse({'success': True})
+
+#     return JsonResponse({'success': False, 'error': 'Invalid request method.'})
+
 def process_biometric_clock(request, site_id):
     if request.method == 'POST':
         site = get_object_or_404(SiteLocation, id=site_id)
 
-        # 1. Extract Identity Data
+        # 1. Verify Identity
         phone = request.POST.get('phone', '').strip()
         pin = request.POST.get('pin', '').strip()
-
-        # 2. Verify the Worker
         worker = SkilledWorker.objects.filter(
             site=site, phone=phone, gate_pass=pin).first()
         if not worker:
-            return JsonResponse({'success': False, 'error': 'Identity verification failed. Invalid Phone or PIN.'})
+            return JsonResponse({'success': False, 'error': 'Identity verification failed.'})
 
-        # 3. Extract Biometric & GPS Data
-        clock_type = request.POST.get('type')  # 'IN' or 'OUT'
+        clock_type = request.POST.get('type')
         photo_data = request.POST.get('photo')
 
+        # 2. Get GPS
         try:
             lat = float(request.POST.get('lat', 0))
             lng = float(request.POST.get('lng', 0))
         except ValueError:
-            return JsonResponse({'success': False, 'error': 'Corrupt GPS data. Try again.'})
+            return JsonResponse({'success': False, 'error': 'Corrupt GPS data.'})
 
-        # 4. Proximity Check
-        # (Make sure check_proximity is defined above this in your file)
+        # 🛑 FIX 1: Prevent crash if Site GPS is empty!
+        if not site.latitude or not site.longitude:
+            return JsonResponse({'success': False, 'error': 'Site GPS not set by Admin. Cannot verify.'})
+
+        # 3. Proximity Check
         if not check_proximity(site.latitude, site.longitude, lat, lng):
             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
 
-        # 5. Process the Selfie
+        # 4. Process Photo
         try:
             format, imgstr = photo_data.split(';base64,')
             ext = format.split('/')[-1]
@@ -1021,40 +1095,37 @@ def process_biometric_clock(request, site_id):
         except Exception:
             return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
 
-        # 6. Save the Record
+        # 5. Save Record
         if clock_type == 'IN':
-            # Security Gate: Check if they are already clocked in
             already_in = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).exists()
             if already_in:
                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
 
-            StaffAttendance.objects.create(
-                worker=worker,
-                site=site,
-                user=worker.user,  # Safely tie the log to their shadow user account
-                time_in=timezone.now(),
-                clock_in_photo=photo_file,
-                latitude=lat,  # Assuming your model has these fields based on earlier code
-                longitude=lng
-            )
+            # 🛑 FIX 2: Removed lat/lng to prevent FieldError, added daily_rate
+            try:
+                StaffAttendance.objects.create(
+                    worker=worker,
+                    site=site,
+                    user=worker.user,
+                    time_in=timezone.now(),
+                    clock_in_photo=photo_file,
+                    daily_rate_at_time=worker.daily_rate
+                )
+            except Exception as e:
+                print(f"DATABASE CRASH: {e}")  # This will show in Render logs!
+                return JsonResponse({'success': False, 'error': 'Database save failed.'})
         else:
-            # Find the active clock-in
             attendance = StaffAttendance.objects.filter(
-                worker=worker,
-                site=site,
-                time_out__isnull=True
-            ).last()
-
+                worker=worker, site=site, time_out__isnull=True).last()
             if attendance:
                 attendance.time_out = timezone.now()
                 attendance.save()
             else:
-                return JsonResponse({'success': False, 'error': 'No active clock-in found to close.'})
+                return JsonResponse({'success': False, 'error': 'No active clock-in found.'})
 
         return JsonResponse({'success': True})
-
-    return JsonResponse({'success': False, 'error': 'Invalid request method.'})
+    return JsonResponse({'success': False, 'error': 'Invalid request.'})
 
 
 @login_required
