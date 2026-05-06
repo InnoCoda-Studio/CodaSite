@@ -228,7 +228,51 @@ class SkilledWorker(models.Model):
         # Remove get_category_display() because category is a CharField, not a ChoiceF,db_index=Trueield
         return f"{self.name} ({self.category})"
 
+    # 🚀 ADD THIS HELPER PROPERTY:
+    @property
+    def is_crew_member(self):
+        """Returns True if this worker is part of a Sub-Contractor's crew"""
+        return self.lead_worker is not None
 
+
+# 5. Sub-Contractor Management (FIXED PRICE JOBS)
+
+class SiteContract(models.Model):
+    """Tracks Fixed-Price jobs given to Sub-Contractors (The Ogas)"""
+    site = models.ForeignKey(
+        SiteLocation, on_delete=models.CASCADE, related_name='contracts')
+
+    # Only allow workers who are flagged as sub-contractors to be selected here
+    sub_contractor = models.ForeignKey(
+        SkilledWorker,
+        on_delete=models.CASCADE,
+        limit_choices_to={'is_sub_contractor': True},
+        related_name='awarded_contracts'
+    )
+
+    job_title = models.CharField(
+        max_length=255, help_text="e.g., Block Work for Phase 2, Full Plumbing")
+
+    # 💰 The Fixed Price Money
+    total_agreed_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0.00)
+    amount_paid_so_far = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0.00)
+
+    start_date = models.DateField(auto_now_add=True)
+    target_completion_date = models.DateField(null=True, blank=True)
+    is_completed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.job_title} - {self.sub_contractor.name}"
+
+    @property
+    def balance_owed(self):
+        """Calculates how much is left to pay the Oga"""
+        return self.total_agreed_amount - self.amount_paid_so_far
 # 4. Daily Site Operations
 
 

@@ -12,7 +12,16 @@
             </div>
 
             <h1 class="text-3xl font-black text-white uppercase tracking-tighter">{{ worker.name }}</h1>
-            <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em] mb-4">{{ worker.category }}</p>
+            
+            <!-- 🚀 NEW: Oga & Crew Badges -->
+            <div class="flex items-center gap-2 mb-4 mt-1">
+                <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em]">{{ worker.category }}</p>
+                {% if worker.worker_type == 'sub_contractor' %}
+                    <span class="bg-orange-400/20 text-orange-400 border border-orange-400/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">👑 Oga</span>
+                {% elif worker.worker_type == 'crew' %}
+                    <span class="bg-yellow-400/20 text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">👷 Crew</span>
+                {% endif %}
+            </div>
             
             <div class="flex items-center space-x-2 bg-white/5 px-4 py-1 rounded-full border border-white/10">
                 <span class="w-2 h-2 rounded-full {% if worker.is_active %}bg-emerald-500 animate-pulse{% else %}bg-gray-500{% endif %}"></span>
@@ -30,10 +39,16 @@
             <p class="text-[8px] text-innocoda-teal font-bold uppercase">Across all Sites</p>
         </div>
 
-        <div class="glass p-6 rounded-[2.5rem] border border-orange-400/20 bg-orange-400/5 text-center">
+        <div class="glass p-6 rounded-[2.5rem] border border-orange-400/20 bg-orange-400/5 text-center flex flex-col justify-center">
             <p class="text-[9px] text-orange-400 font-black uppercase tracking-widest mb-1">Pending Settlement</p>
-            <h4 class="text-2xl font-black text-white tracking-tighter">₦{{ total_debt }}</h4>
-            <p class="text-[8px] text-gray-500 font-bold uppercase">{{ unpaid_days }} Unpaid Days</p>
+            <!-- 🚀 NEW: Crew members don't get paid directly, their Oga does -->
+            {% if worker.worker_type == 'crew' %}
+                <h4 class="text-xl font-black text-white tracking-tighter mt-1">VIA OGA</h4>
+                <p class="text-[8px] text-gray-500 font-bold uppercase mt-1">No Direct Payout</p>
+            {% else %}
+                <h4 class="text-2xl font-black text-white tracking-tighter">₦{{ total_debt }}</h4>
+                <p class="text-[8px] text-gray-500 font-bold uppercase">{{ unpaid_days }} Unpaid Days</p>
+            {% endif %}
         </div>
     </div>
     
@@ -41,6 +56,22 @@
         <div>
             <h2 class="text-white font-black uppercase text-xs mb-3 px-2 tracking-widest">Personnel Identity</h2>
             <div class="glass p-6 rounded-3xl border border-white/5 space-y-6">
+                
+                <!-- 🚀 NEW: Contract Type Layout -->
+                <div class="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
+                    <div class="col-span-2 md:col-span-1">
+                        <p class="text-[9px] text-gray-500 uppercase font-black">Employment Contract</p>
+                        {% if worker.worker_type == 'sub_contractor' %}
+                            <p class="text-orange-400 font-bold text-xs uppercase">Sub-Contractor / Oga</p>
+                        {% elif worker.worker_type == 'crew' %}
+                            <p class="text-yellow-400 font-bold text-xs uppercase">Sub-Contractor's Crew</p>
+                            <p class="text-[9px] text-white/50 uppercase mt-1 border border-white/10 inline-block px-2 py-1 rounded-md">Under: <span class="text-white font-bold">{{ worker.lead_worker.name|default:"Unknown Oga" }}</span></p>
+                        {% else %}
+                            <p class="text-innocoda-teal font-bold text-xs uppercase">Standard Company Hire</p>
+                        {% endif %}
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Staff ID / NIN</p>
@@ -51,7 +82,7 @@
                         <p class="text-innocoda-teal font-bold text-xs uppercase">{{ worker.category }}</p>
                     </div>
                 </div>
-{% comment %} 
+
                 <div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Phone Number</p>
@@ -61,57 +92,44 @@
                     </div>
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Emergency Contact</p>
-                        <p class="text-white font-bold text-xs text-red-400">{{ worker.id_number|default:"NOT PROVIDED" }}</p>
-                    </div>
-                </div> {% endcomment %}
-                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                    <div>
-                        <p class="text-[9px] text-gray-500 uppercase font-black">Phone Number</p>
-                        <a href="tel:{{ worker.phone }}" class="text-white font-bold text-xs hover:text-innocoda-teal transition-colors">
-                            {{ worker.phone|default:"NO PHONE" }}
-                        </a>
-                    </div>
-                    <div>
-                        <p class="text-[9px] text-gray-500 uppercase font-black">Emergency Contact</p>
-                        <!-- I fixed the variable name here too! -->
                         <p class="text-white font-bold text-xs text-red-400">{{ worker.emergency_contact|default:"NOT PROVIDED" }}</p>
                     </div>
                 </div>
 
                 <!-- 🔐 SYSTEM ACCESS & QR GATEWAY -->
-<div class="grid grid-cols-1 pt-4 border-t border-white/5">
-    <div class="bg-black/40 p-5 rounded-[2rem] border border-white/10 space-y-4">
-        
-        <!-- Web Login Info -->
-        <div class="flex justify-between items-center pb-4 border-b border-white/5">
-            <div>
-                <p class="text-[9px] text-innocoda-teal uppercase font-black tracking-widest mb-1">System Username</p>
-                <p class="text-white font-mono text-xs">{{ worker.user.username }}</p>
-            </div>
-            <div class="text-right">
-                <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Login Password</p>
-                <p class="text-white font-mono text-xs">Coda{{ worker.gate_pass|default:"2026" }}</p>
-            </div>
-        </div>
+                <div class="grid grid-cols-1 pt-4 border-t border-white/5">
+                    <div class="bg-black/40 p-5 rounded-[2rem] border border-white/10 space-y-4">
+                        
+                        <!-- Web Login Info -->
+                        <div class="flex justify-between items-center pb-4 border-b border-white/5">
+                            <div>
+                                <p class="text-[9px] text-innocoda-teal uppercase font-black tracking-widest mb-1">System Username</p>
+                                <p class="text-white font-mono text-xs">{{ worker.user.username }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Login Password</p>
+                                <p class="text-white font-mono text-xs">Coda{{ worker.gate_pass|default:"2026" }}</p>
+                            </div>
+                        </div>
 
-        <!-- QR Gate PIN (The 4-digit pass) -->
-        <div class="flex justify-between items-center">
-            <div>
-                <p class="text-[9px] text-orange-400 uppercase font-black tracking-widest mb-1">QR Gate PIN</p>
-                <p class="text-white font-black text-2xl tracking-[0.3em]">{{ worker.gate_pass|default:"2026" }}</p>
-            </div>
-            <div class="text-right">
-                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
-                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                    </svg>
+                        <!-- QR Gate PIN (The 4-digit pass) -->
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="text-[9px] text-orange-400 uppercase font-black tracking-widest mb-1">QR Gate PIN</p>
+                                <p class="text-white font-black text-2xl tracking-[0.3em]">{{ worker.gate_pass|default:"2026" }}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 ml-auto">
+                                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                    </svg>
+                                </div>
+                                <p class="text-[7px] text-gray-600 font-bold uppercase mt-1">Authorized Entry Only</p>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
-                <p class="text-[7px] text-gray-600 font-bold uppercase mt-1">Authorized Entry Only</p>
-            </div>
-        </div>
-
-    </div>
-</div>
                 
             </div>
         </div>
@@ -149,8 +167,14 @@
                     
                     <div class="flex items-center gap-3">
                         <div class="text-right">
-                            <p class="text-white font-black text-xs leading-none">₦{{ worker.daily_rate }}</p>
-                            <p class="text-[7px] font-black uppercase tracking-widest {% if log.is_paid %}text-emerald-400{% else %}text-orange-400{% endif %}">
+                            <!-- 🚀 NEW: Show Contract 0.00 rate for Ogas and Crew -->
+                            {% if worker.worker_type == 'sub_contractor' or worker.worker_type == 'crew' %}
+                                <p class="text-white/50 font-black text-xs leading-none">₦0 <span class="text-[8px]">(Contract)</span></p>
+                            {% else %}
+                                <p class="text-white font-black text-xs leading-none">₦{{ worker.daily_rate }}</p>
+                            {% endif %}
+
+                            <p class="text-[7px] font-black uppercase tracking-widest mt-1 {% if log.is_paid %}text-emerald-400{% else %}text-orange-400{% endif %}">
                                 {% if log.is_paid %}Settled{% else %}Unpaid{% endif %}
                             </p>
                         </div>
@@ -195,7 +219,13 @@
                 </div>
                 <div class="text-right">
                     <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Amount Settled</p>
-                    <p class="text-lg font-black text-emerald-400">₦{{ worker.daily_rate }}</p>
+                    <p class="text-lg font-black text-emerald-400">
+                        {% if worker.worker_type == 'sub_contractor' or worker.worker_type == 'crew' %}
+                            ₦0 (Contract)
+                        {% else %}
+                            ₦{{ worker.daily_rate }}
+                        {% endif %}
+                    </p>
                 </div>
             </div>
 
@@ -218,8 +248,6 @@
     </div>
 </div>
 </div>
-
-
 
 <script>
  const container = document.getElementById("img-container");
