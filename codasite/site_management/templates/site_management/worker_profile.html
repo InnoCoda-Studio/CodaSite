@@ -1,4 +1,5 @@
 {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
+
 {% block content %}
 <div class="container mx-auto p-4 max-w-xl pb-32">
     <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden mb-6">
@@ -13,21 +14,18 @@
 
             <h1 class="text-3xl font-black text-white uppercase tracking-tighter">{{ worker.name }}</h1>
             
-            <!-- 🚀 NEW: Oga & Crew Badges -->
             <div class="flex items-center gap-2 mb-4 mt-1">
                 <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em]">{{ worker.category }}</p>
-                {% if worker.worker_type == 'sub_contractor' %}
+                {% if worker.is_sub_contractor %}
                     <span class="bg-orange-400/20 text-orange-400 border border-orange-400/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">👑 Oga</span>
-                {% elif worker.worker_type == 'crew' %}
-                    <span class="bg-yellow-400/20 text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">👷 Crew</span>
+                {% elif worker.lead_worker %}
+                    <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">👷 Crew</span>
                 {% endif %}
             </div>
             
             <div class="flex items-center space-x-2 bg-white/5 px-4 py-1 rounded-full border border-white/10">
-                <span class="w-2 h-2 rounded-full {% if worker.is_active %}bg-emerald-500 animate-pulse{% else %}bg-gray-500{% endif %}"></span>
-                <span class="text-[9px] font-black uppercase text-gray-300">
-                    {% if worker.is_active %}Verified Personnel{% else %}Inactive{% endif %}
-                </span>
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-[9px] font-black uppercase text-gray-300">Verified Personnel</span>
             </div>
         </div>
     </div>
@@ -36,36 +34,60 @@
         <div class="glass p-6 rounded-[2.5rem] border border-white/5 text-center">
             <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Total Attendance</p>
             <h4 class="text-2xl font-black text-white tracking-tighter">{{ total_days }}</h4>
-            <p class="text-[8px] text-innocoda-teal font-bold uppercase">Across all Sites</p>
+            <p class="text-[8px] text-innocoda-teal font-bold uppercase">Days Recorded</p>
         </div>
 
         <div class="glass p-6 rounded-[2.5rem] border border-orange-400/20 bg-orange-400/5 text-center flex flex-col justify-center">
             <p class="text-[9px] text-orange-400 font-black uppercase tracking-widest mb-1">Pending Settlement</p>
-            <!-- 🚀 NEW: Crew members don't get paid directly, their Oga does -->
-            {% if worker.worker_type == 'crew' %}
+            {% if worker.lead_worker %}
                 <h4 class="text-xl font-black text-white tracking-tighter mt-1">VIA OGA</h4>
-                <p class="text-[8px] text-gray-500 font-bold uppercase mt-1">No Direct Payout</p>
+                <p class="text-[8px] text-gray-500 font-bold uppercase mt-1">Paid to {{ worker.lead_worker.name|truncatechars:10 }}</p>
             {% else %}
-                <h4 class="text-2xl font-black text-white tracking-tighter">₦{{ total_debt }}</h4>
+                <h4 class="text-2xl font-black text-white tracking-tighter">₦{{ total_debt|floatformat:0 }}</h4>
                 <p class="text-[8px] text-gray-500 font-bold uppercase">{{ unpaid_days }} Unpaid Days</p>
             {% endif %}
         </div>
     </div>
+
+    {% if worker.is_sub_contractor %}
+    <div class="mb-8">
+        <h2 class="text-orange-400 font-black uppercase text-xs mb-3 px-2 tracking-widest">Managed Crew (The Boys)</h2>
+        <div class="glass p-4 rounded-3xl border border-white/5">
+            <div class="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                {% for boy in worker.crew_members.all %}
+                <a href="{% url 'worker_profile' boy.slug %}" class="flex-shrink-0 w-24 text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto overflow-hidden mb-2">
+                        {% if boy.profile_picture %}
+                            <img src="{{ boy.profile_picture.url }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <div class="w-full h-full flex items-center justify-center text-xl font-black text-white/20">{{ boy.name|slice:":1" }}</div>
+                        {% endif %}
+                    </div>
+                    <p class="text-[8px] text-white font-bold truncate px-1 uppercase">{{ boy.name }}</p>
+                </a>
+                {% empty %}
+                <p class="text-[9px] text-gray-600 p-4 italic uppercase">No crew members assigned yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <div class="space-y-8">
         <div>
             <h2 class="text-white font-black uppercase text-xs mb-3 px-2 tracking-widest">Personnel Identity</h2>
             <div class="glass p-6 rounded-3xl border border-white/5 space-y-6">
                 
-                <!-- 🚀 NEW: Contract Type Layout -->
                 <div class="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
-                    <div class="col-span-2 md:col-span-1">
+                    <div class="col-span-2">
                         <p class="text-[9px] text-gray-500 uppercase font-black">Employment Contract</p>
-                        {% if worker.worker_type == 'sub_contractor' %}
+                        {% if worker.is_sub_contractor %}
                             <p class="text-orange-400 font-bold text-xs uppercase">Sub-Contractor / Oga</p>
-                        {% elif worker.worker_type == 'crew' %}
-                            <p class="text-yellow-400 font-bold text-xs uppercase">Sub-Contractor's Crew</p>
-                            <p class="text-[9px] text-white/50 uppercase mt-1 border border-white/10 inline-block px-2 py-1 rounded-md">Under: <span class="text-white font-bold">{{ worker.lead_worker.name|default:"Unknown Oga" }}</span></p>
+                        {% elif worker.lead_worker %}
+                            <p class="text-blue-400 font-bold text-xs uppercase">Crew Member</p>
+                            <a href="{% url 'worker_profile' worker.lead_worker.slug %}" class="text-[9px] text-white/70 uppercase mt-1 border border-blue-500/30 inline-flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 hover:bg-blue-500/20 transition-all">
+                                🔗 Report to: <span class="text-white font-black">{{ worker.lead_worker.name|upper }}</span>
+                            </a>
                         {% else %}
                             <p class="text-innocoda-teal font-bold text-xs uppercase">Standard Company Hire</p>
                         {% endif %}
@@ -74,8 +96,8 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <p class="text-[9px] text-gray-500 uppercase font-black">Staff ID / NIN</p>
-                        <p class="text-white font-bold text-xs">{{ worker.id_number|default:"NOT ASSIGNED" }}</p>
+                        <p class="text-[9px] text-gray-500 uppercase font-black">Staff ID</p>
+                        <p class="text-white font-bold text-xs">{{ worker.id_number }}</p>
                     </div>
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Designation</p>
@@ -85,183 +107,101 @@
 
                 <div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                     <div>
-                        <p class="text-[9px] text-gray-500 uppercase font-black">Phone Number</p>
-                        <a href="tel:{{ worker.phone }}" class="text-white font-bold text-xs hover:text-innocoda-teal transition-colors">
-                            {{ worker.phone|default:"NO PHONE" }}
-                        </a>
+                        <p class="text-[9px] text-gray-500 uppercase font-black">Primary Phone</p>
+                        <a href="tel:{{ worker.phone }}" class="text-white font-bold text-xs hover:text-innocoda-teal transition-colors">{{ worker.phone }}</a>
                     </div>
                     <div>
                         <p class="text-[9px] text-gray-500 uppercase font-black">Emergency Contact</p>
-                        <p class="text-white font-bold text-xs text-red-400">{{ worker.emergency_contact|default:"NOT PROVIDED" }}</p>
+                        <p class="text-white font-bold text-xs text-red-400">{{ worker.emergency_contact|default:"---" }}</p>
                     </div>
                 </div>
 
-                <!-- 🔐 SYSTEM ACCESS & QR GATEWAY -->
-                <div class="grid grid-cols-1 pt-4 border-t border-white/5">
-                    <div class="bg-black/40 p-5 rounded-[2rem] border border-white/10 space-y-4">
-                        
-                        <!-- Web Login Info -->
-                        <div class="flex justify-between items-center pb-4 border-b border-white/5">
-                            <div>
-                                <p class="text-[9px] text-innocoda-teal uppercase font-black tracking-widest mb-1">System Username</p>
-                                <p class="text-white font-mono text-xs">{{ worker.user.username }}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Login Password</p>
-                                <p class="text-white font-mono text-xs">Coda{{ worker.gate_pass|default:"2026" }}</p>
-                            </div>
+                <div class="bg-black/40 p-5 rounded-[2rem] border border-white/10">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] text-orange-400 uppercase font-black tracking-widest mb-1">Gate Access PIN</p>
+                            <p class="text-white font-black text-2xl tracking-[0.3em]">{{ worker.gate_pass|default:"2026" }}</p>
                         </div>
-
-                        <!-- QR Gate PIN (The 4-digit pass) -->
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <p class="text-[9px] text-orange-400 uppercase font-black tracking-widest mb-1">QR Gate PIN</p>
-                                <p class="text-white font-black text-2xl tracking-[0.3em]">{{ worker.gate_pass|default:"2026" }}</p>
-                            </div>
-                            <div class="text-right">
-                                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 ml-auto">
-                                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                                    </svg>
-                                </div>
-                                <p class="text-[7px] text-gray-600 font-bold uppercase mt-1">Authorized Entry Only</p>
-                            </div>
+                        <div class="text-right">
+                             <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Username</p>
+                             <p class="text-white font-mono text-xs">{{ worker.user.username }}</p>
                         </div>
-
                     </div>
                 </div>
-                
             </div>
         </div>
 
+        {% if not worker.lead_worker %}
         <div>
             <h2 class="text-white font-black uppercase text-xs mb-3 px-2 tracking-widest">Bank Settlement</h2>
             <div class="glass p-6 rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-400/5 to-transparent">
                 <div class="flex justify-between items-start mb-6">
                     <div class="w-10 h-8 bg-orange-400/20 rounded-md border border-orange-400/30"></div>
-                    <p class="text-white font-black italic text-sm">{{ worker.bank_name|default:"BANK NOT SET" }}</p>
+                    <p class="text-white font-black italic text-sm">{{ worker.bank_name|default:"OPAY" }}</p>
                 </div>
                 <p class="text-white font-mono text-xl tracking-[0.2em] mb-2">{{ worker.account_number|default:"0000000000" }}</p>
                 <div class="flex justify-between items-end">
-                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">{{ worker.account_name|default:"AWAITING VERIFICATION" }}</p>
-                    <p class="text-[8px] text-orange-400 font-black uppercase">Active Account</p>
+                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">{{ worker.account_name|default:worker.name }}</p>
+                    <p class="text-[8px] text-orange-400 font-black uppercase">Daily: ₦{{ worker.daily_rate|floatformat:0 }}</p>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <div>
             <div class="flex justify-between items-center mb-4 px-2">
-                <h2 class="text-white font-black uppercase text-xs tracking-widest">Attendance Audit</h2>
-                <span class="text-[8px] text-gray-500 font-black uppercase">Scroll for full history</span>
+                <h2 class="text-white font-black uppercase text-xs tracking-widest">Work History</h2>
+                <span class="text-[8px] text-gray-500 font-black uppercase">{{ history.count }} Logs</span>
             </div>
             
             <div class="space-y-3">
                 {% for log in history %}
-                <div class="glass p-5 rounded-[2rem] border {% if log.is_paid %}border-emerald-500/20 bg-emerald-500/5{% else %}border-white/5{% endif %} flex justify-between items-center group transition-all">
+                <div class="glass p-5 rounded-[2rem] border {% if log.is_paid %}border-emerald-500/20 bg-emerald-500/5{% else %}border-white/5{% endif %} flex justify-between items-center">
                     <div>
                         <p class="text-white font-bold text-sm">{{ log.site.name }}</p>
                         <p class="text-[9px] text-gray-500 uppercase font-black tracking-tighter">
-                            {{ log.time_in|date:"D, d M Y" }} • {{ log.time_in|time:"H:i" }} - {{ log.time_out|time:"H:i"|default:"Active" }}
+                            {{ log.time_in|date:"D, d M Y" }} • {{ log.time_in|time:"H:i" }}
                         </p>
                     </div>
-                    
-                    <div class="flex items-center gap-3">
-                        <div class="text-right">
-                            <!-- 🚀 NEW: Show Contract 0.00 rate for Ogas and Crew -->
-                            {% if worker.worker_type == 'sub_contractor' or worker.worker_type == 'crew' %}
-                                <p class="text-white/50 font-black text-xs leading-none">₦0 <span class="text-[8px]">(Contract)</span></p>
-                            {% else %}
-                                <p class="text-white font-black text-xs leading-none">₦{{ worker.daily_rate }}</p>
-                            {% endif %}
-
-                            <p class="text-[7px] font-black uppercase tracking-widest mt-1 {% if log.is_paid %}text-emerald-400{% else %}text-orange-400{% endif %}">
-                                {% if log.is_paid %}Settled{% else %}Unpaid{% endif %}
-                            </p>
-                        </div>
-
-                        {% if not log.is_paid %}
-                        <form method="POST" action="{% url 'mark_as_paid' log.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="w-8 h-8 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center hover:bg-innocoda-teal hover:text-innocoda-navy transition-all">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            </button>
-                        </form>
+                    <div class="text-right">
+                        {% if worker.lead_worker %}
+                            <p class="text-blue-400 font-black text-xs">CREW</p>
                         {% else %}
-                        <div class="w-8 h-8 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center border border-emerald-500/20">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path></svg>
-                        </div>
+                            <p class="text-white font-black text-xs leading-none">₦{{ worker.daily_rate|floatformat:0 }}</p>
                         {% endif %}
+                        <p class="text-[7px] font-black uppercase tracking-widest mt-1 {% if log.is_paid %}text-emerald-400{% else %}text-orange-400{% endif %}">
+                            {% if log.is_paid %}Paid{% else %}Unpaid{% endif %}
+                        </p>
                     </div>
                 </div>
                 {% empty %}
                 <div class="text-center py-10 opacity-30">
-                    <p class="text-xs uppercase font-black tracking-widest text-white">No activity logged in registry</p>
+                    <p class="text-xs uppercase font-black tracking-widest text-white">No history found</p>
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
-
-    <div class="mt-12">
-    <h2 class="text-emerald-400 font-black uppercase text-xs mb-4 px-2 tracking-widest">Financial Audit Trail</h2>
-    
-    <div class="space-y-4">
-        {% for payment in payment_history %}
-        <div class="glass p-6 rounded-[2rem] border border-emerald-500/10 bg-emerald-500/5 relative overflow-hidden">
-            <div class="absolute -right-4 -top-2 opacity-10 rotate-12">
-                <p class="text-4xl font-black text-emerald-500">PAID</p>
-            </div>
-
-            <div class="flex justify-between items-start relative z-10">
-                <div>
-                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Reference Code</p>
-                    <p class="text-white font-mono text-xs">{{ payment.payment_reference }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Amount Settled</p>
-                    <p class="text-lg font-black text-emerald-400">
-                        {% if worker.worker_type == 'sub_contractor' or worker.worker_type == 'crew' %}
-                            ₦0 (Contract)
-                        {% else %}
-                            ₦{{ worker.daily_rate }}
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-
-            <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
-                <div>
-                    <p class="text-[8px] text-gray-500 uppercase font-black">Work Date</p>
-                    <p class="text-white text-[10px] font-bold">{{ payment.time_in|date:"d M Y" }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[8px] text-gray-500 uppercase font-black">Processed On</p>
-                    <p class="text-white text-[10px] font-bold">{{ payment.payment_date|date:"d M Y, H:i" }}</p>
-                </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="p-8 text-center border border-dashed border-white/10 rounded-[2rem]">
-            <p class="text-[10px] text-gray-600 font-black uppercase tracking-widest">No finalized payments found</p>
-        </div>
-        {% endfor %}
-    </div>
 </div>
+
+<div class="mt-12 pt-8 border-t border-red-500/10">
+    <form method="POST" action="{% url 'trash_worker' worker.id %}" onsubmit="return confirm('Move this worker to Trash? They will be removed from all sites.')">
+        {% csrf_token %}
+        <button type="submit" class="w-full py-4 rounded-2xl border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/5 font-black uppercase text-[9px] tracking-[0.3em] transition-all">
+            ⚠ Move Personnel to Trash
+        </button>
+    </form>
 </div>
 
 <script>
- const container = document.getElementById("img-container");
-
+const container = document.getElementById("img-container");
 container.addEventListener('click', () => {
-    // Toggle container size
     container.classList.toggle('w-32');
     container.classList.toggle('h-32');
-    container.classList.toggle('w-64'); // New expanded width
-    container.classList.toggle('h-64'); // New expanded height
-    
-    // Toggle shape (optional: goes from circle to rounded square)
+    container.classList.toggle('w-64'); 
+    container.classList.toggle('h-64'); 
     container.classList.toggle('rounded-full');
-    container.classList.toggle('rounded-2xl');
+    container.classList.toggle('rounded-3xl');
 });
 </script>
 {% endblock %}

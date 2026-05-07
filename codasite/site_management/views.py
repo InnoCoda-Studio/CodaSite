@@ -16,7 +16,7 @@ from django.shortcuts import redirect
 from datetime import timedelta  # Add this at the top
 from decimal import Decimal  # 👈 Ensure this is at the top of your file!
 from .models import SiteLocation, StaffAttendance, MaterialDeduction
-
+import random
 from django.conf import settings
 # Ensure these are at the top
 #
@@ -220,6 +220,7 @@ def dashboard_feed_component(request):
 def site_dashboard(request, site_id):
     # ⚓ Anchor: Session locking
     request.session['active_site_id'] = site_id
+
     today = timezone.now().date()  # 📅 Added this back so Step 6 doesn't crash
 
     # 🏢 1. Identify the Site & Company
@@ -284,83 +285,6 @@ def site_dashboard(request, site_id):
             worker.save()
             messages.success(request, f"{worker.name} deployed to {site.name}")
 
-        # --- 2. REGISTER NEW WORKER DIRECTLY TO SITE ---
-
-        # elif 'register_worker' in request.POST:
-        #     # Data Extraction
-        #     id_num = request.POST.get('id_number', '').strip().upper()
-        #     phone_num = request.POST.get('phone', '').strip()
-        #     worker_name = request.POST.get('name', '').strip()
-        #     emergency_contact = request.POST.get(
-        #         'emergency_contact', '').strip()  # Added from previous step!
-
-        #     # Financial Data
-        #     bank_name = request.POST.get('bank_name', '').strip().upper()
-        #     account_num = request.POST.get('account_number', '').strip()
-        #     account_name = request.POST.get('account_name', '').strip().upper()
-
-        #     try:
-        #         daily_rate = Decimal(request.POST.get('daily_rate') or '0.00')
-        #     except:
-        #         daily_rate = Decimal('0.00')
-
-        #     # ⚡ Auto-Generate Staff ID (If left blank)
-        #     if not id_num:
-        #         year = timezone.now().year
-        #         count = SkilledWorker.objects.filter(
-        #             company=company).count() + 1
-        #         id_num = f"IC-{year}-{count:03d}"
-
-        #     # 🛡️ Identity Collision Check
-        #     if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
-        #         messages.error(
-        #             request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
-        #         return redirect('site_dashboard', site_id=site.id)
-
-        #     try:
-        #         # ☁️ Cloudinary Upload (Profile Picture)
-        #         secure_image_url = None
-        #         profile_picture = request.FILES.get('profile_picture')
-        #         if profile_picture:
-        #             upload_result = cloudinary.uploader.upload(
-        #                 profile_picture, folder="codasite_personnel")
-        #             secure_image_url = upload_result['public_id']
-
-        #         # 🔒 Atomic Database Transaction
-        #         with transaction.atomic():
-        #             # A. Create the Shadow User
-        #             username = slugify(id_num)
-        #             default_password = f"Coda{phone_num[-4:] if len(phone_num) >= 4 else '2026'}"
-
-        #             worker_user = User.objects.create_user(
-        #                 username=username, password=default_password)
-
-        #             # B. Create SkilledWorker Profile linked DIRECTLY to this site
-        #             worker = SkilledWorker.objects.create(
-        #                 user=worker_user,
-        #                 contractor=request.user,
-        #                 site=site,  # 📍 Direct deployment to this site
-        #                 company=company,
-        #                 name=worker_name,
-        #                 category=request.POST.get('category', '').upper(),
-        #                 id_number=id_num,
-        #                 phone=phone_num,
-        #                 emergency_contact=emergency_contact,  # Saved to DB!
-        #                 daily_rate=daily_rate,
-        #                 profile_picture=secure_image_url,
-        #                 bank_name=bank_name,
-        #                 account_number=account_num,
-        #                 account_name=account_name
-        #             )
-
-        #         messages.success(
-        #             request, f"SUCCESS: {worker.name} deployed to {site.name}. LOGIN: {username} | PASS: {default_password}")
-
-        #     except Exception as e:
-        #         messages.error(request, f"Registry Error: {str(e)}")
-
-        #     # 🔥 The page naturally reloads here!
-        #     return redirect('site_dashboard', site_id=site.id)
         # --- 2. REGISTER NEW WORKER DIRECTLY TO SITE ---
         elif 'register_worker' in request.POST:
             # Data Extraction
@@ -1429,58 +1353,172 @@ def deploy_worker(request, site_id):
     return redirect('site_dashboard', site_id=site.id)
 
 
+# @login_required
+# @transaction.atomic
+# def all_workers(request):
+#     # --- 1. HANDLE SAVING NEW WORKER ---
+#     if request.method == "POST" and 'register_worker' in request.POST:
+#         try:
+#             # Get the data from the form
+#             id_num = request.POST.get('id_number', '').strip()
+#             phone_num = request.POST.get('phone', '').strip()
+
+#             # 🛡️ THE SECURITY CHECK: Check if ID or Phone already exists
+#             if SkilledWorker.objects.filter(id_number=id_num).exists():
+#                 messages.error(
+#                     request, f"Access Denied: ID {id_num} already exists.")
+#                 return redirect('all_workers')
+
+#             # Clean the money data properly
+#             raw_rate = request.POST.get('daily_rate')
+#             daily_rate = Decimal(
+#                 raw_rate) if raw_rate and raw_rate.strip() else Decimal('0.00')
+
+#             # Create the record
+#             SkilledWorker.objects.create(
+#                 contractor=request.user,
+#                 name=request.POST.get('name'),
+#                 category=request.POST.get('category'),
+#                 id_number=id_num,
+#                 phone=phone_num,
+#                 emergency_contact=request.POST.get('emergency_contact'),
+#                 bank_name=request.POST.get('bank_name'),
+#                 account_number=request.POST.get('account_number'),
+#                 account_name=request.POST.get('account_name'),
+#                 daily_rate=daily_rate,
+#                 pay_frequency=request.POST.get('pay_frequency', 'Daily'),
+#                 profile_picture=request.FILES.get('profile_picture')
+#             )
+#             messages.success(
+#                 request, "Personnel successfully added to Global Registry.")
+#             return redirect('all_workers')
+
+#         except Exception as e:
+#             # 👈 Watch your terminal for this!
+#             print(f"DATABASE REJECTION ERROR: {e}")
+#             messages.error(request, f"Registry Error: {e}")
+
+#     # --- 2. DISPLAY LOGIC ---
+#     workers = SkilledWorker.objects.filter(
+#         contractor=request.user).order_by('-id')
+#     return render(request, 'site_management/all_workers.html', {'workers': workers})
+
+#     workers = SkilledWorker.objects.filter(company__owner=request.user, is_trashed=False)
+
 @login_required
-@transaction.atomic
 def all_workers(request):
     # --- 1. HANDLE SAVING NEW WORKER ---
+    active_workers = SkilledWorker.objects.filter(
+        contractor=request.user, is_trashed=False).order_by('-id')
+    trashed_workers = SkilledWorker.objects.filter(
+        contractor=request.user, is_trashed=True).order_by('-id')
+    user_sites = SiteLocation.objects.filter(company__owner=request.user)
+
     if request.method == "POST" and 'register_worker' in request.POST:
         try:
-            # Get the data from the form
-            id_num = request.POST.get('id_number', '').strip()
-            phone_num = request.POST.get('phone', '').strip()
+            # 🛡️ Data Extraction
+            id_num = request.POST.get('id_number', '').strip().upper()
+            phone_num = request.POST.get('phone', '').strip().replace(" ", "")
+            worker_name = request.POST.get('name', '').strip()
 
-            # 🛡️ THE SECURITY CHECK: Check if ID or Phone already exists
-            if SkilledWorker.objects.filter(id_number=id_num).exists():
+            # 🚀 Hierarchy Logic
+            worker_type = request.POST.get('worker_type', 'company_hire')
+            lead_worker_id = request.POST.get('lead_worker_id')
+            site_id = request.POST.get('site_id')  # Initial Site Assignment
+
+            is_sub = (worker_type == 'sub_contractor')
+            lead_worker_instance = None
+
+            if worker_type == 'crew' and lead_worker_id:
+                lead_worker_instance = SkilledWorker.objects.get(
+                    id=lead_worker_id)
+
+            # 💰 Money Logic (0.00 for Ogas and Crew)
+            if worker_type in ['sub_contractor', 'crew']:
+                daily_rate = Decimal('0.00')
+            else:
+                raw_rate = request.POST.get('daily_rate')
+                daily_rate = Decimal(
+                    raw_rate) if raw_rate and raw_rate.strip() else Decimal('0.00')
+
+            # 🔐 GAT-PASS GENERATOR
+            raw_pin = phone_num[-4:] if len(
+                phone_num) >= 4 else str(random.randint(1000, 9999))
+
+            # 🛡️ Collision Check
+            if SkilledWorker.objects.filter(phone=phone_num).exists():
                 messages.error(
-                    request, f"Access Denied: ID {id_num} already exists.")
+                    request, f"Identity Error: Phone {phone_num} already exists.")
                 return redirect('all_workers')
 
-            # Clean the money data properly
-            raw_rate = request.POST.get('daily_rate')
-            daily_rate = Decimal(
-                raw_rate) if raw_rate and raw_rate.strip() else Decimal('0.00')
+            # ☁️ Cloudinary Logic
+            secure_image_url = None
+            profile_picture = request.FILES.get('profile_picture')
+            if profile_picture:
+                upload_result = cloudinary.uploader.upload(
+                    profile_picture, folder="codasite_personnel")
+                secure_image_url = upload_result['public_id']
 
-            # Create the record
-            SkilledWorker.objects.create(
-                contractor=request.user,
-                name=request.POST.get('name'),
-                category=request.POST.get('category'),
-                id_number=id_num,
-                phone=phone_num,
-                emergency_contact=request.POST.get('emergency_contact'),
-                bank_name=request.POST.get('bank_name'),
-                account_number=request.POST.get('account_number'),
-                account_name=request.POST.get('account_name'),
-                daily_rate=daily_rate,
-                pay_frequency=request.POST.get('pay_frequency', 'Daily'),
-                profile_picture=request.FILES.get('profile_picture')
-            )
+            # 🔒 Save with Shadow User Creation
+            with transaction.atomic():
+                username = slugify(worker_name) + "-" + \
+                    str(random.randint(10, 99))
+                default_password = f"Coda{raw_pin}"
+                worker_user = User.objects.create_user(
+                    username=username, password=default_password)
+
+                SkilledWorker.objects.create(
+                    user=worker_user,
+                    contractor=request.user,
+                    company=request.user.contractor_profile,  # Assuming you have a profile link
+                    site_id=site_id if site_id else None,
+                    name=worker_name,
+                    category=request.POST.get('category', '').upper(),
+                    id_number=id_num,
+                    phone=phone_num,
+                    gate_pass=raw_pin,
+                    daily_rate=daily_rate,
+                    is_sub_contractor=is_sub,
+                    lead_worker=lead_worker_instance,
+                    emergency_contact=request.POST.get('emergency_contact'),
+                    bank_name=request.POST.get('bank_name', '').upper(),
+                    account_number=request.POST.get('account_number'),
+                    account_name=request.POST.get('account_name', '').upper(),
+                    profile_picture=secure_image_url
+                )
+
             messages.success(
-                request, "Personnel successfully added to Global Registry.")
+                request, f"SUCCESS: {worker_name} enrolled. PIN: {raw_pin}")
             return redirect('all_workers')
 
         except Exception as e:
-            # 👈 Watch your terminal for this!
-            print(f"DATABASE REJECTION ERROR: {e}")
+            print(f"DATABASE REJECTION: {e}")
             messages.error(request, f"Registry Error: {e}")
 
-    # --- 2. DISPLAY LOGIC ---
+    # --- 2. DISPLAY LOGIC (The Trash Filter) ---
+    # Only show workers who belong to the user AND are NOT trashed
     workers = SkilledWorker.objects.filter(
-        contractor=request.user).order_by('-id')
-    return render(request, 'site_management/all_workers.html', {'workers': workers})
+        contractor=request.user,
+        is_trashed=False
+    ).order_by('-id')
 
-# views.py
-# allworkers sers
+    # Sites for the "Initial Assignment" dropdown
+    user_sites = SiteLocation.objects.filter(company__owner=request.user)
+
+    # Global Pool (Active Sub-contractors only for the Crew dropdown)
+    global_workers_pool = SkilledWorker.objects.filter(
+        contractor=request.user,
+        is_trashed=False
+    )
+
+    return render(request, 'site_management/all_workers.html', {
+        'workers': workers,
+        'user_sites': user_sites,
+        'global_workers_pool': global_workers_pool,
+
+        'active_workers': active_workers,
+        'trashed_workers': trashed_workers,
+    })
 
 
 @login_required
@@ -1506,102 +1544,6 @@ def worker_search(request):
 # Make sure to import your User, SkilledWorker, SiteLocation, Invitation, cloudinary etc.
 
 
-# @login_required
-# def add_worker(request, site_id):
-#     site = get_object_or_404(SiteLocation, id=site_id)
-#     company = site.company
-
-#     # 1. 🛡️ Permission Security
-#     is_owner = (company.owner == request.user)
-#     is_invited_pm = Invitation.objects.filter(
-#         email=request.user.email, site=site, is_used=True, role_assigned='PROJECT_MANAGER'
-#     ).exists()
-
-#     if not (is_owner or is_invited_pm):
-#         messages.error(
-#             request, "SECURITY ALERT: Unauthorized enrollment attempt blocked.")
-#         return redirect('profile')
-
-#     if request.method == "POST":
-#         # Data Extraction
-#         id_num = request.POST.get('id_number', '').strip().upper()
-#         phone_num = request.POST.get('phone', '').strip()
-#         worker_name = request.POST.get('name', '').strip()
-
-#         # Financial Data
-#         bank_name = request.POST.get('bank_name', '').strip().upper()
-#         account_num = request.POST.get('account_number', '').strip()
-#         account_name = request.POST.get('account_name', '').strip().upper()
-
-#         # Daily Rate Fix
-#         try:
-#             daily_rate = Decimal(request.POST.get('daily_rate') or '0.00')
-#         except:
-#             daily_rate = Decimal('0.00')
-
-#         # 2. ⚡ Auto-Generate Staff ID (If left blank)
-#         if not id_num:
-#             year = timezone.now().year
-#             count = SkilledWorker.objects.filter(company=company).count() + 1
-#             # Switched to CS to match your model's save method!
-#             id_num = f"CS-{year}-{count:03d}"
-
-#         # 3. 🛡️ Identity Collision Check
-#         if SkilledWorker.objects.filter(Q(id_number=id_num) | Q(phone=phone_num)).exists():
-#             messages.error(
-#                 request, f"Identity Error: Personnel with ID {id_num} or Phone {phone_num} already exists.")
-#             # 👈 Clean full-page redirect
-#             return redirect('site_dashboard', site_id=site_id)
-
-#         try:
-#             # 4. ☁️ Cloudinary Upload (Profile Picture)
-#             secure_image_url = None
-#             profile_picture = request.FILES.get('profile_picture')
-#             if profile_picture:
-#                 upload_result = cloudinary.uploader.upload(
-#                     profile_picture, folder="codasite_personnel")
-#                 secure_image_url = upload_result['public_id']
-
-#             # 5. 🔒 Atomic Database Transaction
-#             with transaction.atomic():
-#                 # A. Create the Shadow User
-#                 username = slugify(id_num)
-#                 # Generate the 4-digit pin from phone or default to 2026
-#                 raw_pin = phone_num[-4:] if len(phone_num) >= 4 else "2026"
-#                 default_password = f"Coda{raw_pin}"
-
-#                 worker_user = User.objects.create_user(
-#                     username=username, password=default_password)
-
-#                 # B. Create SkilledWorker Profile
-#                 worker = SkilledWorker.objects.create(
-#                     user=worker_user,
-#                     contractor=request.user,
-#                     site=site,
-#                     company=company,
-#                     name=worker_name,
-#                     category=request.POST.get('category', '').upper(),
-#                     id_number=id_num,
-#                     phone=phone_num,
-#                     gate_pass=raw_pin,  # ✨ SAVING THE PIN HERE FOR QR CLOCKING
-#                     daily_rate=daily_rate,
-#                     profile_picture=secure_image_url,
-#                     bank_name=bank_name,
-#                     account_number=account_num,
-#                     account_name=account_name
-#                 )
-
-#             messages.success(
-#                 request, f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}")
-
-#         except Exception as e:
-#             messages.error(request, f"Registry Error: {str(e)}")
-#             return redirect('site_dashboard', site_id=site_id)
-
-#         # 🚀 THE FIX: Standard Full-Page Redirect after success
-#         return redirect('site_dashboard', site_id=site_id)
-
-#     return redirect('site_dashboard', site_id=site_id)
 @login_required
 def add_worker(request, site_id):
     site = get_object_or_404(SiteLocation, id=site_id)
@@ -1621,7 +1563,8 @@ def add_worker(request, site_id):
     if request.method == "POST":
         # Data Extraction
         id_num = request.POST.get('id_number', '').strip().upper()
-        phone_num = request.POST.get('phone', '').strip()
+        phone_num = request.POST.get(
+            'phone', '').strip().replace(" ", "")  # Remove spaces
         worker_name = request.POST.get('name', '').strip()
         emergency_contact = request.POST.get('emergency_contact', '').strip()
 
@@ -1637,6 +1580,12 @@ def add_worker(request, site_id):
         bank_name = request.POST.get('bank_name', '').strip().upper()
         account_num = request.POST.get('account_number', '').strip()
         account_name = request.POST.get('account_name', '').strip().upper()
+
+        if len(phone_num) >= 4:
+            raw_pin = phone_num[-4:]
+        else:
+            # Generate a truly random 4-digit PIN (e.g., 4829)
+            raw_pin = str(random.randint(1000, 9999))
 
         # 🚀 NEW: Smart Money & Crew Logic based on Worker Type
         try:
@@ -1708,11 +1657,11 @@ def add_worker(request, site_id):
                     profile_picture=secure_image_url,
                     bank_name=bank_name,
                     account_number=account_num,
-                    account_name=account_name
+
                 )
 
             messages.success(
-                request, f"SUCCESS: {worker.name} enrolled. LOGIN: {username} | PASS: {default_password}")
+                request, f"✅ {worker.name} ENROLLED! | PIN: {raw_pin} | PASS: {default_password}")
 
         except Exception as e:
             messages.error(request, f"Registry Error: {str(e)}")
@@ -1722,6 +1671,64 @@ def add_worker(request, site_id):
         return redirect('site_dashboard', site_id=site_id)
 
     return redirect('site_dashboard', site_id=site_id)
+
+
+@login_required
+def rate_worker(request, worker_id):
+    if request.method == "POST":
+        worker = get_object_or_404(
+            SkilledWorker, id=worker_id, contractor=request.user)
+        new_rating = request.POST.get('rating')
+        if new_rating:
+            worker.rating = int(new_rating)
+            # Auto-promote to Elite if they have 5 stars
+            worker.is_elite = (int(new_rating) == 5)
+            worker.save()
+            messages.success(
+                request, f"Updated {worker.name}'s performance rating.")
+    return redirect('worker_profile', slug=worker.slug)
+
+
+@login_required
+def trash_worker(request, worker_id):
+    worker = get_object_or_404(
+        SkilledWorker, id=worker_id, contractor=request.user)
+    worker.is_trashed = True
+    worker.save()
+    messages.warning(request, f"⚠️ {worker.name} has been moved to the Trash.")
+    return redirect('all_workers')
+
+
+@login_required
+def restore_worker(request, worker_id):
+    # Use contractor=request.user here too!
+    worker = get_object_or_404(
+        SkilledWorker, id=worker_id, contractor=request.user)
+    worker.is_trashed = False
+    worker.save()
+    messages.success(request, f"✅ {worker.name} has been restored.")
+    return redirect('workforce_trash')
+
+
+@login_required
+def workforce_trash(request):
+    # Only show people who are trashed
+    trashed_workers = SkilledWorker.objects.filter(
+        company__owner=request.user, is_trashed=True)
+    return render(request, 'site_management/workforce_trash.html', {'workers': trashed_workers})
+
+
+@login_required
+def workforce_trash(request):
+    # Fetch everyone in the graveyard
+    trashed_workers = SkilledWorker.objects.filter(
+        contractor=request.user,
+        is_trashed=True
+    ).order_by('-id')
+
+    return render(request, 'site_management/workforce_trash.html', {
+        'workers': trashed_workers
+    })
 
 
 @login_required

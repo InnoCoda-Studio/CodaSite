@@ -190,6 +190,9 @@ class SkilledWorker(models.Model):
         max_length=255, db_index=True, null=True, blank=True)
 
     gate_pass = models.CharField(max_length=10, blank=True, null=True)
+    is_trashed = models.BooleanField(default=False)
+    rating = models.IntegerField(default=5)
+    is_elite = models.BooleanField(default=False)
 
     class Meta:
         # '-' means descending order (Newest/Latest ID first)

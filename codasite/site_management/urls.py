@@ -95,4 +95,12 @@ urlpatterns = [
          views.verify_worker_identity, name='verify_worker_identity'),
 
 
+    path('worker/<int:worker_id>/trash/',
+         views.trash_worker, name='trash_worker'),
+    path('worker/<int:worker_id>/restore/',
+         views.restore_worker, name='restore_worker'),
+    path('workforce/trash/', views.workforce_trash, name='workforce_trash'),
+
+    path('workforce/trash/', views.workforce_trash, name='workforce_trash'),
+
 ]

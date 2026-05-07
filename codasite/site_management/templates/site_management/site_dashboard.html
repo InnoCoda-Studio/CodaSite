@@ -277,7 +277,6 @@
         </div>
     </div>
 
-    {% comment %} <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4"> {% endcomment %}
         <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
             
             <div class="flex justify-between items-center mb-8">
@@ -413,9 +412,8 @@
             </form>
             </div>
         </div>
-    {% comment %} </div> {% endcomment %}
-    {% comment %} <div x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-         {% endcomment %}
+        
+   
     <div x-data="{ workerModal: false }" @open-worker-modal.window="workerModal = true" x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
         <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
             
@@ -705,6 +703,7 @@
         </form>
     </div>
 </div>
+
 <script>
     {% comment %} The utimat pictur security 👇🏻 {% endcomment %}
   
@@ -804,107 +803,6 @@ function workerEnrollmentEngine() {
         }
     }
 }
-{% comment %} function workerEnrollmentEngine() {
-    return {
-       workerType: 'company_hire',  // 🚀 THIS IS THE MAGIC KEY
-        lat: '', long: '', gettingLocation: false, loading: false,
-        stream: null, photoAttached: false, photoPreview: null, facingMode: 'user',
-
-
-      
-        startCamera() {
-            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facingMode }, audio: false })
-            .then(s => {
-                this.stream = s;
-                this.$refs.videoFeed.srcObject = s;
-                this.$refs.videoFeed.play();
-            }).catch(err => alert("Camera access is required."));
-        },
-
-        toggleCamera() {
-            this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
-            this.startCamera();
-        },
-
-        snapPhoto() {
-            const canvas = this.$refs.canvas;
-            const video = this.$refs.videoFeed;
-            const ctx = canvas.getContext('2d');
-            
-            const MAX_WIDTH = 640; // Slightly higher quality for the watermark
-            const scale = MAX_WIDTH / video.videoWidth;
-            canvas.width = MAX_WIDTH;
-            canvas.height = video.videoHeight * scale;
-
-            // 1. Draw the actual photo
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // 2. APPLY THE WATERMARK (This stays on the image forever)
-            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
-            
-            ctx.font = "bold 18px sans-serif";
-            ctx.fillStyle = "#2DD4BF"; // Innocoda Teal
-            ctx.fillText("🔒 BIOMETRIC VERIFIED", 20, canvas.height - 20);
-            
-            ctx.font = "12px sans-serif";
-            ctx.fillStyle = "#ffffff";
-            const timestamp = new Date().toLocaleString();
-            ctx.fillText(timestamp, canvas.width - 200, canvas.height - 20);
-
-            // 3. Close the stream
-            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
-            this.stream = null;
-
-            // 4. Convert to File for the Database
-            canvas.toBlob((blob) => {
-                const file = new File([blob], "enrolled_worker.jpg", { type: "image/jpeg" });
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.hiddenFileInput.files = dt.files; // This puts the watermarked image in the form
-                
-                this.photoAttached = true;
-                this.photoPreview = canvas.toDataURL('image/jpeg');
-            }, 'image/jpeg', 0.9); 
-        },
-
-        secureSubmit(event) {
-            // We use event.target to get the actual HTML Form element
-            const formElement = event.target;
-
-            if (!this.photoAttached) {
-                alert("Please capture a biometric photo first.");
-                return;
-            }
-
-            this.gettingLocation = true;
-            this.loading = true;
-            
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    // MANUAL INJECTION: This prevents the "Ghost Worker" error
-                    // We put the GPS data directly into the inputs right before the refresh
-                    formElement.querySelector('input[name="enrollment_lat"]').value = pos.coords.latitude;
-                    formElement.querySelector('input[name="enrollment_long"]').value = pos.coords.longitude;
-
-                    this.gettingLocation = false;
-                    
-                    // THE RELOAD TRIGGER:
-                    // form.submit() is a native browser function. 
-                    // It saves data to the database and forces the page to reload.
-                    formElement.submit(); 
-                },
-                (err) => {
-                    alert('GPS location is required to verify site presence.');
-                    this.gettingLocation = false;
-                    this.loading = false;
-                },
-                { enableHighAccuracy: true, timeout: 8000 }
-            );
-        }
-    }
-} {% endcomment %}
 
     
 {% comment %} The utimat pictur security ☝🏻 {% endcomment %}

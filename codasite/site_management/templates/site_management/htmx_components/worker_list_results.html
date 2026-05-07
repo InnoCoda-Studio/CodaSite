@@ -1,59 +1,53 @@
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-    {% for worker in workers %}
-        <div x-show="search === '' || '{{ worker.name|lower }}'.includes(search.toLowerCase()) || '{{ worker.category|lower }}'.includes(search.toLowerCase())"
-             class="glass p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group hover:border-innocoda-teal/40 transition-all duration-500">
-            
-            <div class="absolute -right-10 -top-10 w-40 h-40 bg-innocoda-teal/5 rounded-full blur-3xl group-hover:bg-innocoda-teal/10 transition-all"></div>
-            
-            <div class="flex items-center space-x-5 mb-8 relative z-10">
-                <div class="w-20 h-20 rounded-[1.5rem] bg-innocoda-navy border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
-                    {% if worker.profile_picture %}
-                        <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover">
-                    {% else %}
-                        <span class="text-3xl font-black text-innocoda-teal opacity-30 italic">{{ worker.name|slice:":1" }}</span>
-                    {% endif %}
-                </div>
+<div x-show="viewMode === 'active'" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-y-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        {% for worker in active_workers %}
+            <div x-show="search === '' || '{{ worker.name|lower }}'.includes(search.toLowerCase()) || '{{ worker.category|lower }}'.includes(search.toLowerCase())"
+                 class="glass p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group hover:border-innocoda-teal/40 transition-all duration-500">
                 
-                <div class="overflow-hidden">
-                    <h3 class="text-xl font-black text-white truncate uppercase tracking-tight">{{ worker.name }}</h3>
-                    <div class="flex items-center space-x-2 mt-1">
-                        <span class="w-1.5 h-1.5 rounded-full {% if worker.site %}bg-emerald-500{% else %}bg-orange-500{% endif %}"></span>
-                        <p class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">{{ worker.category }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-6 relative z-10">
-                <div class="grid grid-cols-2 gap-4 border-y border-white/5 py-5">
-                    <div>
-                        <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Current Site</p>
-                        <p class="text-white text-[10px] font-bold truncate">
-                            {% if worker.site %}{{ worker.site.name }}{% else %}STANDBY{% endif %}
-                        </p>
-                    </div>
-                    <div class="border-l border-white/5 pl-4">
-                        <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Daily Rate</p>
-                        <p class="text-white text-[10px] font-bold">₦{{ worker.daily_rate|floatformat:0 }}</p>
-                    </div>
-                </div>
-
-                <a href="{% if worker.slug %}{% url 'worker_profile' worker.slug %}{% else %}#{% endif %}" 
-                   class="flex items-center justify-center w-full py-5 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white hover:bg-innocoda-teal hover:text-innocoda-navy group-hover:border-innocoda-teal transition-all">
+                {% include 'site_management/partials/worker_card_content.html' %}
+                
+                <a href="{% url 'worker_profile' worker.slug %}" class="flex items-center justify-center w-full py-5 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white hover:bg-innocoda-teal hover:text-innocoda-navy transition-all mt-6">
                     Review Digital File
-                    <svg class="w-3 h-3 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </a>
-                <div class="mt-4 pt-4 border-t border-white/5">
-                {% include 'site_management/htmx_components/worker_button.html' %}
             </div>
-            </div>
-        </div>
-        <div x-show="search !== '' && $el.parentElement.querySelectorAll('.glass:not([style*=\'display: none\'])').length === 0" 
-            class="col-span-full py-20 text-center glass rounded-[4rem] border border-dashed border-white/10">
-            <p class="text-gray-500 font-black uppercase tracking-widest text-xs">No matching personnel found</p>
-        </div>
         {% empty %}
-        <div class="col-span-full py-32 text-center glass rounded-[4rem] border border-dashed border-white/10">
-            <p class="text-gray-600 italic uppercase font-black text-xs tracking-[0.4em]">Registry Empty</p>
-        </div>
+            <div class="col-span-full py-20 text-center glass rounded-[4rem] border border-dashed border-white/10">
+                <p class="text-gray-600 font-black uppercase text-xs tracking-widest">No active personnel</p>
+            </div>
         {% endfor %}
     </div>
+</div>
+
+<div x-show="viewMode === 'trash'" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-y-8" x-cloak>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        {% for worker in trashed_workers %}
+            <div class="glass p-8 rounded-[3rem] border border-red-500/10 relative overflow-hidden opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-700 group">
+                
+                <div class="flex items-center space-x-5 mb-8">
+                    <div class="w-16 h-16 rounded-2xl bg-innocoda-navy border border-white/5 flex items-center justify-center overflow-hidden shrink-0">
+                         {% if worker.profile_picture %}
+                            <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <span class="text-xl font-black text-white/20">{{ worker.name|slice:":1" }}</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-white uppercase">{{ worker.name }}</h3>
+                        <p class="text-[8px] text-red-500 font-black uppercase tracking-widest">Deactivated Record</p>
+                    </div>
+                </div>
+
+                <form method="POST" action="{% url 'restore_worker' worker.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-xl active:scale-95">
+                        Restore Personnel
+                    </button>
+                </form>
+            </div>
+        {% empty %}
+            <div class="col-span-full py-20 text-center glass rounded-[4rem] border border-dashed border-white/5">
+                <p class="text-gray-700 font-black uppercase text-xs tracking-[0.5em]">Graveyard is Empty</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
