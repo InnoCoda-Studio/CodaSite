@@ -30,6 +30,13 @@
     /* ✨ Hide Scrollbar for Access Bank Style Draggable Cards */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* ✨ Horizontal Swipe Animation */
+    @keyframes swipe-indicator {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(6px); }
+    }
+    .animate-swipe { animation: swipe-indicator 1.5s infinite ease-in-out; }
     
 </style>
 
@@ -94,40 +101,62 @@
 </header>
 
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch mt-96">
-            <div class="glass p-8 rounded-[3rem] border border-white/10 flex flex-col justify-between">
-                <div>
-                    <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mb-4">Personnel On-Site</p>
-                  
-                    <h3 id="onsite-counter" class="text-4xl font-black text-white tracking-tighter">
-                        {{ present_worker_ids|length }} 
-                        <span class="text-white/20 text-2xl">/ {{ workers|length }}</span>
-                    </h3>  
-                </div>
-                <p class="text-[9px] text-white/30 font-bold uppercase mt-6">Active Roll Call Today</p>
+        <div x-data="{ activeSlide: 0, hasSwiped: false }" class="w-full relative mt-32 md:mt-36">
+
+    <div class="flex md:grid overflow-x-auto md:overflow-visible hide-scrollbar snap-x snap-mandatory md:snap-none md:grid-cols-3 gap-4 md:gap-6 pb-6 md:pb-0 w-full px-4 md:px-0"
+         @scroll="activeSlide = Math.round($event.target.scrollLeft / $event.target.clientWidth); hasSwiped = true">
+
+        <div class="flex-none w-[85vw] md:w-auto snap-center glass p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/10 flex flex-col justify-between shrink-0 transition-all hover:border-innocoda-teal/30 shadow-2xl bg-gradient-to-br from-[#0a0f1a] to-white/5 relative overflow-hidden group">
+            
+            <div class="absolute -right-10 -top-10 w-32 h-32 bg-innocoda-teal/10 rounded-full blur-3xl group-hover:bg-innocoda-teal/20 transition-all"></div>
+            
+            <div>
+                <p class="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse"></span>
+                    Personnel On-Site
+                </p>
+                <h3 id="onsite-counter" class="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-lg">
+                    {{ present_worker_ids|length }} 
+                    <span class="text-white/20 text-2xl md:text-3xl">/ {{ workers|length }}</span>
+                </h3>  
             </div>
-
-
-            {% if site.id %}
-                <div id="finance-cards-container" 
-                    class="md:col-span-2"
-                    hx-get="{% url 'htmx_finance_summary' site.id %}" 
-                    hx-trigger="load, every 30s, financeUpdate from:body" 
-                    hx-swap="innerHTML">
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
-                        <div class="glass p-8 rounded-[3rem] border border-white/5 animate-pulse bg-white/5 h-full"></div>
-                    </div>
-                </div>
-            {% else %}
-                <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
-                    <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
-                    <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a site to view local financial metrics.</p>
-                </div>
-            {% endif %}
+            <p class="text-[9px] text-innocoda-teal font-black uppercase mt-6 tracking-widest bg-innocoda-teal/10 w-fit px-3 py-1.5 rounded-full border border-innocoda-teal/20">Active Roll Call Today</p>
         </div>
-        
+
+        {% if site.id %}
+            <div id="finance-cards-container" 
+                 class="contents md:col-span-2 md:grid md:grid-cols-2 md:gap-6"
+                 hx-get="{% url 'htmx_finance_summary' site.id %}" 
+                 hx-trigger="load, every 30s, financeUpdate from:body" 
+                 hx-swap="innerHTML">
+                 
+                 <div class="flex-none w-[85vw] md:w-auto snap-center glass p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 animate-pulse bg-white/5 shrink-0"></div>
+                 <div class="flex-none w-[85vw] md:w-auto snap-center glass p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 animate-pulse bg-white/5 shrink-0"></div>
+            </div>
+        {% else %}
+            <div class="md:col-span-2 glass p-8 rounded-[3rem] border border-white/10 flex flex-col items-center justify-center opacity-40">
+                <p class="text-[10px] text-innocoda-teal font-black uppercase tracking-[0.4em]">Global Operations</p>
+                <p class="text-[8px] text-gray-500 mt-2 italic text-center">Select a site to view local financial metrics.</p>
+            </div>
+        {% endif %}
+
+    </div>
+
+    <div class="flex md:hidden justify-between items-center px-4 mt-2">
+        <div class="flex items-center gap-2">
+            <div :class="activeSlide === 0 ? 'bg-innocoda-teal w-6' : 'bg-white/20 w-2'" class="h-2 rounded-full transition-all duration-300"></div>
+            <div :class="activeSlide === 1 ? 'bg-orange-400 w-6' : 'bg-white/20 w-2'" class="h-2 rounded-full transition-all duration-300"></div>
+            <div :class="activeSlide === 2 ? 'bg-emerald-400 w-6' : 'bg-white/20 w-2'" class="h-2 rounded-full transition-all duration-300"></div>
+        </div>
+
+        <div x-show="!hasSwiped" x-transition.opacity.duration.500ms class="flex items-center gap-2 text-innocoda-teal/80 pointer-events-none">
+            <span class="text-[8px] font-black uppercase tracking-widest">Swipe</span>
+            <svg class="w-4 h-4 animate-swipe" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+        </div>
+    </div>
+
+</div>
+         
 
       
         <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl">
