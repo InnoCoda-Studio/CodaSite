@@ -4,6 +4,174 @@
 {% block content %}
 
 <style>
+    /* Premium Select & Scrollbar */
+    select option { background-color: #0a0f1a; color: white; padding: 12px; }
+    .appearance-none {
+        -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 1rem center; background-size: 1.25rem;
+    }
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(20, 184, 166, 0.3); border-radius: 10px; }
+
+    /* ✨ NEW: Hide Scrollbar for Access Bank Style Draggable Cards */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+
+<div x-data="{ 
+        workerModal: false, stockModal: false, imgModal: false, imgUrl: '', payModal: false, isVideo: false, loading: false,
+        navHidden: false, lastScroll: 0,
+        handleScroll() {
+            let current = window.pageYOffset;
+            this.navHidden = current > this.lastScroll && current > 80;
+            this.lastScroll = current;
+        }
+    }" 
+    @scroll.window="handleScroll"
+    class="pb-32 relative">
+
+    <header :class="navHidden ? '-translate-y-full' : 'translate-y-0'" 
+            class="fixed top-0 left-0 right-0 z-[100] transition-transform duration-500 ease-in-out bg-[#0a0f1a]/80 backdrop-blur-2xl border-b border-white/10 px-6 py-4 shadow-2xl">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
+                <div class="flex items-center mt-1">
+                    <span class="relative flex h-2 w-2 mr-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-innocoda-teal opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-innocoda-teal shadow-[0_0_10px_#2DD4BF]"></span>
+                    </span>
+                    <p class="text-innocoda-teal text-[9px] font-black uppercase tracking-[0.4em]">Live Operations Control</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                {% if request.user == site.company.owner or user_role == 'PROJECT_MANAGER' %}
+                    <button @click="payModal = true" 
+                            class="bg-white/5 px-5 py-3 rounded-xl cursor-pointer text-[9px] font-black uppercase text-orange-400 border border-orange-400/20 hover:bg-orange-500 hover:text-white hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:-translate-y-0.5 transition-all duration-300">
+                        ₦ Set Pay Rates
+                    </button>
+
+                    {% if is_boss %}
+                    <button hx-get="{% url 'generate_site_qr' site.id %}" 
+                            hx-target="#modal-anchor" hx-swap="innerHTML"
+                            class="bg-gradient-to-r from-innocoda-teal to-emerald-400 text-[#0a0f1a] px-5 py-3 rounded-xl cursor-pointer text-[9px] font-black uppercase hover:shadow-[0_0_25px_rgba(45,212,191,0.5)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        Gate QR
+                    </button>
+                    {% endif %}
+                {% endif %}
+
+                <button @click="$dispatch('open-worker-modal')" 
+                        class="bg-white/5 px-5 py-3 rounded-xl cursor-pointer text-[9px] font-black uppercase text-white border border-white/10 hover:bg-white/10 hover:-translate-y-0.5 transition-all duration-300">
+                    + Personnel
+                </button>
+                <button hx-get="{% url 'site_warehouse' site.id %}" hx-target="#main-content" hx-push-url="true"
+                        class="bg-white/5 px-5 py-3 cursor-pointer rounded-xl text-[9px] font-black uppercase text-innocoda-teal border border-innocoda-teal/20 hover:bg-innocoda-teal hover:text-[#0a0f1a] hover:-translate-y-0.5 transition-all duration-300">
+                    📦 Warehouse
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-4 md:p-6 space-y-8 pt-36 md:pt-40">
+
+        <div class="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-6 w-full -mx-4 px-4 md:mx-0 md:px-0">
+            
+            <div class="flex-none w-[85vw] md:w-[320px] snap-center glass p-8 rounded-[2.5rem] border border-white/10 flex flex-col justify-between shrink-0 shadow-xl bg-gradient-to-br from-white/5 to-transparent">
+                <div>
+                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        Personnel On-Site
+                    </p>
+                    <h3 id="onsite-counter" class="text-5xl font-black text-white tracking-tighter drop-shadow-lg">
+                        {{ present_worker_ids|length }} 
+                        <span class="text-white/20 text-3xl">/ {{ workers|length }}</span>
+                    </h3>  
+                </div>
+                <p class="text-[9px] text-innocoda-teal font-black uppercase mt-6 tracking-widest bg-innocoda-teal/10 w-fit px-3 py-1 rounded-full border border-innocoda-teal/20">Active Today</p>
+            </div>
+
+            <div id="finance-cards-container" 
+                 class="flex gap-4 md:gap-6 contents"
+                 hx-get="{% url 'htmx_finance_summary' site.id %}" 
+                 hx-trigger="load, every 30s, financeUpdate from:body" 
+                 hx-swap="innerHTML">
+                 
+                 <div class="flex-none w-[85vw] md:w-[320px] snap-center glass p-8 rounded-[2.5rem] border border-white/5 animate-pulse bg-white/5 shrink-0"></div>
+                <div class="flex-none w-[85vw] md:w-[320px] snap-center glass p-8 rounded-[2.5rem] border border-white/5 animate-pulse bg-white/5 shrink-0"></div>
+            </div>
+        </div>
+
+        
+        <div class="glass p-6 md:p-8 rounded-[3rem] border border-white/10 shadow-2xl">
+            <h2 class="text-white font-black uppercase text-lg tracking-tighter mb-6 flex items-center gap-3">
+                <span class="w-2 h-6 bg-innocoda-teal rounded-full"></span> 
+                Daily Audit Roll Call
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto max-h-112.5 pr-2 custom-scrollbar">
+                
+                {% for worker in workers %}
+                <div class="flex flex-col p-5 bg-[#0a0f1a]/50 backdrop-blur-md rounded-[2rem] border border-white/5 hover:border-innocoda-teal/40 hover:bg-white/5 transition-all group">
+                    <div class="flex justify-between items-center gap-4">
+                        
+                        <div class="flex items-center gap-4 flex-1">
+                            <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/10 shrink-0 bg-white/5 flex items-center justify-center shadow-lg">
+                                {% if worker.profile_picture %}
+                                    <img src="{{ worker.profile_picture.url }}" alt="{{ worker.name }}" class="w-full h-full object-cover">
+                                {% else %}
+                                    <span class="text-white font-black text-lg">{{ worker.name|make_list|first }}</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="flex flex-col">
+                                <p class="text-white font-black uppercase text-sm tracking-tight truncate max-w-[120px]">{{ worker.name }}</p>
+                                <p class="text-[9px] text-innocoda-teal font-bold uppercase tracking-widest">{{ worker.category }}</p>
+                            </div>
+                        </div>
+
+                        <div id="worker-action-{{ worker.id }}">
+                            {% if worker.id in present_worker_ids %}
+                                <button hx-post="{% url 'htmx_clock_out' site.id %}"
+                                        hx-vals='{"worker_id": "{{ worker.id }}"}'
+                                        hx-target="#worker-action-{{ worker.id }}"  hx-swap="outerHTML"
+                                        class="px-4 py-2.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] transition-all">
+                                    Clock Out
+                                </button>
+                            {% else %}
+                                <form id="clock-in-form-{{ worker.id }}" 
+                                      hx-post="{% url 'htmx_clock_in' site.id %}" 
+                                      hx-encoding="multipart/form-data" 
+                                      hx-target="#worker-action-{{ worker.id }}" 
+                                      hx-swap="outerHTML"
+                                      class="inline-block">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="worker_id" value="{{ worker.id }}">
+                                    <input type="hidden" name="lat" id="lat-{{ worker.id }}" value="">
+                                    <input type="hidden" name="lng" id="lng-{{ worker.id }}" value="">
+                                    
+                                    <button type="button" 
+                                            @click="$dispatch('open-clock-in', { id: '{{ worker.id }}', name: '{{ worker.name }}' })"
+                                            class="bg-white/10 text-white border border-white/20 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg transition-all hover:bg-innocoda-teal hover:text-[#0a0f1a] hover:border-innocoda-teal hover:shadow-[0_0_15px_rgba(45,212,191,0.4)] active:scale-95 flex items-center justify-center gap-2">
+                                        <span>📸 Clock In</span>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+    </div>
+
+
+{% comment %} {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
+{% block title %}{{ site.name }} | Pro Operations{% endblock %}
+
+{% block content %}
+
+<style>
     /* Premium Select Styles */
     select option { background-color: #0a0f1a; color: white; padding: 12px; }
     .appearance-none {
@@ -974,4 +1142,4 @@ document.body.addEventListener('htmx:configRequest', (event) => {
         <span class="text-[8px] uppercase font-black mt-1 tracking-tighter">Live Ops</span>
     </div>
 </div>
-{% endblock %}
+{% endblock %} {% endcomment %}

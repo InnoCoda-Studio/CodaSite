@@ -235,9 +235,9 @@ def site_dashboard(request, site_id):
 
     # 🎯 THE FIX: Fetch workers that belong to this company but are not on THIS site
     # This allows you to "redeploy" workers from other sites or your general pool
-    global_workers_pool = SkilledWorker.objects.filter(
-        company=company
-    ).exclude(site=site)
+    # global_workers_pool = SkilledWorker.objects.filter(
+    #     company=company
+    # ).exclude(site=site)
 
     if not is_owner and not invitation:
         messages.error(
@@ -253,13 +253,18 @@ def site_dashboard(request, site_id):
     # is_boss = user_role in ['CONTRACTOR', 'PROJECT_MANAGER']
 
     # 4. Scoped Pools
-    workers = SkilledWorker.objects.filter(site=site)
+
+    workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
     stocks = MaterialStock.objects.filter(site=site)
 
     # 🌍 GLOBAL POOL (Safe for everyone)
     # We use 'company' (the one owning the site) instead of 'request.user.company'
+    # 🌍 GLOBAL POOL (Safe for everyone)
+    # 🛑 FIX: Exclude trashed workers from the "Redeploy" dropdown
     global_workers_pool = SkilledWorker.objects.filter(
-        contractor=company.owner).exclude(site=site)
+        contractor=company.owner,
+        is_trashed=False
+    ).exclude(site=site)
 
     # 5. HANDLE PERSONNEL ACTIONS (POST)
 
@@ -1166,6 +1171,9 @@ def site_warehouse(request, site_id):
             try:
                 qty = Decimal(qty_input or 0)
                 worker = get_object_or_404(SkilledWorker, id=worker_id)
+
+                worker = get_object_or_404(
+                    SkilledWorker, id=worker_id, is_trashed=False)
                 stock = get_object_or_404(
                     MaterialStock, id=stock_id, site=site)
 
@@ -1196,8 +1204,9 @@ def site_warehouse(request, site_id):
 
     # 📋 Normal Page Load
     stocks = MaterialStock.objects.filter(site=site)
-    workers = SkilledWorker.objects.filter(site=site)
 
+    # 🛑 FIX: Only load active workers into the context for the dropdown
+    workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
     context = {
         'site': site,
         'stocks': stocks,
@@ -1446,9 +1455,11 @@ def all_workers(request):
                 phone_num) >= 4 else str(random.randint(1000, 9999))
 
             # 🛡️ Collision Check
-            if SkilledWorker.objects.filter(phone=phone_num).exists():
+
+            # 🛡️ Collision Check (Scoped to the current contractor)
+            if SkilledWorker.objects.filter(contractor=request.user, phone=phone_num).exists():
                 messages.error(
-                    request, f"Identity Error: Phone {phone_num} already exists.")
+                    request, f"Identity Error: You already have a worker with phone {phone_num}.")
                 return redirect('all_workers')
 
             # ☁️ Cloudinary Logic
@@ -1495,30 +1506,40 @@ def all_workers(request):
             print(f"DATABASE REJECTION: {e}")
             messages.error(request, f"Registry Error: {e}")
 
-    # --- 2. DISPLAY LOGIC (The Trash Filter) ---
-    # Only show workers who belong to the user AND are NOT trashed
-    workers = SkilledWorker.objects.filter(
+   # --- 2. DISPLAY LOGIC (Optimized) ---
+
+    # 1. Fetch active workers ONLY ONCE
+    active_workers = SkilledWorker.objects.filter(
         contractor=request.user,
         is_trashed=False
     ).order_by('-id')
 
-    # Sites for the "Initial Assignment" dropdown
+    # 2. Fetch trashed workers ONLY ONCE
+    trashed_workers = SkilledWorker.objects.filter(
+        contractor=request.user,
+        is_trashed=True
+    ).order_by('-id')
+
+    # 3. Fetch sites ONLY ONCE
     user_sites = SiteLocation.objects.filter(company__owner=request.user)
 
-    # Global Pool (Active Sub-contractors only for the Crew dropdown)
-    global_workers_pool = SkilledWorker.objects.filter(
-        contractor=request.user,
-        is_trashed=False
-    )
-
+    # 4. Pass the fetched variables to the template
     return render(request, 'site_management/all_workers.html', {
-        'workers': workers,
-        'user_sites': user_sites,
-        'global_workers_pool': global_workers_pool,
-
+        'workers': active_workers,            # Powers the main table
+        'global_workers_pool': active_workers,  # Powers the "Crew Lead" dropdown
+        # (In case your template uses this name)
         'active_workers': active_workers,
-        'trashed_workers': trashed_workers,
+        'trashed_workers': trashed_workers,    # Powers the graveyard/trash view
+        'user_sites': user_sites,              # Powers the site assignment dropdown
     })
+    # return render(request, 'site_management/all_workers.html', {
+    #     'workers': workers,
+    #     'user_sites': user_sites,
+    #     'global_workers_pool': global_workers_pool,
+
+    #     'active_workers': active_workers,
+    #     'trashed_workers': trashed_workers,
+    # })
 
 
 @login_required
@@ -1710,12 +1731,12 @@ def restore_worker(request, worker_id):
     return redirect('workforce_trash')
 
 
-@login_required
-def workforce_trash(request):
-    # Only show people who are trashed
-    trashed_workers = SkilledWorker.objects.filter(
-        company__owner=request.user, is_trashed=True)
-    return render(request, 'site_management/workforce_trash.html', {'workers': trashed_workers})
+# @login_required
+# def workforce_trash(request):
+#     # Only show people who are trashed
+#     trashed_workers = SkilledWorker.objects.filter(
+#         company__owner=request.user, is_trashed=True)
+#     return render(request, 'site_management/workforce_trash.html', {'workers': trashed_workers})
 
 
 @login_required
