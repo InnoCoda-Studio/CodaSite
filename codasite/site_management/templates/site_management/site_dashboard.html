@@ -45,7 +45,7 @@
 
 <div x-data="{ workerModal: false, stockModal: false, imgModal: false, imgUrl: '', payModal: false, isVideo: false, loading: false }" class="pb-32">
     <div class="container mx-auto p-4 md:p-6 space-y-8">
-<header id="smart-navbar" class="fixed top-0 left-0 right-0 z-[100] transition-transform duration-500 ease-in-out translate-y-0 bg-[#0a0f1a]/40 backdrop-blur-3xl border-b border-white/5 shadow-[0_10px_40px_-10px_rgba(45,212,191,0.1)]"> 
+<header id="smart-navbar" class="fixed top-0 left-0 right-0 z-[100] transition-transform duration-500 ease-in-out translate-y-0 bg-[#0a0f1a]/10 border-white/10 backdrop-blur-3xl border-b  shadow-[0_10px_40px_-10px_rgba(45,212,191,0.1)]"> 
     <div class="container mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         
         <div class="w-full flex justify-between items-center md:w-auto">
@@ -101,7 +101,7 @@
 </header>
 
 
-        <div x-data="{ activeSlide: 0, hasSwiped: false }" class="w-full relative mt-32 md:mt-36">
+<div x-data="{ activeSlide: 0, hasSwiped: false }" class="w-full relative mt-32 md:mt-36">
 
     <div class="flex md:grid overflow-x-auto md:overflow-visible hide-scrollbar snap-x snap-mandatory md:snap-none md:grid-cols-3 gap-4 md:gap-6 pb-6 md:pb-0 w-full px-4 md:px-0"
          @scroll="activeSlide = Math.round($event.target.scrollLeft / $event.target.clientWidth); hasSwiped = true">
