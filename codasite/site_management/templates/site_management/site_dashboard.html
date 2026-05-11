@@ -159,59 +159,87 @@
          
 
       
-        <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl">
-            <h2 class="text-white font-black uppercase text-lg tracking-tighter mb-6">Daily Audit Roll Call</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-112.5">
-                {% for worker in workers %}
-                <div class="flex flex-col p-6 bg-white/5 rounded-[2.5rem] border border-white/5 hover:border-innocoda-teal/30 transition-all group">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-white font-black uppercase text-base tracking-tight">{{ worker.name }}</p>
-                            <p class="text-[8px] text-gray-500 font-bold uppercase tracking-widest">{{ worker.category }}</p>
-                        </div>
+        <div x-data="{ searchQuery: '' }" class="glass p-6 md:p-8 rounded-[3rem] border border-white/10 shadow-2xl flex flex-col h-[600px]">
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0">
+        <h2 class="text-white font-black uppercase text-lg tracking-tighter flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse"></span>
+            Daily Audit Roll Call
+        </h2>
+        
+        <div class="relative w-full md:w-64">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input x-model="searchQuery" 
+                   type="text" 
+                   placeholder="Search personnel..." 
+                   class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-[10px] uppercase font-bold tracking-widest placeholder-white/30 focus:outline-none focus:border-innocoda-teal/50 focus:bg-white/10 transition-all">
+        </div>
+    </div>
 
-                        <div id="worker-action-{{ worker.id }}">
-                            {% if worker.id in present_worker_ids %}
-                                <button 
-                                    hx-post="{% url 'htmx_clock_out' site.id %}"
-                                    hx-vals='{"worker_id": "{{ worker.id }}"}'
-                                    hx-target="#worker-action-{{ worker.id }}"  hx-swap="outerHTML"
-                                    class="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
-                                    Clock Out
-                                </button>
-                            {% else %}
+    <div class="flex-1 overflow-y-auto hide-scrollbar pr-2 space-y-4">
+    
+    {% for worker in workers %}
+    <div x-show="searchQuery === '' || '{{ worker.name|escapejs }}'.toLowerCase().includes(searchQuery.toLowerCase())"
+         x-transition.opacity
+         class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 md:p-5 bg-white/5 rounded-3xl border border-white/5 hover:border-white/20 hover:bg-white/10 transition-all group">
+        
+        <div class="flex items-center gap-4">
+            <div class="relative w-14 h-14 rounded-full overflow-hidden shrink-0 {% if worker.id in present_worker_ids %}border-2 border-emerald-400{% else %}border-2 border-white/10{% endif %}">
+                {% if worker.profile_picture %}
+                    <img src="{{ worker.profile_picture.url }}" alt="{{ worker.name }}" class="w-full h-full object-cover">
+                {% else %}
+                    <img src="https://ui-avatars.com/api/?name={{ worker.name }}&background=2DD4BF&color=0a0f1a&bold=true&size=128" alt="{{ worker.name }}" class="w-full h-full object-cover">
+                {% endif %}
+            </div>
 
-                            <form id="clock-in-form-{{ worker.id }}" 
-                                hx-post="{% url 'htmx_clock_in' site.id %}" 
-                                hx-encoding="multipart/form-data" 
-                                hx-target="#worker-action-{{ worker.id }}" 
-                                hx-swap="outerHTML"
-                                class="inline-block">
-                                
-                                {% csrf_token %}
-                                <input type="hidden" name="worker_id" value="{{ worker.id }}">
-                                <input type="hidden" name="lat" id="lat-{{ worker.id }}" value="">
-                                <input type="hidden" name="lng" id="lng-{{ worker.id }}" value="">
-                                
-                                <!-- The Magic HTML5 Camera Button -->
-                                {% comment %} <label class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-105 active:scale-95">
-                                    <span>📷 Snap & Clock-In</span>
-                                    <!-- capture="environment" forces the back camera to open instantly -->
-                                    <input type="file" name="daily_photo" accept="image/*" capture="environment" class="hidden" onchange="executeSecureClockIn(this, '{{ worker.id }}')">
-                                </label> {% endcomment %}
-                                <button type="button" 
-                                    @click="$dispatch('open-clock-in', { id: '{{ worker.id }}', name: '{{ worker.name }}' })"
-                                    class="bg-innocoda-teal text-innocoda-navy px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2">
-                                    <span>📸 Verify & Clock-In</span>
-                                </button>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
+            <div>
+                <p class="text-white font-black uppercase text-base tracking-tight">{{ worker.name }}</p>
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{{ worker.category }}</p>
             </div>
         </div>
+
+        <div id="worker-action-{{ worker.id }}" class="shrink-0 w-full md:w-auto">
+            {% if worker.id in present_worker_ids %}
+                <button hx-post="{% url 'htmx_clock_out' site.id %}"
+                        hx-vals='{"worker_id": "{{ worker.id }}"}'
+                        hx-target="#worker-action-{{ worker.id }}"  
+                        hx-swap="outerHTML"
+                        class="w-full md:w-auto px-6 py-3.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95 whitespace-nowrap">
+                    Clock Out
+                </button>
+            {% else %}
+                <form id="clock-in-form-{{ worker.id }}" 
+                      hx-post="{% url 'htmx_clock_in' site.id %}" 
+                      hx-encoding="multipart/form-data" 
+                      hx-target="#worker-action-{{ worker.id }}" 
+                      hx-swap="outerHTML"
+                      class="m-0 w-full md:w-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="worker_id" value="{{ worker.id }}">
+                    <input type="hidden" name="lat" id="lat-{{ worker.id }}" value="">
+                    <input type="hidden" name="lng" id="lng-{{ worker.id }}" value="">
+                    
+                    <button type="button" 
+                            @click="$dispatch('open-clock-in', { id: '{{ worker.id }}', name: '{{ worker.name }}' })"
+                            class="w-full md:w-auto bg-innocoda-teal text-[#0a0f1a] px-6 py-3.5 rounded-xl font-black text-[10px] uppercase shadow-[0_0_15px_rgba(45,212,191,0.2)] transition-all hover:bg-emerald-400 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap">
+                        <span>📸 Verify & Clock-In</span>
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+    </div>
+    {% endfor %}
+
+    <div x-show="document.querySelectorAll('[x-show]:not([style*=\'display: none\'])').length === 0" style="display: none;" class="text-center py-8">
+        <p class="text-white/30 text-[10px] font-black uppercase tracking-widest">No personnel found</p>
+    </div>
+
+</div>
+</div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 glass rounded-[3rem] border border-white/10 shadow-2xl">
             <div class="space-y-4">
                 <h4 class="text-white/40 font-black uppercase text-[9px] ml-2 tracking-[0.3em]">Daily Operations</h4>
@@ -235,170 +263,9 @@
         </div>
     </div>
 
-    <div x-show="stockModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-        <div @click.away="stockModal = false" class="glass w-full max-w-md p-8 rounded-[2.5rem] border border-white/20 shadow-2xl">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-black text-white uppercase tracking-tighter">Receive Materials</h2>
-                <button @click="stockModal = false" class="text-gray-500 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
-            </div>
-            <form method="POST" enctype="multipart/form-data" class="space-y-4">
-                {% csrf_token %}
-                <input type="hidden" name="add_stock" value="true">
-                <input type="text" name="item_name" required placeholder="Material Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="number" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white">
-                    <input type="text" name="unit" required placeholder="Unit (Bags)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white">
-                </div>
-                <div class="grid grid-cols-2 gap-3 pt-2">
-                    <label class="flex flex-col items-center justify-center p-4 bg-white/5 border border-dashed border-white/20 rounded-2xl cursor-pointer hover:border-innocoda-teal transition-all">
-                        <span class="text-[8px] text-gray-500 uppercase font-bold text-center">Snap Photo</span>
-                        <input type="file" name="evidence_image" accept="image/*" capture="environment" class="hidden">
-                    </label>
-                    <label class="flex flex-col items-center justify-center p-4 bg-white/5 border border-dashed border-white/20 rounded-2xl cursor-pointer hover:border-innocoda-teal transition-all">
-                        <span class="text-[8px] text-gray-500 uppercase font-bold text-center">Record Video</span>
-                        <input type="file" name="evidence_video" accept="video/*" capture="environment" class="hidden">
-                    </label>
-                </div>
-                <button type="submit" class="w-full bg-innocoda-teal text-innocoda-navy py-4 rounded-2xl font-black uppercase text-xs tracking-widest mt-4">Update Inventory</button>
-            </form>
-        </div>
-    </div>
 
-        <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Personnel Management</h2>
-                <button @click="workerModal = false" class="text-gray-500 hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
 
-            <div class="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
-                <button @click="enrollmentMode = 'select'" :class="enrollmentMode === 'select' ? 'bg-innocoda-teal text-innocoda-navy shadow-lg' : 'text-gray-400'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">Select Existing</button>
-                <button @click="enrollmentMode = 'new'" :class="enrollmentMode === 'new' ? 'bg-orange-400 text-white shadow-lg' : 'text-gray-400'" class="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">Register New</button>
-            </div>
-
-            <div x-show="enrollmentMode === 'select'">
-                <form method="POST" class="space-y-6" @submit="loading = true">
-                    {% csrf_token %}
-                    <input type="hidden" name="deploy_worker" value="true">
-                    
-                    <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
-                        <option value="" disabled selected>Search Available Workers...</option>
-                        {% for reg_worker in global_workers_pool %}
-                            <option value="{{ reg_worker.id }}">
-                                {{ reg_worker.name }} — {{ reg_worker.category }} 
-                                {% if reg_worker.site %}(at {{ reg_worker.site.name }}){% else %}(General Pool){% endif %}
-                            </option>
-                        {% empty %}
-                            <option value="" disabled>No unassigned workers found in company pool</option>
-                        {% endfor %}
-                    </select>
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="update_category" placeholder="Role (e.g. Lead Mason)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
-                        <input type="number" min="0" step="100" name="update_rate" placeholder="Daily Rate (₦)" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white w-full outline-none">
-                    </div>
-                    <button type="submit" :disabled="loading" :class="{'opacity-50 cursor-not-allowed': loading}" class="w-full bg-innocoda-teal text-innocoda-navy py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest transition-all">
-                        <span x-text="loading ? 'Deploying...' : 'Deploy to Site'"></span>
-                    </button>
-                </form>
-            </div>
-            
-
-            <div x-show="enrollmentMode === 'new'" x-transition>
-                <form 
-                    action="{% url 'add_worker' site.id %}" 
-                    method="POST" 
-                   
-                    enctype="multipart/form-data" 
-                    {% comment %} x-data="globalEnrollmentEngine()"  {% endcomment %}
-                    x-data="workerEnrollmentEngine()"
-                   
-                    @submit.prevent="secureSubmit($event)"
-                    class="space-y-6"
-                >
-                {% csrf_token %}
-                <input type="hidden" name="register_worker" value="true">
-                <input type="hidden" name="enrollment_lat" value="">
-                <input type="hidden" name="enrollment_long" value="">
-                
-                <input type="file" name="profile_picture" x-ref="hiddenFileInput" class="hidden" required>
-
-                <div class="space-y-2">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Live Biometric Capture</p>
-                    
-                    <div class="p-4 bg-white/5 border border-dashed rounded-[2rem] border-white/20">
-                        
-                        <div x-show="!stream && !photoAttached" class="flex flex-col items-center justify-center py-6 cursor-pointer hover:text-innocoda-teal transition-all" @click="startCamera()">
-                            <svg class="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            <span class="text-[10px] text-gray-400 uppercase font-black">Tap to Open Camera</span>
-                        </div>
-
-                        <div x-show="stream && !photoAttached" class="relative rounded-xl overflow-hidden bg-black mb-4 group">
-                            <video x-ref="videoFeed" class="w-full h-64 object-cover grayscale-[0.2] contrast-110" autoplay playsinline muted></video>
-                            <button type="button" @click="switchCamera()" class="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-innocoda-teal p-3 rounded-full border border-white/10 hover:bg-innocoda-teal hover:text-black transition-all shadow-2xl z-20">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                            </button>
-
-                           
-                            <!-- 🛠️ FIX 2: Changed instantCapture() to snapPhoto() so it actually takes the picture -->
-                            <button type="button" @click="snapPhoto()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg uppercase text-xs tracking-widest animate-pulse z-10 active:scale-95 transition-transform">
-                                Capture
-                            </button>
-                        </div>
-
-                        <div x-show="photoAttached" class="rounded-xl overflow-hidden border-2 border-innocoda-teal relative">
-                            <img :src="photoPreview" class="w-full h-auto">
-                            <button type="button" @click="photoAttached = false; photoPreview = ''; startCamera()" class="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full text-xs hover:bg-red-500">
-                                Retake
-                            </button>
-                        </div>
-
-                        <canvas x-ref="canvas" class="hidden"></canvas>
-                    </div>
-                </div>
-
-                <div class="space-y-3">
-                    <p class="text-[8px] text-innocoda-teal font-black uppercase tracking-widest ml-2">Identity & Skill</p>
-                    
-                    <input type="text" name="name" required maxlength="100" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only. No numbers or symbols." placeholder="Full Legal Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="category" required maxlength="50" pattern="[a-zA-Z\s\-]+" title="Letters and spaces only." placeholder="Role (e.g. Mason)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        
-                        <input type="text" name="id_number" maxlength="20" oninput="this.value = this.value.replace(/[^a-zA-Z0-9-]/g, '')" title="Letters and numbers only. No symbols." placeholder="Staff ID (Auto)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                    </div>
-                    
-                    <input type="tel" name="phone" required maxlength="15" oninput="this.value = this.value.replace(/[^0-9+]/g, '')" title="Valid phone numbers only." placeholder="Primary Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"> 
-                    
-                    <input type="text" name="emergency_contact" required maxlength="100" placeholder="Emergency Contact (Name & Phone)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                </div>
-
-                <div class="space-y-3">
-                    <p class="text-[8px] text-orange-400 font-black uppercase tracking-widest ml-2">Bank Settlement</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="bank_name" required maxlength="50" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Bank (e.g. OPay)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        
-                        <input type="number" min="0" max="1000000" step="100" name="daily_rate" required placeholder="Daily Rate (₦)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" name="account_number" required maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="Exactly 10 digits required for Nigerian bank accounts." placeholder="Account Number" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                        
-                        <input type="text" name="account_name" required maxlength="100" pattern="[a-zA-Z\s]+" title="Letters only. No numbers." placeholder="Account Holder Name" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
-                    </div>
-                </div>
-
-                <button type="submit" 
-                    :disabled="loading || !photoAttached" 
-                    :class="(loading || !photoAttached) ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-orange-400 text-white hover:bg-orange-500'" 
-                    class="w-full py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest flex items-center justify-center shadow-xl transition-all">
-                    <span x-text="(!photoAttached) ? 'Awaiting Biometrics...' : (loading ? 'Authenticating...' : 'Authenticate & Enroll')"></span>
-                </button>
-            </form>
-            </div>
-        </div>
-        
+       
    
     <div x-data="{ workerModal: false }" @open-worker-modal.window="workerModal = true" x-show="workerModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
         <div @click.away="workerModal = false" x-data="{ enrollmentMode: 'select', loading: false, photoAttached: false }" class="glass w-full max-w-xl p-8 rounded-[2.5rem] border border-white/20 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
