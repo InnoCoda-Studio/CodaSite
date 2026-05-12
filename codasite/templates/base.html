@@ -381,58 +381,32 @@
 </nav>
 {% endif %}
         
-    <footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20 ">
-
+<footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20">
     <div class="max-w-md mx-auto py-1">
-
         <p class="text-innocoda-teal font-black text-[10px] uppercase tracking-[0.2em] mb-2">
-
-            InnoCoda Tech Solutions
-
+            InnoCoda Studio
         </p>
-
         <p class="text-gray-400 text-[10px] leading-relaxed mb-4">
-
-            &copy; 2026 Paul Innocent Ojochenemi. All Rights Reserved.<br>
-
+            &copy; 2026 InnoCoda Tech Solutions. All Rights Reserved.<br>
             CodaSite Proprietary Construction Management Engine v1.0
-
         </p>
-
-       
 
         <div class="inline-block px-4 py-2 border border-red-500/30 rounded-lg bg-red-500/5">
-
             <p class="text-red-400 text-[9px] uppercase font-bold tracking-wider">
-
                 Legal Notice: IP Protected
-
             </p>
-
             <p class="text-gray-500 text-[8px] mt-1 italic">
-
                 Unauthorized reproduction, distribution, or reverse-engineering of this interface and backend logic is strictly prohibited under Nigerian Intellectual Property Law.
-
             </p>
-
         </div>
-
-
 
         <div class="mt-6 flex justify-center space-x-4">
-
             <a href="{% url 'terms' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Privacy Policy</a>
-
             <span class="text-gray-800">|</span>
-
             <a href="{% url 'licensing' %}" class="text-gray-600 text-[9px] hover:text-white transition-colors uppercase font-bold">Terms of Licensing</a>
-
         </div>
-
     </div>
-
 </footer>
-
     {% block extra_script %}
         <script>
             // 🛡️ If the server crashes (500 error), force a clean refresh so CSS doesn't break👇🏻
