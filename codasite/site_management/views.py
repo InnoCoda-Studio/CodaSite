@@ -476,28 +476,6 @@ def htmx_finance_summary(request, site_id):
     # 🚀 Return ONLY the cards to the dashboard container
     return render(request, 'site_management/htmx_components/finance_card.html', context)
 
-# clok in
-
-
-# Distance calculating
-
-
-# def calculate_distance(lat1, lon1, lat2, lon2):
-#     # 🌍 Earth radius in kilometers
-#     R = 6371.0
-
-#     # Convert degrees to radians
-#     lat1, lon1, lat2, lon2 = map(
-#         radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
-
-#     # Haversine formula
-#     dlon = lon2 - lon1
-#     dlat = lat2 - lat1
-#     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-#     c = 2 * asin(sqrt(a))
-
-#     # Return distance in Meters
-#     return c * R * 1000
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculates if the worker is within 200m of the site gate."""
@@ -1123,6 +1101,9 @@ def site_warehouse(request, site_id):
                 unit = request.POST.get('unit', '').strip()
                 img_file = request.FILES.get('evidence_image')
                 vid_file = request.FILES.get('evidence_video')
+                item_category = request.POST.get('item_category')
+
+                is_tool = (item_category == 'asset')
 
                 # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
                 processed_vid = None
@@ -1142,7 +1123,12 @@ def site_warehouse(request, site_id):
                 # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
                 with transaction.atomic():
                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-                        site=site, item_name=item_name, defaults={'unit': unit}
+                        site=site,
+                        item_name=item_name,
+                        defaults={
+                            'unit': unit,
+                            'is_returnable': is_tool  # 🚀 THIS SAVES THE STORE KEEPER'S CHOICE
+                        }
                     )
                     stock.current_balance += qty
                     if img_file:
@@ -1192,13 +1178,13 @@ def site_warehouse(request, site_id):
             except Exception as e:
                 messages.error(request, "A system error occurred.")
 
-        if request.htmx:
-            stocks = MaterialStock.objects.filter(site=site)
-            return render(request, 'site_management/partials/stock_list_partial.html', {
-                'stocks': stocks,
-                'site': site,
-                'messages': messages.get_messages(request)
-            })
+        # if request.htmx:
+        #     stocks = MaterialStock.objects.filter(site=site)
+        #     return render(request, 'site_management/partials/stock_list_partial.html', {
+        #         'stocks': stocks,
+        #         'site': site,
+        #         'messages': messages.get_messages(request)
+        #     })
 
         return redirect('site_warehouse', site_id=site.id)
 
@@ -1207,13 +1193,36 @@ def site_warehouse(request, site_id):
 
     # 🛑 FIX: Only load active workers into the context for the dropdown
     workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
+
+    active_tools = MaterialDeduction.objects.filter(
+        stock_item__site=site,
+        is_returned=False,
+        stock_item__is_returnable=True
+    ).select_related('worker', 'stock_item').order_by('-timestamp')
+
+    # 2. 📖 DEFINE TOOL HISTORY (Already Returned)
+    # We grab the 50 most recent returns so the page loads fast
+    tool_history = MaterialDeduction.objects.filter(
+        stock_item__site=site,
+        is_returned=True,
+        stock_item__is_returnable=True
+    ).select_related('worker', 'stock_item').order_by('-returned_at')[:50]
+
+    # 3. 🛑 CREATE BLOCKED LIST
+    blocked_worker_ids = list(active_tools.values_list('worker_id', flat=True))
+
+    # 4. 📦 ADD EVERYTHING TO CONTEXT
     context = {
         'site': site,
         'stocks': stocks,
         'workers': workers,
         'is_boss': is_boss,
         'user_role': user_role,
+        'active_tools': active_tools,
+        'tool_history': tool_history,  # 🚀 ADD THIS TO CONTEXT
+        'blocked_worker_ids': blocked_worker_ids,
     }
+
     return render(request, 'site_management/site_warehouse.html', context)
 
 

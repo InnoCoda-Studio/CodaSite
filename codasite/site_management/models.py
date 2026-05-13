@@ -378,6 +378,10 @@ class MaterialStock(models.Model):
     unit = models.CharField(max_length=50, db_index=True)
     evidence_image = CloudinaryField(
         'image', folder='material_evidence', null=True, blank=True)
+
+    is_returnable = models.BooleanField(
+        default=False, help_text="True if Asset/Tool. False if Consumable.")
+
     evidence_video = CloudinaryField(
         'video', resource_type='video', folder='material_evidence_vids', null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -450,6 +454,11 @@ class MaterialDeduction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     authorized_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True)
+
+    # 🚀 ADD THESE TWO NEW LINES:
+# 🚀 ADD THESE TWO NEW LINES:
+    is_returned = models.BooleanField(default=False)
+    returned_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
         from django.core.exceptions import ValidationError
