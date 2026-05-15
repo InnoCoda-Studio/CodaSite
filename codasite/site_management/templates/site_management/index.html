@@ -6,23 +6,6 @@
 
 
 
-        {% comment %} <div x-data="{ 
-                open: false, 
-                editOpen: false, 
-                editData: { id: '', name: '', address: '', lat: '', lng: '' } 
-            }"
-        
-            x-data="{ open: false }"
-        
-            class="container mx-auto p-6 space-y-6 min-h-screen"> {% endcomment %}
-
-            {% comment %} <div x-data="{ 
-                open: false, 
-                editOpen: false, 
-                editData: { id: '', name: '', address: '', lat: '', lng: '' } 
-            }"
-            class="container mx-auto p-6 space-y-6 min-h-screen"> {% endcomment %}
-
           <div x-data="{ 
         open: false, 
         editOpen: false, 
@@ -96,17 +79,7 @@
         <div class="mt-8 pt-6 border-t border-white/5">
             <div class="flex flex-wrap gap-2">
                 {% for stock in site.stocks.all|dictsort:"item_name" %}
-                    
-                    {# Logic check: Check if this item is in the low stock list #}
-                    {# Note: You may need to adjust this check based on how your 'low_stock_items' is passed #}
-                    {% if stock.current_balance <= 10 %} {# Replace with your actual 'low' logic, e.g., stock.reorder_level #}
-                        <!-- LOW STOCK (RED) BADGE -->
-                        {% comment %} <div class="bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/30 flex items-center gap-2">
-                            <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span> <!-- The Red "Logo" -->
-                            <span class="text-red-500 font-black text-[11px]">{{ stock.current_balance|floatformat:0 }}</span>
-                            <span class="text-[8px] text-red-400 font-black uppercase tracking-tighter">{{ stock.item_name }}</span>
-                        </div> {% endcomment %}
-
+                    {% if stock.current_balance <= 10 %}
                         <!-- LOW STOCK (ORANGE/AMBER) BADGE -->
                     <div class="bg-orange-500/10 px-3 py-2 rounded-xl border border-orange-500/30 flex items-center gap-2">
                         <span class="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
