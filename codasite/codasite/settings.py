@@ -225,12 +225,24 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
     'SECURE': True,  # 🟢 This forces HTTPS for all images
 }
-# 🚀 SECURITY GUARDS (Only active in Production)
+
+
+# 🚀 THE PRODUCTION SECURITY COMMAND CENTER
 if not DEBUG:
+    # Tell Django it's sitting behind Render's proxy
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # Force HTTPS
     SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000  # 🚨 This forces HTTPS permanently. Keep it here!
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Secure Cookies
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 else:
+    # Keep localhost easy to use
     SECURE_SSL_REDIRECT = False
 
 # This explicit config fixes the "Must supply cloud_name" error
@@ -269,7 +281,5 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 # Force Cloudinary to always use HTTPS
-CLOUDINARY_STORAGE = {
-    'SECURE': True,
-}
+
 SECURE_SSL_REDIRECT = True
