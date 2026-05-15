@@ -26,35 +26,63 @@
 <div x-data="{ stockModal: false, imgModal: false, historyModal: false, imgUrl: '', isVideo: false, loading: false }" 
      class="container mx-auto p-4 md:p-6 pb-32">
 
-    <!-- HEADER -->
-    <div class="layer-header flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
-        <div>
-            <h1 class="text-5xl font-black text-white uppercase tracking-tighter italic">Logistics Center</h1>
-            <div class="flex items-center mt-2">
-                <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse mr-3"></span>
-                <p class="text-gray-400 text-[10px] font-black uppercase tracking-[0.4em]">Inventory & Supply Chain Control</p>
+  <div class="layer-header flex flex-col lg:flex-row justify-between items-start lg:items-center mb-12 gap-8">
+    
+    <div class="flex flex-col gap-3">
+        <nav class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em]">
+            <a hx-get="{% url 'site_dashboard' site.id %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="text-gray-500 hover:text-innocoda-teal transition-colors cursor-pointer">
+                Dashboard
+            </a>
+            <span class="text-white/20">/</span>
+            <span class="text-innocoda-teal">{{ site.name }}</span>
+            <span class="text-white/20">/</span>
+            <span class="text-white/40">Logistics</span>
+        </nav>
+
+        <div class="flex items-center gap-6">
+            <button hx-get="{% url 'site_dashboard' site.id %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="glass w-12 h-12 flex items-center justify-center rounded-2xl border border-white/10 hover:border-innocoda-teal/50 hover:bg-white/5 transition-all group cursor-pointer">
+                <svg class="w-5 h-5 text-gray-400 group-hover:text-innocoda-teal transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+
+            <div>
+                <h1 class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter italic leading-none">Logistics Center</h1>
+                <div class="flex items-center mt-2">
+                    <span class="w-2 h-2 rounded-full bg-innocoda-teal animate-pulse mr-3"></span>
+                    <p class="text-gray-400 text-[10px] font-black uppercase tracking-[0.4em]">Inventory & Supply Chain Control</p>
+                </div>
             </div>
         </div>
-
-        <div class="flex gap-4">
-            <button hx-get="{% url 'restock_history' site.id %}" 
-                    hx-target="#main-content" 
-                    hx-push-url="true"
-                    class="glass px-6 cursor-pointer py-4 rounded-2xl text-[9px] font-black uppercase text-white/60 border border-white/5 hover:border-white/20 transition-all">
-                Audit History
-            </button>
-            <button hx-get="{% url 'material_usage_report' site.id %}" 
-                    hx-target="#main-content" 
-                    hx-push-url="true"
-                    class="glass px-6 py-4 cursor-pointer rounded-2xl text-[10px] font-black uppercase text-innocoda-teal border border-innocoda-teal/30 hover:bg-innocoda-teal hover:text-innocoda-navy transition-all">
-                Usage Audit
-            </button>
-
-            <button @click="stockModal = true" class="glass px-8 cursor-pointer py-4 rounded-[2rem] bg-innocoda-teal text-white font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-2xl">
-                + Receive Delivery
-            </button>
-        </div>
     </div>
+
+    <div class="flex flex-wrap gap-3 w-full lg:w-auto">
+        <button hx-get="{% url 'restock_history' site.id %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="glass flex-1 lg:flex-none px-6 py-4 rounded-2xl text-[9px] font-black uppercase text-white/60 border border-white/5 hover:border-white/20 transition-all cursor-pointer">
+            Audit History
+        </button>
+        
+        <button hx-get="{% url 'material_usage_report' site.id %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                class="glass flex-1 lg:flex-none px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-innocoda-teal border border-innocoda-teal/30 hover:bg-innocoda-teal hover:text-innocoda-navy transition-all cursor-pointer">
+            Usage Audit
+        </button>
+
+        <button @click="stockModal = true" 
+                class="bg-innocoda-teal text-innocoda-navy px-8 py-4 rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-[0_0_20px_rgba(45,212,191,0.3)] cursor-pointer w-full lg:w-auto text-center">
+            + Receive Delivery
+        </button>
+    </div>
+</div>
 
     <div class="layer-base logistics-grid grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -92,7 +120,7 @@
                     </select>
 
                     <div class="grid grid-cols-2 gap-4">
-                        <input type="number" step="0.01" name="quantity" placeholder="Quantity" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" required>
+                        <input type="number" step="0.01" min="1" name="quantity" placeholder="Quantity" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" required>
                         <input type="text" name="purpose" placeholder="Purpose" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" required>
                     </div>
 
@@ -110,69 +138,7 @@
                 </form>
 
                 <!-- 🚨 THE RED FLAG: ACTIVE TOOL CHECKOUTS -->
-                <div class="mt-8 border-t border-white/10 pt-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-red-400 font-black uppercase text-sm tracking-widest flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                            Tools In Field (Pending Return)
-                        </h3>
-                        <button type="button" @click="historyModal = true" class="text-[9px] text-gray-400 hover:text-white uppercase font-black tracking-widest bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 transition-all cursor-pointer">
-                            View Audit Log
-                        </button>
-                    </div>
-                    
-                    <div class="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                        {% for tool in active_tools %}
-                        <div class="p-3 bg-red-500/10 border border-red-500/30 rounded-2xl flex justify-between items-center group">
-                            
-                            <!-- 🚀 AVATAR + NAME BUNDLE -->
-                            <div class="flex items-center gap-3">
-                                <!-- Clickable Profile Picture -->
-                                <div {% if tool.worker.profile_picture %}@click="imgModal = true; imgUrl = '{{ tool.worker.profile_picture.url }}'; isVideo = false"{% endif %}
-                                     class="w-10 h-10 rounded-full border border-red-500/50 overflow-hidden shrink-0 bg-black/50 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.3)] {% if tool.worker.profile_picture %}cursor-pointer hover:scale-110 transition-transform hover:border-red-400{% endif %}">
-                                    {% if tool.worker.profile_picture %}
-                                        <img src="{{ tool.worker.profile_picture.url }}" alt="{{ tool.worker.name }}" class="w-full h-full object-cover">
-                                    {% else %}
-                                        <span class="text-red-400 font-black text-sm uppercase">{{ tool.worker.name|make_list|first }}</span>
-                                    {% endif %}
-                                </div>
-                                
-                                <!-- Worker Details & Emergency Info -->
-                                <div>
-                                    <p class="text-white font-bold text-xs">{{ tool.worker.name }}</p>
-                                    
-                                    <!-- Contact Info -->
-                                    <div class="flex flex-col gap-0.5 mt-0.5 mb-1">
-                                        <p class="text-[8px] text-gray-400 font-black uppercase tracking-widest flex items-center gap-1">
-                                            📞 {{ tool.worker.phone_number|default:"No Phone on File" }}
-                                        </p>
-                                        <p class="text-[8px] text-red-400 font-black uppercase tracking-widest flex items-center gap-1">
-                                            🚨 {{ tool.worker.emergency_contact|default:"No Emergency Contact" }}
-                                        </p>
-                                    </div>
-
-                                    <p class="text-[9px] text-red-300 font-black uppercase tracking-wider border-t border-red-500/20 pt-1">
-                                        Holding: {{ tool.quantity_taken|floatformat:0 }} {{ tool.stock_item.item_name }}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <!-- THE RECEIVE BUTTON -->
-                            <form hx-post="{% url 'site_warehouse' site.id %}" hx-target="body">
-                                {% csrf_token %}
-                                <input type="hidden" name="return_tool" value="true">
-                                <input type="hidden" name="deduction_id" value="{{ tool.id }}">
-                                <button type="submit" 
-                                        class="bg-red-500 text-white text-[9px] px-3 py-2 rounded-lg font-black uppercase tracking-widest transition-all hover:scale-105 cursor-pointer shadow-lg">
-                                    Receive
-                                </button>
-                            </form>
-                        </div>
-                        {% empty %}
-                        <p class="text-[10px] text-white/50 uppercase font-black tracking-widest text-center py-4">All tools secured.</p>
-                        {% endfor %}
-                    </div>
-                </div>
+            
                 <!-- END ACTIVE TOOL CHECKOUTS -->
 
             </div>
@@ -301,7 +267,7 @@
                 <input type="text" name="item_name" required placeholder="Item Name (e.g. DANGOTE CEMENT or DIGGING SHOVEL)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-innocoda-teal mb-3">
 
                 <div class="grid grid-cols-2 gap-8">
-                    <input type="number" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
+                    <input type="number" min="1" name="quantity" required placeholder="Qty" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                     <input type="text" name="unit" required placeholder="Unit (Bags/Trips)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none">
                 </div>
 
@@ -405,6 +371,175 @@
     </div>
 
 </div>
+
+<div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl mt-8 mb-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h3 class="text-red-400 font-black uppercase text-lg tracking-tighter flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+            Tools In Field (Pending Return)
+        </h3>
+        <button type="button" 
+            @click="historyModal = true" 
+            class="text-[10px] text-white hover:text-innocoda-navy uppercase font-black tracking-widest bg-white/5 hover:bg-innocoda-teal px-5 py-3 rounded-xl border border-white/10 transition-all cursor-pointer">
+            View Audit Ledger
+        </button>
+    </div>
+    
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+    {% for tool in active_tools %}
+    <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex flex-col xl:flex-row xl:items-center justify-between w-full gap-4 group">
+        
+        <div class="flex items-start gap-3 w-full">
+            <div {% if tool.worker.profile_picture %}@click="imgModal = true; imgUrl = '{{ tool.worker.profile_picture.url }}'; isVideo = false"{% endif %}
+                 class="w-14 h-14 mt-1 rounded-full border border-red-500/50 overflow-hidden shrink-0 bg-black/50 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.3)] {% if tool.worker.profile_picture %}cursor-pointer hover:scale-110 transition-transform hover:border-red-400{% endif %}">
+                {% if tool.worker.profile_picture %}
+                    <img src="{{ tool.worker.profile_picture.url }}" alt="{{ tool.worker.name }}" class="w-full h-full object-cover">
+                {% else %}
+                    <span class="text-red-400 font-black text-sm uppercase">{{ tool.worker.name|make_list|first }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="flex-1">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <p class="text-white font-bold text-base">{{ tool.worker.name }}</p>
+                        <span class="bg-white/10 text-innocoda-teal px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest">
+                            {{ tool.worker.category }}
+                        </span>
+                    </div>
+                    
+                    <div class="text-right flex gap-3">
+                        <div class="border-r border-white/5 pr-3">
+                            <p class="text-[7px] text-gray-500 font-black uppercase tracking-widest">Checked Out</p>
+                            <p class="text-[9px] text-white/80 font-black">{{ tool.timestamp|date:"h:i A" }}</p>
+                        </div>
+                        {% if tool.returned_at %}
+                        <div>
+                            <p class="text-[7px] text-emerald-500 font-black uppercase tracking-widest">Last Activity</p>
+                            <p class="text-[9px] text-emerald-400 font-black animate-pulse">{{ tool.returned_at|date:"h:i A" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-0.5 mb-2">
+                    <p class="text-[8px] text-gray-400 font-black uppercase tracking-widest flex items-center gap-1">
+                        📞 {{ tool.worker.phone|default:"No Phone" }}
+                    </p>
+                </div>
+                
+                <p class="text-[10px] text-gray-300 font-black uppercase tracking-widest mb-2 border-t border-red-500/20 pt-2 inline-block w-full">
+                    Item: <span class="text-white">{{ tool.stock_item.item_name }}</span>
+                </p>
+                
+                <div class="flex gap-4 bg-black/30 px-4 py-2 rounded-xl border border-white/5 inline-flex shadow-inner">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[7px] text-gray-500 uppercase font-black tracking-widest">Taken</span>
+                        <span class="text-xs font-black text-white">{{ tool.quantity_taken|floatformat:0 }}</span>
+                    </div>
+                    <div class="w-[1px] bg-white/10"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[7px] text-emerald-500/70 uppercase font-black tracking-widest">Returned</span>
+                        <span class="text-xs font-black text-emerald-400">{{ tool.quantity_returned|floatformat:0 }}</span>
+                    </div>
+                    <div class="w-[1px] bg-white/10"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[7px] text-red-400/70 uppercase font-black tracking-widest">Owes</span>
+                        <span class="text-xs font-black text-red-400">{{ tool.amount_owed|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <form hx-post="{% url 'site_warehouse' site.id %}" hx-target="body" class="flex items-center gap-2 xl:self-end mt-2 xl:mt-0">
+            {% csrf_token %}
+            <input type="hidden" name="return_tool" value="true">
+            <input type="hidden" name="deduction_id" value="{{ tool.id }}">
+            
+            <div class="flex items-center bg-black/40 border border-red-500/30 rounded-lg px-3 py-2 shadow-inner">
+                <span class="text-[9px] text-red-300 font-black uppercase tracking-widest mr-2">Qty:</span>
+                <input type="number" 
+                       name="return_qty" 
+                       value="{{ tool.amount_owed|floatformat:0 }}" 
+                       min="1" 
+                       max="{{ tool.amount_owed|floatformat:0 }}" 
+                       class="w-12 bg-transparent text-white font-black text-sm outline-none text-center appearance-none" 
+                       required>
+            </div>
+
+            <button type="submit" 
+                    class="bg-red-500 text-white text-[11px] px-6 py-3 rounded-lg font-black uppercase tracking-widest transition-all hover:bg-red-600 hover:scale-105 shadow-[0_0_15px_rgba(239,68,68,0.4)] cursor-pointer">
+                Receive
+            </button>
+        </form>
+    </div>
+    
+    {% empty %}
+    <div class="xl:col-span-2 py-10 flex flex-col items-center justify-center">
+        <span class="text-4xl mb-4 opacity-50">🛠️</span>
+        <p class="text-xs text-white/50 uppercase font-black tracking-widest text-center">All company tools are currently secured in the warehouse.</p>
+    </div>
+    {% endfor %}
+</div>
+
+</div>
+
+<div class="overflow-y-auto custom-scrollbar pr-2 flex-grow space-y-3">
+    {% for log in tool_history %}
+    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center hover:bg-white/10 transition-all">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full border border-emerald-500/30 overflow-hidden shrink-0 bg-black/50 flex items-center justify-center">
+                {% if log.worker.profile_picture %}
+                    <img src="{{ log.worker.profile_picture.url }}" class="w-full h-full object-cover">
+                {% else %}
+                    <span class="text-emerald-400 font-black text-lg uppercase">{{ log.worker.name|slice:":1" }}</span>
+                {% endif %}
+            </div>
+
+            <div>
+                <p class="text-white font-bold text-sm tracking-tight">
+                    {{ log.worker.name }} 
+                    <span class="text-[8px] text-gray-500 ml-2 uppercase">{{ log.worker.category }}</span>
+                </p>
+                <p class="text-[10px] text-innocoda-teal font-black uppercase mt-1">Item: {{ log.stock_item.item_name }}</p>
+                
+                <div class="flex gap-3 mt-2">
+                    <p class="text-[8px] text-gray-400 font-black uppercase">Took: <span class="text-white">{{ log.quantity_taken|floatformat:0 }}</span></p>
+                    <p class="text-[8px] text-emerald-400 font-black uppercase">Returned: <span class="text-white">{{ log.quantity_returned|floatformat:0 }}</span></p>
+                    
+                    {% if log.amount_owed > 0 %}
+                        <p class="text-[8px] text-red-500 font-black uppercase animate-pulse">Missing: {{ log.amount_owed|floatformat:0 }}</p>
+                    {% else %}
+                        <p class="text-[8px] text-emerald-500 font-black uppercase">Status: Cleared ✅</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="text-right shrink-0">
+            <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest block">
+                {% if log.returned_at %}Last Return{% else %}Checked Out{% endif %}
+            </p>
+            <p class="text-[9px] text-white font-black uppercase">
+                {% if log.returned_at %}
+                    {{ log.returned_at|date:"d M, h:i A" }}
+                {% elif log.timestamp %}
+                    {{ log.timestamp|date:"d M, h:i A" }}
+                {% else %}
+                    <span class="text-gray-600">No Date Record</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% empty %}
+        <p class="text-xs text-white/50 uppercase font-black tracking-widest text-center py-20">No audit records found.</p>
+    {% endfor %}
+</div>
+
+
+
+
+
 
 <script>
     function captureEngine({ watermarkText = "🔒 CodaSite SECURE", requireVideo = true } = {}) {

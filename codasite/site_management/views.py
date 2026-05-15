@@ -1,3 +1,6 @@
+from django.db import transaction, models  # <--- Add 'models' here
+from django.db.models import F              # <--- Or just add this
+import re
 import math
 from django.contrib.auth.models import User
 from django.utils.text import slugify
@@ -19,6 +22,10 @@ from .models import SiteLocation, StaffAttendance, MaterialDeduction
 import random
 from django.conf import settings
 # Ensure these are at the top
+
+from django.db import transaction
+from django.utils import timezone
+from django.http import HttpResponse
 #
 import qrcode
 from io import BytesIO
@@ -68,30 +75,6 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-# def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200):
-#     """
-#     Calculates the distance between two sets of GPS coordinates
-#     and checks if they are within a specific meter threshold.
-#     """
-#     # Earth's radius in meters
-#     R = 6371000
-
-#     # Convert degrees to radians
-#     phi1 = math.radians(site_lat)
-#     phi2 = math.radians(user_lat)
-#     delta_phi = math.radians(user_lat - site_lat)
-#     delta_lambda = math.radians(user_lng - site_lng)
-
-#     # Haversine formula logic
-#     a = math.sin(delta_phi / 2)**2 + \
-#         math.cos(phi1) * math.cos(phi2) * \
-#         math.sin(delta_lambda / 2)**2
-#     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-#     distance = R * c
-
-#     # Return True if the worker is within the buffer (default 200m)
-#     return distance <= tolerance_meters
 def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200):
     """
     Calculates the distance between two sets of GPS coordinates 
@@ -491,217 +474,6 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         return 999999  # Fail safe for missing GPS
 
 
-# def htmx_clock_in(request, site_id):
-
-#     if request.method == "POST":
-#         site = get_object_or_404(SiteLocation, id=site_id)
-#         worker_id = request.POST.get('worker_id')
-#         worker = get_object_or_404(SkilledWorker, id=worker_id)
-
-#         # 🛰️ 1. GET & VALIDATE COORDINATES
-#         try:
-#             u_lat = float(request.POST.get('lat', 0))
-#             u_lng = float(request.POST.get('lng', 0))
-#         except (TypeError, ValueError):
-#             u_lat, u_lng = 0, 0
-
-#         # 🛡️ 2. THE SECURITY LOCK
-#         if not site.latitude or not site.longitude:
-#             return HttpResponse("🚨 Site GPS not set by Admin.", status=200)
-
-#         if u_lat == 0 or u_lng == 0:
-#             return HttpResponse("🚨 GPS Signal missing. Turn on Location.", status=200)
-
-#         distance = calculate_distance(
-#             site.latitude, site.longitude, u_lat, u_lng)
-
-#         # 🛑 STOP THEM IF THEY ARE TOO FAR
-#         if distance > site.radius_meters:
-#             return HttpResponse(
-#                 f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
-#                 f'OUT OF RANGE: {int(distance)}m from {site.name}</div>',
-#                 status=200
-#             )
-
-#         # 3. ✅ CLOCK IN LOGIC (Only runs if distance is okay)
-#         # ... your existing StaffAttendance.objects.update_or_create code ...
-#     # if request.method == "POST":
-#     #     site = get_object_or_404(SiteLocation, id=site_id)
-#     #     worker_id = request.POST.get('worker_id')
-#     #     worker = get_object_or_404(SkilledWorker, id=worker_id)
-#     #     user_lat = request.POST.get('lat')
-#     #     user_lng = request.POST.get('lng')
-
-#     #     # 1. 🛡️ SECURITY GATE: Check if they already finished a shift today
-#     #     already_finished = StaffAttendance.objects.filter(
-#     #         worker=worker,
-#     #         site=site,
-#     #         time_in__date=timezone.now().date(),
-#     #         time_out__isnull=False
-#     #     ).exists()
-
-#         # if already_finished:
-#         #     return HttpResponse(
-#         #         f'<div class="p-3 bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase rounded-xl border border-orange-500/20 animate-shake">'
-#         #         f'🚨 SECURITY: Shift already completed. Access denied until tomorrow!</div>',
-#         #         status=200
-#         #     )
-
-#         # 2. 🛰️ GPS RADIUS CHECK
-#         # if site.latitude and site.longitude and user_lat and user_lng:
-#         #     distance = calculate_distance(
-#         #         site.latitude, site.longitude, user_lat, user_lng)
-#         #     if distance > site.radius_meters:
-#         #         return HttpResponse(
-#         #             f'<div class="p-2 bg-red-500/20 text-red-400 text-[10px] font-black uppercase rounded-xl">🚨 Distance Error: {int(distance)}m away</div>',
-#         #             status=200
-#         #         )
-
-#         # 3. ✅ CLOCK IN (Update or Create)
-#         StaffAttendance.objects.update_or_create(
-#             worker=worker,
-#             site=site,
-#             time_in__date=timezone.now().date(),
-#             defaults={
-#                 'user': request.user,
-#                 'time_in': timezone.now(),
-#                 'daily_rate_at_time': worker.daily_rate
-#             }
-#         )
-
-#         # 🔄 Recalculate for OOB updates
-#         attendance_today = StaffAttendance.objects.filter(
-#             site=site, time_in__date=timezone.now().date()
-#         ).select_related('worker')
-
-#         present_worker_ids = list(attendance_today.filter(
-#             time_out__isnull=True).values_list('worker_id', flat=True))
-
-#         invitation = Invitation.objects.filter(
-#             email=request.user.email, site=site).last()
-#         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
-#         # 🚀 Response with Button + OOB Counter + OOB List
-#         response = render(request, 'site_management/htmx_components/worker_button.html', {
-#             'worker': worker,
-#             'site': site,
-#             'present_worker_ids': present_worker_ids,
-#             'attendance_today': attendance_today,
-#             'user_role': user_role,
-#         })
-
-#         # Attach OOB Counter
-#         onsite_count = len(present_worker_ids)
-#         total_workers = SkilledWorker.objects.filter(site=site).count()
-#         onsite_counter_html = f'''
-#             <h3 id="onsite-counter" hx-swap-oob="true" class="text-4xl font-black text-white tracking-tighter">
-#                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
-#             </h3>
-#         '''
-#         from django.utils.safestring import mark_safe
-#         response.content = response.content + \
-#             mark_safe(onsite_counter_html).encode()
-#         response['HX-Trigger'] = 'financeUpdate'
-
-#         return response
-
-
-# def htmx_clock_in(request, site_id):
-#     if request.method == "POST":
-#         site = get_object_or_404(SiteLocation, id=site_id)
-#         worker_id = request.POST.get('worker_id')
-#         worker = get_object_or_404(SkilledWorker, id=worker_id)
-
-#         # 🛰️ 1. Coordinate Validation
-#         try:
-#             u_lat = float(request.POST.get('lat', 0))
-#             u_lng = float(request.POST.get('lng', 0))
-#         except (TypeError, ValueError):
-#             u_lat, u_lng = 0, 0
-
-#         # 🛡️ 2. Security Checks
-#         # Check if Admin set the location
-#         if not site.latitude or not site.longitude:
-#             return HttpResponse(
-#                 '<div class="p-2 bg-orange-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 Site GPS not set by Admin</div>',
-#                 status=200
-#             )
-
-#         # Check if worker's phone provided GPS
-#         if u_lat == 0 or u_lng == 0:
-#             return HttpResponse(
-#                 '<div class="p-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg">🚨 GPS Signal missing</div>',
-#                 status=200
-#             )
-
-#         # Distance Calculation
-#         distance = calculate_distance(
-#             site.latitude, site.longitude, u_lat, u_lng)
-#         if distance > site.radius_meters:
-#             return HttpResponse(
-#                 f'<div class="p-2 bg-red-600 text-white text-[10px] font-bold uppercase rounded-lg">'
-#                 f'OUT OF RANGE: {int(distance)}m away</div>',
-#                 status=200
-#             )
-
-#         # Check for completed shift
-#         today = timezone.now().date()
-#         already_finished = StaffAttendance.objects.filter(
-#             worker=worker, site=site, time_in__date=today, time_out__isnull=False
-#         ).exists()
-
-#         if already_finished:
-#             return HttpResponse(
-#                 '<div class="p-2 bg-orange-500 text-white text-[10px] font-black uppercase rounded-lg">🚨 Shift already completed today</div>',
-#                 status=200
-#             )
-
-#         # ✅ 3. Clock In (Update or Create)
-#         attendance, created = StaffAttendance.objects.update_or_create(
-#             worker=worker,
-#             site=site,
-#             time_in__date=today,
-#             defaults={
-#                 'user': request.user,
-#                 'time_in': timezone.now(),
-#                 'daily_rate_at_time': worker.daily_rate
-#             }
-#         )
-
-#         # 🔄 4. Prep OOB Updates & Response
-#         attendance_today = StaffAttendance.objects.filter(
-#             site=site, time_in__date=today
-#         ).select_related('worker')
-
-#         present_worker_ids = list(attendance_today.filter(
-#             time_out__isnull=True).values_list('worker_id', flat=True))
-
-#         # Determine Role for template rendering
-#         invitation = Invitation.objects.filter(
-#             email=request.user.email, site=site).last()
-#         user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
-#         # Main Response (The Button)
-#         response = render(request, 'site_management/htmx_components/worker_button.html', {
-#             'worker': worker,
-#             'site': site,
-#             'present_worker_ids': present_worker_ids,
-#             'user_role': user_role,
-#         })
-
-#         # OOB Counter Update
-#         onsite_count = len(present_worker_ids)
-#         total_workers = SkilledWorker.objects.filter(site=site).count()
-#         onsite_counter_html = f'''
-#             <h3 id="onsite-counter" hx-swap-oob="true" class="text-4xl font-black text-white tracking-tighter">
-#                 {onsite_count} <span class="text-white/20 text-2xl">/ {total_workers}</span>
-#             </h3>
-#         '''
-
-#         # Combine content and trigger finance refresh
-#         response.content += mark_safe(onsite_counter_html).encode()
-#         response['HX-Trigger'] = 'financeUpdate'
-
 #         return response
 def htmx_clock_in(request, site_id):
     if request.method == "POST":
@@ -1097,7 +869,18 @@ def site_warehouse(request, site_id):
         if 'add_stock' in request.POST:
             try:
                 qty = Decimal(request.POST.get('quantity') or '0.00')
-                item_name = request.POST.get('item_name', '').strip().upper()
+
+                if qty <= 0:
+                    messages.error(
+                        request, "Quantity must be greater than zero.")
+                    return redirect('site_warehouse', site_id=site.id)
+                raw_name = request.POST.get('item_name', '')
+
+                item_name = re.sub(
+                    r'\s+',
+                    ' ',
+                    raw_name.strip().upper()
+                )
                 unit = request.POST.get('unit', '').strip()
                 img_file = request.FILES.get('evidence_image')
                 vid_file = request.FILES.get('evidence_video')
@@ -1121,24 +904,36 @@ def site_warehouse(request, site_id):
                     processed_vid = upload_result['public_id']
 
                 # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
+
                 with transaction.atomic():
-                    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                    stock, created = MaterialStock.objects.select_for_update().get_or_create(
                         site=site,
                         item_name=item_name,
                         defaults={
                             'unit': unit,
-                            'is_returnable': is_tool  # 🚀 THIS SAVES THE STORE KEEPER'S CHOICE
+                            'is_returnable': is_tool
                         }
                     )
+
+                    # 🚀 THE FIX: Force the database to update the category and unit!
+                    # If it was previously saved wrong, this forces the correction.
+                    stock.is_returnable = is_tool
+                    stock.unit = unit
+
+                    # Do the math
                     stock.current_balance += qty
+
                     if img_file:
                         stock.evidence_image = img_file
                     if processed_vid:
                         stock.evidence_video = processed_vid
+
                     stock.save()
 
                     MaterialRestockLog.objects.create(
-                        stock_item=stock, site=site, quantity_added=qty,
+                        stock_item=stock,
+                        site=site,
+                        quantity_added=qty,
                         evidence_image=img_file,
                         evidence_video=processed_vid if processed_vid else None
                     )
@@ -1156,13 +951,18 @@ def site_warehouse(request, site_id):
 
             try:
                 qty = Decimal(qty_input or 0)
-                worker = get_object_or_404(SkilledWorker, id=worker_id)
+                if qty <= 0:
+                    messages.error(request, "Invalid quantity.")
+                    return redirect('site_warehouse', site_id=site.id)
 
                 worker = get_object_or_404(
                     SkilledWorker, id=worker_id, is_trashed=False)
                 stock = get_object_or_404(
                     MaterialStock, id=stock_id, site=site)
 
+                # 🛑 THE FIX: We ONLY create the record here.
+                # We do NOT subtract stock.current_balance manually.
+                # The model's save() method will handle the math atomically.
                 MaterialDeduction.objects.create(
                     stock_item=stock,
                     worker=worker,
@@ -1170,21 +970,124 @@ def site_warehouse(request, site_id):
                     purpose=request.POST.get('purpose', 'General Site Use'),
                     authorized_by=request.user,
                 )
+
                 messages.success(
                     request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
-            except ValidationError as e:
-                error_msg = e.message_dict.get('__all__', [str(e)])[0]
-                messages.error(request, error_msg)
-            except Exception as e:
-                messages.error(request, "A system error occurred.")
 
-        # if request.htmx:
-        #     stocks = MaterialStock.objects.filter(site=site)
-        #     return render(request, 'site_management/partials/stock_list_partial.html', {
-        #         'stocks': stocks,
-        #         'site': site,
-        #         'messages': messages.get_messages(request)
-        #     })
+            except ValidationError as e:
+                # This catches the error if they actually try to take more than available
+                messages.error(request, e.messages[0])
+            except MaterialStock.DoesNotExist:
+                messages.error(request, "Material not found.")
+            except Exception as e:
+                messages.error(request, f"A system error occurred: {e}")
+        # --- C. RECEIVE RETURNED TOOL ---
+
+        # elif 'return_tool' in request.POST:
+        #     deduction_id = request.POST.get('deduction_id')
+        #     return_qty = Decimal(request.POST.get('return_qty') or 0)
+
+        #     try:
+        #         with transaction.atomic():
+        #             # 1. Fetch the active checkout record
+        #             deduction = MaterialDeduction.objects.select_for_update().get(
+        #                 id=deduction_id,
+        #                 is_returned=False,
+        #                 stock_item__site=site
+        #             )
+
+        #             owed_qty = deduction.amount_owed
+
+        #             # 2. Strict Mathematical Validation
+        #             if return_qty <= 0 or return_qty > owed_qty:
+        #                 messages.error(
+        #                     request, f"Error: You can only return between 1 and {owed_qty} items.")
+        #             else:
+        #                 # 3. Add to the returned tally
+        #                 deduction.quantity_returned += return_qty
+
+        #                 # 4. Check if the debt is fully cleared
+        #                 if deduction.quantity_returned >= deduction.quantity_taken:
+        #                     deduction.is_returned = True
+        #                     deduction.returned_at = timezone.now()
+        #                     status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
+        #                 else:
+        #                     status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
+
+        #                 # Save the deduction record (Bypassing custom save checks since it's an update)
+        #                 deduction.save(
+        #                     update_fields=['quantity_returned', 'is_returned', 'returned_at'])
+
+        #                 # 5. Return the tools to the main warehouse balance
+        #                 stock = deduction.stock_item
+        #                 stock.current_balance = models.F(
+        #                     'current_balance') + return_qty
+        #                 stock.save(update_fields=['current_balance'])
+
+        #                 messages.success(request, status_msg)
+
+        #     except MaterialDeduction.DoesNotExist:
+        #         messages.error(
+        #             request, "Error: Tool record not found or already fully returned.")
+        #     except Exception as e:
+        #         messages.error(request, f"System error receiving tool: {e}")
+
+        # --- C. RECEIVE RETURNED TOOL (PRO ARCHITECTURE) ---
+        elif 'return_tool' in request.POST:
+            deduction_id = request.POST.get('deduction_id')
+            return_qty = Decimal(request.POST.get('return_qty') or 0)
+
+            try:
+                with transaction.atomic():
+                    # 1. Fetch the active record (Lock it so no other view can touch it)
+                    deduction = MaterialDeduction.objects.select_for_update().get(
+                        id=deduction_id,
+                        is_returned=False,
+                        stock_item__site=site
+                    )
+
+                    owed_qty = deduction.amount_owed
+
+                    # 2. Validation
+                    if return_qty <= 0 or return_qty > owed_qty:
+                        messages.error(
+                            request, f"Error: You can only return between 1 and {owed_qty} items.")
+                    else:
+                        # 3. Update the tally
+                        deduction.quantity_returned += return_qty
+                        deduction.returned_at = timezone.now()  # Move this HERE
+
+                        if deduction.quantity_returned >= deduction.quantity_taken:
+                            deduction.is_returned = True
+
+                            status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
+                        else:
+                            status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
+
+                        # Save deduction (using update_fields to bypass the inventory-subtraction save() logic)
+
+                        deduction.save(
+                            update_fields=['quantity_returned', 'is_returned', 'returned_at'])
+
+                        # 4. 🚀 THE ATOMIC FIX: Return the tools to the main balance
+                        stock = deduction.stock_item
+                        stock.current_balance = F(
+                            'current_balance') + return_qty  # Direct F() use
+                        stock.save(update_fields=['current_balance'])
+
+                        messages.success(request, status_msg)
+
+            except MaterialDeduction.DoesNotExist:
+                messages.error(
+                    request, "Error: Tool record not found or already fully returned.")
+            except Exception as e:
+                messages.error(request, f"System error receiving tool: {e}")
+
+        # 🛑 HTMX FIX: Force the browser to do a clean refresh if it's an HTMX request!
+        if request.META.get('HTTP_HX_REQUEST'):
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
 
         return redirect('site_warehouse', site_id=site.id)
 
@@ -1199,14 +1102,10 @@ def site_warehouse(request, site_id):
         is_returned=False,
         stock_item__is_returnable=True
     ).select_related('worker', 'stock_item').order_by('-timestamp')
-
-    # 2. 📖 DEFINE TOOL HISTORY (Already Returned)
-    # We grab the 50 most recent returns so the page loads fast
     tool_history = MaterialDeduction.objects.filter(
         stock_item__site=site,
-        is_returned=True,
-        stock_item__is_returnable=True
-    ).select_related('worker', 'stock_item').order_by('-returned_at')[:50]
+        stock_item__is_returnable=True  # 🛠️ ONLY show returnable assets/tools
+    ).select_related('worker', 'stock_item').order_by('-timestamp')
 
     # 3. 🛑 CREATE BLOCKED LIST
     blocked_worker_ids = list(active_tools.values_list('worker_id', flat=True))
@@ -1963,40 +1862,6 @@ def restock_history(request, site_id):
         'stocks': stocks
     })
 
-# @login_required
-# def material_usage_report(request, site_id):
-#     user_company = request.user.company
-#     site = get_object_or_404(SiteLocation, id=site_id, company=user_company)
-
-#     # 🛡️ Permission Check (Including Project Managers)
-#     invitation = Invitation.objects.filter(
-#         email=request.user.email, site=site, is_used=True).last()
-#     is_authorized = (site.company.owner == request.user) or (
-#         invitation and invitation.role_assigned == 'PROJECT_MANAGER')
-
-#     if not is_authorized and not request.user.is_superuser:
-#         from django.core.exceptions import PermissionDenied
-#         raise PermissionDenied()
-
-#     # 🟢 THE OPTIMIZED QUERY
-#     usage_logs = MaterialDeduction.objects.filter(
-#         stock_item__site=site
-#     ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
-
-#     context = {
-#         'site': site,
-#         'usage_logs': usage_logs,
-#         'company': site.company,
-#     }
-
-#     # 🎯 THE HTMX SWITCH (The Engine)
-#     if request.htmx:
-#         # This returns ONLY the table content, no navbar, no sidebar.
-#         return render(request, 'site_management/partials/usage_report_partial.html', context)
-
-#     # Normal full page load if they refresh or type the URL
-#     return render(request, 'site_management/material_usage_report.html', context)
-
 
 @login_required
 def material_usage_report(request, site_id):
@@ -2012,9 +1877,15 @@ def material_usage_report(request, site_id):
         raise PermissionDenied()
 
     # 🟢 Syncing usage_logs for your template
+    # usage_logs = MaterialDeduction.objects.filter(
+    #     stock_item__site=site
+    # ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
+
+    # In your material_usage_report view
     usage_logs = MaterialDeduction.objects.filter(
-        stock_item__site=site
-    ).select_related('worker', 'stock_item', 'authorized_by').order_by('-timestamp')
+        stock_item__site=site,
+        stock_item__is_returnable=False  # 🚀 Only get consumables
+    ).select_related('worker', 'stock_item').order_by('-timestamp')
 
     # 🎯 FIX THE FILENAME HERE:
     # It must match the file C:\...\site_management\material_usage_report.html

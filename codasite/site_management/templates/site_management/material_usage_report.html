@@ -2,12 +2,64 @@
 
 {% block content %}
 <div class="container mx-auto p-6 pb-32 animate-fade-in">
-    <div class="mb-10">
-        <h1 class="text-4xl font-black text-white uppercase tracking-tighter">{{ site.name }}</h1>
-        <p class="text-innocoda-teal font-bold uppercase text-[10px] tracking-[0.4em]">Resource Consumption Audit</p>
-    </div>
+    <div class="mb-12">
+    <nav class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] mb-6">
+        <a hx-get="{% url 'site_dashboard' site.id %}" 
+           hx-target="#main-content" 
+           hx-push-url="true" 
+           class="text-gray-500 hover:text-innocoda-teal transition-colors cursor-pointer">
+            Dashboard
+        </a>
+        <span class="text-white/20">/</span>
+        <a hx-get="{% url 'site_warehouse' site.id %}" 
+           hx-target="#main-content" 
+           hx-push-url="true" 
+           class="text-gray-500 hover:text-innocoda-teal transition-colors cursor-pointer">
+            Warehouse
+        </a>
+        <span class="text-white/20">/</span>
+        <span class="text-innocoda-teal">Usage Audit</span>
+    </nav>
 
-    <div class="space-y-4">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
+        <div>
+            <h1 class="text-5xl md:text-6xl font-black text-white uppercase tracking-tighter italic leading-none">
+                {{ site.name }}
+            </h1>
+            <div class="flex items-center mt-3">
+                <span class="w-2 h-2 rounded-full bg-innocoda-teal mr-3 shadow-[0_0_10px_#2DD4BF]"></span>
+                <p class="text-gray-400 text-[10px] font-black uppercase tracking-[0.5em]">
+                    Resource Consumption Audit & Material Tracking
+                </p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+            <button hx-get="{% url 'site_dashboard' site.id %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-white/60 border border-white/5 hover:border-white/20 hover:text-white transition-all cursor-pointer">
+                Site Dashboard
+            </button>
+
+            <button hx-get="{% url 'site_warehouse' site.id %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-white border border-white/10 hover:bg-white/5 transition-all cursor-pointer">
+                📦 Warehouse
+            </button>
+
+            <button hx-get="{% url 'restock_history' site.id %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    class="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase text-innocoda-teal border border-innocoda-teal/20 hover:bg-innocoda-teal hover:text-innocoda-navy transition-all cursor-pointer">
+                Delivery Ledger
+            </button>
+        </div>
+    </div>
+</div>
+
+    {% comment %} <div class="space-y-4">
         {% for log in usage_logs %}
         <div class="glass p-6 rounded-[2.5rem] border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-innocoda-teal/30 transition-all">
             
@@ -52,6 +104,58 @@
             <p class="text-gray-600 uppercase font-black text-xs tracking-widest">No material deductions logged yet.</p>
         </div>
         {% endfor %}
+    </div> {% endcomment %}
+    <div class="space-y-4">
+    {% for log in usage_logs %}
+        {% if not log.stock_item.is_returnable %}
+        <div class="glass p-6 rounded-[2.5rem] border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-innocoda-teal/30 transition-all">
+            
+            <div class="flex items-center space-x-5 w-full md:w-1/3">
+                <div class="w-14 h-14 rounded-2xl bg-innocoda-navy border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {% if log.worker.profile_picture %}
+                        <img src="{{ log.worker.profile_picture.url }}" class="w-full h-full object-cover">
+                    {% else %}
+                        <span class="text-xl font-black text-innocoda-teal opacity-30">{{ log.worker.name|slice:":1" }}</span>
+                    {% endif %}
+                </div> 
+
+                <div class="overflow-hidden">
+                    <h3 class="text-lg font-black text-white truncate uppercase tracking-tight">{{ log.worker.name }}</h3>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[9px] font-black text-innocoda-teal uppercase tracking-widest">{{ log.worker.category }}</span>
+                        <span class="w-1 h-1 rounded-full bg-white/10"></span>
+                        <p class="text-[9px] text-gray-500 font-bold">{{ log.worker.phone }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 flex items-center justify-center space-x-4 w-full">
+                <div class="px-6 py-3 bg-white/5 border border-white/5 rounded-2xl text-center min-w-[140px]">
+                    <p class="text-[8px] text-gray-500 uppercase font-black mb-1">Material Consumed</p>
+                    <p class="text-sm font-black text-white uppercase">{{ log.stock_item.item_name }}</p>
+                </div>
+                <div class="px-6 py-3 bg-orange-400/5 border border-orange-400/10 rounded-2xl text-center min-w-[100px]">
+                    <p class="text-[8px] text-orange-400 uppercase font-black mb-1">Quantity</p>
+                    <p class="text-sm font-black text-white">
+                        {{ log.quantity_taken|floatformat:0 }} 
+                        <span class="text-[10px] text-gray-500">{{ log.stock_item.unit }}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-right w-full md:w-auto">
+                <p class="text-[10px] text-white font-bold">{{ log.timestamp|date:"d M Y" }}</p>
+                <p class="text-[8px] text-gray-600 font-black uppercase tracking-tighter">{{ log.timestamp|time:"H:i A" }}</p>
+                <div class="mt-2 text-[7px] text-gray-500 italic uppercase">Auth: {{ log.authorized_by.username|default:"System" }}</div>
+            </div>
+        </div>
+        {% endif %}
+    {% empty %}
+    <div class="glass p-20 rounded-[3rem] text-center border border-dashed border-white/10">
+        <p class="text-gray-600 uppercase font-black text-xs tracking-widest">No material consumption logged yet.</p>
     </div>
+    {% endfor %}
+</div>
+
 </div>
 {% endblock %}

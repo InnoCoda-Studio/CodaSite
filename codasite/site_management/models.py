@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -364,10 +365,21 @@ class StaffAttendance(models.Model):
 
 class MaterialStock(models.Model):
     site = models.ForeignKey(
-        SiteLocation, on_delete=models.CASCADE, related_name='stocks')
-    item_name = models.CharField(max_length=255, db_index=True)
+        SiteLocation,
+        on_delete=models.CASCADE,
+        related_name='stocks'
+    )
+
+    item_name = models.CharField(
+        max_length=255,
+        db_index=True
+    )
+
     current_balance = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0)
+        max_digits=12,
+        decimal_places=2,
+        default=0
+    )
 
     minimum_required = models.DecimalField(
         max_digits=12,
@@ -375,46 +387,77 @@ class MaterialStock(models.Model):
         default=10
     )
 
-    unit = models.CharField(max_length=50, db_index=True)
+    unit = models.CharField(
+        max_length=50,
+        db_index=True
+    )
+
     evidence_image = CloudinaryField(
-        'image', folder='material_evidence', null=True, blank=True)
+        'image',
+        folder='material_evidence',
+        null=True,
+        blank=True
+    )
 
     is_returnable = models.BooleanField(
-        default=False, help_text="True if Asset/Tool. False if Consumable.")
+        default=False,
+        help_text="True if Asset/Tool. False if Consumable."
+    )
 
     evidence_video = CloudinaryField(
-        'video', resource_type='video', folder='material_evidence_vids', null=True, blank=True)
+        'video',
+        resource_type='video',
+        folder='material_evidence_vids',
+        null=True,
+        blank=True
+    )
+
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = "Material Stocks"
         unique_together = ('site', 'item_name')
 
-    # 🚀 PRODUCTION ADDITION: For the Audit Email Logic
+    # 🚀 AUTO-NORMALIZE BEFORE SAVE
+    def save(self, *args, **kwargs):
+
+        self.item_name = re.sub(
+            r'\s+',
+            ' ',
+            self.item_name.strip().upper()
+        )
+
+        self.unit = self.unit.strip().upper()
+
+        super().save(*args, **kwargs)
+
     def get_total_deductions_today(self):
-        """Calculates total quantity taken today for the audit report."""
         from django.utils import timezone
         from django.db.models import Sum
 
         today = timezone.now().date()
+
         total = self.deductions.filter(
             timestamp__date=today
-        ).aggregate(Sum('quantity_taken'))['quantity_taken__sum']
+        ).aggregate(
+            Sum('quantity_taken')
+        )['quantity_taken__sum']
 
         return total or 0
 
     def get_weekly_total(self):
-        """Calculates total quantity taken from Monday to Saturday."""
         from django.utils import timezone
         from django.db.models import Sum
         from datetime import timedelta
 
         today = timezone.now().date()
-        start_of_week = today - timedelta(days=today.weekday())  # Monday
+        start_of_week = today - timedelta(days=today.weekday())
 
         total = self.deductions.filter(
             timestamp__date__range=[start_of_week, today]
-        ).aggregate(Sum('quantity_taken'))['quantity_taken__sum']
+        ).aggregate(
+            Sum('quantity_taken')
+        )['quantity_taken__sum']
 
         return total or 0
 
@@ -455,40 +498,56 @@ class MaterialDeduction(models.Model):
     authorized_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True)
 
-    # 🚀 ADD THESE TWO NEW LINES:
-# 🚀 ADD THESE TWO NEW LINES:
+    # NEW: Track partial returns without destroying the original number
+    quantity_returned = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0)
+
     is_returned = models.BooleanField(default=False)
     returned_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def amount_owed(self):
+        """Calculates exactly how many items are still in the field."""
+        return self.quantity_taken - self.quantity_returned
 
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        # 🛰️ 1. Get the REAL-TIME truth from the database
-        # We look at the actual row to avoid any "Ghost Data" bugs
-        db_entry = self.stock_item.__class__.objects.get(id=self.stock_item.id)
-        actual_balance = db_entry.current_balance
+        # 🛰️ 1. SECURITY GATE: Only check stock levels for NEW deductions.
+        # If we are just updating an existing record (e.g. returning a tool), skip this check.
+        if self.pk is None:
+            # Get the REAL-TIME truth from the database
+            db_entry = self.stock_item.__class__.objects.get(
+                id=self.stock_item.id)
+            actual_balance = db_entry.current_balance
 
-        # 🛡️ 2. The Modern Security Gate
-        if self.quantity_taken > actual_balance:
-            raise ValidationError(
-                f"🚨 LOGISTICS ALERT: INSUFFICIENT {self.stock_item.item_name.upper()} | "
-                f"REQUESTED: {self.quantity_taken} {self.stock_item.unit} | "
-                f"AVAILABLE: {actual_balance} {self.stock_item.unit}. "
-                f"ACTION DENIED."
-            )
+            if self.quantity_taken > actual_balance:
+                raise ValidationError(
+                    f"🚨 LOGISTICS ALERT: INSUFFICIENT {self.stock_item.item_name.upper()} | "
+                    f"REQUESTED: {self.quantity_taken} {self.stock_item.unit} | "
+                    f"AVAILABLE: {actual_balance} {self.stock_item.unit}. "
+                    f"ACTION DENIED."
+                )
 
     def save(self, *args, **kwargs):
-        # 1. Run the safety check (requested qty vs available)
+        from django.db import transaction
+        from django.db.models import F
+
+        # 1. Identify if this is a brand new checkout or an update (like a return)
+        is_new_record = self.pk is None
+
+        # 2. Run the safety check (requested qty vs available)
         self.full_clean()
 
         with transaction.atomic():
-            # 2. Subtract directly in the Database (Atomic Update)
-            # This prevents "Ghost Inventory" if two people click at once
-            self.stock_item.current_balance = F(
-                'current_balance') - self.quantity_taken
-            self.stock_item.save()
+            # 3. ONLY subtract inventory if this is the FIRST time saving
+            if is_new_record:
+                # F() prevents "Ghost Inventory" if two people click at once
+                self.stock_item.current_balance = F(
+                    'current_balance') - self.quantity_taken
+                self.stock_item.save(update_fields=['current_balance'])
 
-            # 3. Save the actual log
+            # 4. Save the actual log
             super().save(*args, **kwargs)
 
 
