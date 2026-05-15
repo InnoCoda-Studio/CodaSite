@@ -267,3 +267,9 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# Force Cloudinary to always use HTTPS
+CLOUDINARY_STORAGE = {
+    'SECURE': True,
+}
+SECURE_SSL_REDIRECT = True
