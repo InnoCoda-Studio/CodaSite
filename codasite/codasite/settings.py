@@ -23,6 +23,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+print(f"👉 DEEBUG STATUS IS CURRENTLY: {DEBUG}")  # 👈 Add this line temporarily
 
 # settings.py
 
@@ -227,26 +228,23 @@ CLOUDINARY_STORAGE = {
 }
 
 
-# 🚀 THE PRODUCTION SECURITY COMMAND CENTER
+# 🚀 THE CONSOLIDATED PRODUCTION SECURITY COMMAND CENTER
 if not DEBUG:
-    # Tell Django it's sitting behind Render's proxy
+    # Settings for RENDER (Production)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-    # Force HTTPS
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-
-    # Secure Cookies
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 else:
-    # Keep localhost easy to use
+    # Settings for LOCALHOST (Development)
+    # This stops the "Bad Request" and HTTPS errors locally
     SECURE_SSL_REDIRECT = False
-
-# This explicit config fixes the "Must supply cloud_name" error
-
+    SECURE_HSTS_SECONDS = 0
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 # /// Cound
 
 # /// Tell Django where your custom login page is
@@ -279,7 +277,5 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-
 # Force Cloudinary to always use HTTPS
-
 SECURE_SSL_REDIRECT = True
