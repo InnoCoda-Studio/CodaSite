@@ -102,5 +102,7 @@ urlpatterns = [
     path('workforce/trash/', views.workforce_trash, name='workforce_trash'),
 
     path('workforce/trash/', views.workforce_trash, name='workforce_trash'),
+    path('site/<int:site_id>/restock-history/',
+         views.restock_history, name='restock_history'),
 
 ]
