@@ -878,7 +878,6 @@ def process_biometric_clock(request, site_id):
             return JsonResponse({'success': False, 'error': 'Identity verification failed.'})
 
         clock_type = request.POST.get('type')
-        # This is the raw base64 string from Alpine.js
         photo_data = request.POST.get('photo')
 
         # 2. Get GPS
@@ -891,7 +890,7 @@ def process_biometric_clock(request, site_id):
         if not site.latitude or not site.longitude:
             return JsonResponse({'success': False, 'error': 'Site GPS not set by Admin. Cannot verify.'})
 
-        # 3. Proximity Check
+        # 3. Proximity Check (THE INVISIBLE FENCE!)
         if not check_proximity(site.latitude, site.longitude, lat, lng):
             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
 
@@ -902,8 +901,7 @@ def process_biometric_clock(request, site_id):
             if already_in:
                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
 
-            # ☁️ CLOUDINARY UPLOAD FIX ☁️
-            # Cloudinary accepts raw base64 strings directly, bypassing Render's local disk restrictions.
+            # ☁️ CLOUDINARY UPLOAD ☁️
             secure_image_id = None
             try:
                 upload_result = cloudinary.uploader.upload(
@@ -915,21 +913,20 @@ def process_biometric_clock(request, site_id):
                 print(f"CLOUDINARY UPLOAD FAILED: {str(e)}")
                 return JsonResponse({'success': False, 'error': 'Failed to upload biometric feed to cloud.'})
 
-            # 5. Database Save (Using the Cloudinary ID)
+            # 5. Database Save (With the crash fix!)
             try:
+                # 🛑 THE USER ID FIX: Provide a strict fallback if the worker lacks a shadow user
+                user_to_assign = worker.user
+                if not user_to_assign:
+                    user_to_assign = worker.contractor  # Fallback to the boss who registered them
+
                 attendance = StaffAttendance(
                     worker=worker,
                     site=site,
+                    user=user_to_assign,  # 👈 This guarantees it will NEVER be null
                     time_in=timezone.now(),
-                    clock_in_photo=secure_image_id  # Save the Cloudinary string, NOT a ContentFile
+                    clock_in_photo=secure_image_id
                 )
-
-                # Safely assign optional fields
-                if worker.user:
-                    attendance.user = worker.user
-
-                # Uncomment if your model specifically tracks daily_rate_at_time
-                # attendance.daily_rate_at_time = worker.daily_rate
 
                 attendance.save()
 
