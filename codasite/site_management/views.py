@@ -1317,6 +1317,7 @@ def site_warehouse(request, site_id):
     stocks = MaterialStock.objects.filter(site=site).order_by('item_name')
 
     # 🟢 If the contractor search bar fires, filter the stock dashboard view instantly
+
     if query:
         stocks = stocks.filter(
             Q(item_name__icontains=query) |

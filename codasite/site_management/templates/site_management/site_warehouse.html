@@ -90,65 +90,93 @@
     <div class="layer-base logistics-grid grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         <!-- LEFT COLUMN: REQUISITION & ACTIVE TOOLS -->
-        <div class="lg:col-span-7">
-            <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl h-full flex flex-col">
-                <div id="warehouse-messages" class="mb-4 min-h-[50px] transition-all duration-500"></div>
-                
-                <h2 class="text-white font-black uppercase text-lg tracking-tighter mb-6">Material Requisition</h2>
-                
-                <form method="POST"
-                    hx-post="{% url 'site_warehouse' site.id %}" 
-                    hx-target="body" 
-                    @htmx:after-request="$el.reset(); clicking = false" 
-                    x-data="{ clicking: false }"
-                    class="space-y-6" @submit="loading = true">
-                    {% csrf_token %}
-                    <input type="hidden" name="issue_material" value="true">
-                    
-                    <select id="material-dropdown" name="stock_item" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
-                        <option value="" disabled selected>Select Material...</option>
-                        {% for item in stocks %}
-                            <option value="{{ item.id }}" {% if item.current_balance <= 0 %}disabled{% endif %} class="bg-black text-white">
-                                {% if item.is_returnable %}[TOOL] {% else %}[CONSUMABLE] {% endif %}{{ item.item_name }} 
-                                ({% if item.current_balance <= 0 %}OUT{% else %}{{ item.current_balance|floatformat:0 }}{% endif %} {{ item.unit }})
-                            </option>
-                        {% endfor %}
-                    </select>
+       <div class="lg:col-span-7">
+    <div class="glass p-8 md:p-10 rounded-[3rem] border border-white/10 shadow-2xl h-full flex flex-col relative overflow-hidden group">
+        
+        <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-innocoda-teal/5 rounded-full blur-[80px] pointer-events-none group-hover:bg-innocoda-teal/10 transition-all duration-700"></div>
 
-                    <select name="worker_id" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none appearance-none" required>
-                        <option value="" disabled selected>Select Worker...</option>
-                        {% for worker in workers %}
-                            <option value="{{ worker.id }}" class="bg-black text-white">{{ worker.name }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="number" step="0.01" min="1" name="quantity" placeholder="Quantity" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" required>
-                        <input type="text" name="purpose" placeholder="Purpose" class="bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" required>
-                    </div>
-
-                    <button type="submit" 
-                        class="w-full text-innocoda-navy font-black py-5 rounded-[2rem] uppercase text-xs tracking-widest transition-all shadow-lg bg-innocoda-teal disabled:opacity-50 disabled:cursor-wait">
-                        <span class="htmx-indicator-hide">Authorize Deduction</span>
-                        <span class="htmx-indicator flex items-center justify-center gap-2">
-                            <svg class="animate-spin h-4 w-4 ..." viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                        </span>
-                    </button>
-                </form>
-
-                <!-- 🚨 THE RED FLAG: ACTIVE TOOL CHECKOUTS -->
-            
-                <!-- END ACTIVE TOOL CHECKOUTS -->
-
+        <div id="warehouse-messages" class="mb-2 min-h-[10px] transition-all duration-500"></div>
+        
+        <div class="flex items-center gap-3 mb-8 relative z-10">
+            <div class="w-10 h-10 rounded-full bg-innocoda-teal/10 border border-innocoda-teal/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,210,210,0.1)]">
+                <svg class="w-5 h-5 text-innocoda-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
             </div>
+            <h2 class="text-white font-black uppercase text-2xl md:text-3xl tracking-tighter">Material Requisition</h2>
         </div>
+        
+        <form method="POST"
+            hx-post="{% url 'site_warehouse' site.id %}" 
+            hx-target="body" 
+            @htmx:after-request="$el.reset(); clicking = false" 
+            x-data="{ clicking: false }"
+            class="space-y-6 relative z-10 flex-grow flex flex-col justify-center" @submit="clicking = true">
+            {% csrf_token %}
+            <input type="hidden" name="issue_material" value="true">
+            
+            <div class="relative group/input">
+                <select id="material-dropdown" name="stock_item" class="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-white text-sm font-bold outline-none appearance-none focus:ring-2 focus:ring-innocoda-teal/50 focus:border-innocoda-teal/50 transition-all cursor-pointer backdrop-blur-md" required>
+                    <option value="" disabled selected>Select Material or Tool to Dispatch...</option>
+                    {% for item in stocks %}
+                        <option value="{{ item.id }}" {% if item.current_balance <= 0 %}disabled{% endif %} class="bg-black text-white py-2">
+                            {% if item.is_returnable %}[TOOL] {% else %}[CONSUMABLE] {% endif %}{{ item.item_name }} 
+                            ({% if item.current_balance <= 0 %}OUT OF STOCK{% else %}{{ item.current_balance|floatformat:0 }} {{ item.unit }} Available{% endif %})
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none text-gray-500 group-hover/input:text-innocoda-teal transition-colors">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
+
+            <div class="relative group/input">
+                <select name="worker_id" class="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-white text-sm font-bold outline-none appearance-none focus:ring-2 focus:ring-innocoda-teal/50 focus:border-innocoda-teal/50 transition-all cursor-pointer backdrop-blur-md" required>
+                    <option value="" disabled selected>Select Receiving Worker...</option>
+                    {% for worker in workers %}
+                        <option value="{{ worker.id }}" class="bg-black text-white py-2">{{ worker.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none text-gray-500 group-hover/input:text-innocoda-teal transition-colors">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="relative group/input">
+                    <input type="number" step="0.01" min="1" name="quantity" placeholder="Quantity Dispatched" class="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-white font-bold outline-none focus:ring-2 focus:ring-innocoda-teal/50 focus:border-innocoda-teal/50 transition-all backdrop-blur-md placeholder-gray-600" required>
+                </div>
+                <div class="relative group/input">
+                    <input type="text" name="purpose" placeholder="Purpose (e.g., Concrete Mixing)" class="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-white font-bold outline-none focus:ring-2 focus:ring-innocoda-teal/50 focus:border-innocoda-teal/50 transition-all backdrop-blur-md placeholder-gray-600" required>
+                </div>
+            </div>
+
+            <div class="pt-6">
+                <button type="submit" 
+                    :disabled="clicking"
+                    class="w-full text-innocoda-navy font-black py-5 rounded-[2rem] uppercase text-sm tracking-[0.2em] transition-all duration-300 shadow-[0_0_30px_rgba(0,210,210,0.2)] hover:shadow-[0_0_50px_rgba(0,210,210,0.4)] bg-innocoda-teal disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 relative overflow-hidden group/btn">
+                    
+                    <span class="absolute inset-0 w-full h-full bg-white/20 -translate-x-full skew-x-12 group-hover/btn:animate-shimmer transition-all"></span>
+
+                    <span x-show="!clicking" class="relative z-10 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Authorize Deduction
+                    </span>
+                    
+                    <span x-show="clicking" style="display: none;" class="relative z-10 flex items-center justify-center gap-3">
+                        <svg class="animate-spin h-5 w-5 text-innocoda-navy" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing Transfer...
+                    </span>
+                </button>
+            </div>
+        </form>
+
+        </div>
+</div>
 
         <!-- RIGHT COLUMN: WAREHOUSE BALANCE -->
-        <div class="lg:col-span-5">
+        {% comment %} <div class="lg:col-span-5">
             <div class="glass p-8 rounded-[3rem] border border-white/10 h-full flex flex-col">
                 <h3 class="text-white font-black uppercase text-sm tracking-widest mb-6">Warehouse Balance</h3>
 
@@ -198,8 +226,97 @@
                     {% endfor %}
                 </div>
             </div>
+        </div> {% endcomment %}
+
+            <div class="lg:col-span-5">
+                <div class="glass p-8 rounded-[3rem] border border-white/10 h-full flex flex-col relative overflow-hidden group">
+                    
+                    <div class="absolute -right-20 -top-20 w-64 h-64 bg-innocoda-teal/5 rounded-full blur-[80px] pointer-events-none group-hover:bg-innocoda-teal/10 transition-all duration-700"></div>
+
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
+                        <h3 class="text-white font-black uppercase text-sm tracking-widest flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full bg-innocoda-teal shadow-[0_0_10px_#00D2D2]"></span>
+                            Warehouse Balance
+                        </h3>
+                        
+                        <div class="relative w-full md:w-64 group/search">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-4 w-4 text-gray-400 group-focus-within/search:text-innocoda-teal transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </div>
+                            <input type="text" 
+                                name="q" 
+                                value="{{ request.GET.q|default:'' }}"
+                                placeholder="SEARCH INVENTORY..." 
+                                hx-get="{% url 'site_warehouse' site.id %}" 
+                                hx-trigger="keyup changed delay:400ms, search" 
+                                hx-target="#main-content"
+                                hx-push-url="true"
+                                class="block w-full pl-10 pr-4 py-2.5 bg-black/20 border border-white/5 rounded-xl text-white font-bold text-[10px] tracking-wider uppercase focus:ring-1 focus:ring-innocoda-teal/50 focus:border-innocoda-teal/50 focus:bg-black/40 transition-all placeholder-gray-600 outline-none backdrop-blur-md shadow-inner">
+                        </div>
+                    </div>
+
+                    <div id="stock-list-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar relative z-10">
+                        {% for item in stocks %}
+                        <div class="p-5 bg-gradient-to-r from-white/5 to-transparent rounded-3xl border border-white/5 flex justify-between items-center group/item hover:border-white/10 hover:shadow-lg transition-all duration-300">
+                            
+                            <div class="flex items-center gap-5">
+                                {% if item.is_returnable %}
+                                    <div class="w-12 h-12 rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center group-hover/item:scale-110 group-hover/item:border-orange-500/60 transition-all shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+                                        <span class="text-orange-500 text-lg drop-shadow-md">🔧</span>
+                                    </div>
+                                {% else %}
+                                    <div class="w-12 h-12 rounded-full bg-innocoda-teal/10 border border-innocoda-teal/30 flex items-center justify-center shrink-0 group-hover/item:scale-110 group-hover/item:border-innocoda-teal/60 transition-all overflow-hidden shadow-[0_0_15px_rgba(0,210,210,0.1)]">
+                                        {% if item.evidence_image %}
+                                            <img src="{{ item.secure_evidence_image_url|default:item.evidence_image.url }}" 
+                                                @click="imgModal = true; imgUrl = '{{ item.secure_evidence_image_url|default:item.evidence_image.url }}'; isVideo = false" 
+                                                class="w-full h-full object-cover cursor-zoom-in hover:opacity-80">
+                                        {% elif item.evidence_video %}
+                                            <div @click="imgModal = true; imgUrl = '{{ item.secure_evidence_video_url|default:item.evidence_video.url }}'; isVideo = true" 
+                                                class="w-full h-full flex items-center justify-center cursor-pointer bg-innocoda-navy/50 hover:bg-innocoda-teal/20 transition-colors">
+                                                <svg class="w-5 h-5 text-innocoda-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-innocoda-teal text-lg drop-shadow-md">📦</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                <div class="flex flex-col justify-center">
+                                    <p class="text-white font-black tracking-tight text-sm md:text-base group-hover/item:text-innocoda-teal transition-colors">{{ item.item_name }}</p>
+                                    <div class="flex items-center gap-3 mt-1">
+                                        <p class="text-[9px] text-gray-400 uppercase font-bold tracking-widest">{{ item.unit }}</p>
+                                        
+                                        {% if item.is_returnable %}
+                                            <span class="text-[8px] text-orange-400 uppercase font-black tracking-wider bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-md shadow-sm">Asset Tool</span>
+                                        {% else %}
+                                            <span class="text-[8px] text-innocoda-teal uppercase font-black tracking-wider bg-innocoda-teal/10 border border-innocoda-teal/20 px-2 py-0.5 rounded-md shadow-sm">Consumable</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-right flex flex-col items-end justify-center pl-4 border-l border-white/5 h-full">
+                                <p class="text-3xl font-black text-white leading-none tracking-tighter drop-shadow-sm group-hover/item:scale-105 transition-transform">
+                                    {{ item.current_balance|floatformat:0 }}
+                                </p>
+                                <p class="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">In Stock</p>
+                            </div>
+
+                        </div>
+                        {% empty %}
+                        <div class="py-12 text-center flex flex-col items-center justify-center border border-dashed border-white/10 rounded-3xl bg-black/20">
+                            <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                            </div>
+                            <p class="text-gray-400 font-black text-[10px] uppercase tracking-[0.3em]">No stock found</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
     <!-- MODALS SECTION -->
 
