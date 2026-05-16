@@ -65,13 +65,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </div>
+                
                 <input type="text" 
                        name="q" 
                        value="{{ request.GET.q|default:'' }}"
                        placeholder="SEARCH INTAKE LOGS (E.G. CEMENT, GRANITE)..." 
-                       hx-get="" 
+                       hx-get="{% url 'delivery_ledger_view' site.id %}" 
                        hx-trigger="keyup changed delay:400ms, search" 
                        hx-target="#main-content"
+                       hx-push-url="true"
                        class="block w-full pl-11 pr-4 py-4 bg-transparent text-white font-black text-[10px] tracking-wider uppercase border-none focus:ring-0 placeholder-gray-600 outline-none">
             </div>
         </div>
@@ -103,7 +105,7 @@
                     <div class="relative w-full h-full cursor-pointer group/vid" 
                          @click="imgModal = true; imgUrl = '{{ log.evidence_video.secure_url }}'; isVideo = true">
                         
-                        <video src="{{ log.evidence_video.secure_url }}" class="w-full h-full object-cover opacity-50" controls></video>
+                        <video src="{{ log.evidence_video.secure_url }}" class="w-full h-full object-cover opacity-50"></video>
 
                         <div class="absolute inset-0 flex items-center justify-center">
                             <div class="w-16 h-16 rounded-full bg-innocoda-teal/20 backdrop-blur-md flex items-center justify-center border border-innocoda-teal/50 group-hover/vid:scale-110 transition-all">
@@ -178,7 +180,7 @@
                 
                 <template x-if="isVideo">
                     <div class="w-full h-full flex items-center justify-center">
-                        <video :src="imgUrl" 
+                        <video x-bind:src="imgUrl" 
                                controls 
                                autoplay 
                                muted 
