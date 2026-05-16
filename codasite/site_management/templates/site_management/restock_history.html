@@ -69,8 +69,8 @@
                 <input type="text" 
                        name="q" 
                        value="{{ request.GET.q|default:'' }}"
-                       placeholder="SEARCH INTAKE LOGS (E.G. CEMENT, GRANITE)..." 
-                       hx-get="{% url 'delivery_ledger_view' site.id %}" 
+                       placeholder="SEARCH INTAKE LOGS..." 
+                       hx-get="{% url 'restock_history' site.id %}" 
                        hx-trigger="keyup changed delay:400ms, search" 
                        hx-target="#main-content"
                        hx-push-url="true"
@@ -180,7 +180,7 @@
                 
                 <template x-if="isVideo">
                     <div class="w-full h-full flex items-center justify-center">
-                        <video x-bind:src="imgUrl" 
+                        <video :src="imgUrl" 
                                controls 
                                autoplay 
                                muted 
