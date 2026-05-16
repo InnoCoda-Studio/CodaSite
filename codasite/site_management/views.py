@@ -22,7 +22,7 @@ from .models import SiteLocation, StaffAttendance, MaterialDeduction
 import random
 from django.conf import settings
 # Ensure these are at the top
-
+import cloudinary.uploader
 from django.db import transaction
 from django.utils import timezone
 from django.http import HttpResponse
@@ -794,6 +794,77 @@ def verify_worker_identity(request, site_id):
 #     return JsonResponse({'success': False, 'error': 'Invalid request method.'})
 
 
+# def process_biometric_clock(request, site_id):
+#     if request.method == 'POST':
+#         site = get_object_or_404(SiteLocation, id=site_id)
+
+#         # 1. Verify Identity
+#         phone = request.POST.get('phone', '').strip()
+#         pin = request.POST.get('pin', '').strip()
+#         worker = SkilledWorker.objects.filter(
+#             site=site, phone=phone, gate_pass=pin).first()
+#         if not worker:
+#             return JsonResponse({'success': False, 'error': 'Identity verification failed.'})
+
+#         clock_type = request.POST.get('type')
+#         photo_data = request.POST.get('photo')
+
+#         # 2. Get GPS
+#         try:
+#             lat = float(request.POST.get('lat', 0))
+#             lng = float(request.POST.get('lng', 0))
+#         except ValueError:
+#             return JsonResponse({'success': False, 'error': 'Corrupt GPS data.'})
+
+#         # 🛑 FIX 1: Prevent crash if Site GPS is empty!
+#         if not site.latitude or not site.longitude:
+#             return JsonResponse({'success': False, 'error': 'Site GPS not set by Admin. Cannot verify.'})
+
+#         # 3. Proximity Check
+#         if not check_proximity(site.latitude, site.longitude, lat, lng):
+#             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
+
+#         # 4. Process Photo
+#         try:
+#             format, imgstr = photo_data.split(';base64,')
+#             ext = format.split('/')[-1]
+#             photo_file = ContentFile(base64.b64decode(
+#                 imgstr), name=f"gate_{worker.id}_{timezone.now().strftime('%Y%m%d%H%M')}.{ext}")
+#         except Exception:
+#             return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
+
+#         # 5. Save Record
+#         if clock_type == 'IN':
+#             already_in = StaffAttendance.objects.filter(
+#                 worker=worker, site=site, time_out__isnull=True).exists()
+#             if already_in:
+#                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
+
+#             # 🛑 FIX 2: Removed lat/lng to prevent FieldError, added daily_rate
+#             try:
+#                 StaffAttendance.objects.create(
+#                     worker=worker,
+#                     site=site,
+#                     user=worker.user,
+#                     time_in=timezone.now(),
+#                     clock_in_photo=photo_file,
+#                     daily_rate_at_time=worker.daily_rate
+#                 )
+#             except Exception as e:
+#                 print(f"DATABASE CRASH: {e}")  # This will show in Render logs!
+#                 return JsonResponse({'success': False, 'error': 'Database save failed.'})
+#         else:
+#             attendance = StaffAttendance.objects.filter(
+#                 worker=worker, site=site, time_out__isnull=True).last()
+#             if attendance:
+#                 attendance.time_out = timezone.now()
+#                 attendance.save()
+#             else:
+#                 return JsonResponse({'success': False, 'error': 'No active clock-in found.'})
+
+#         return JsonResponse({'success': True})
+#     return JsonResponse({'success': False, 'error': 'Invalid request.'})
+
 def process_biometric_clock(request, site_id):
     if request.method == 'POST':
         site = get_object_or_404(SiteLocation, id=site_id)
@@ -807,6 +878,7 @@ def process_biometric_clock(request, site_id):
             return JsonResponse({'success': False, 'error': 'Identity verification failed.'})
 
         clock_type = request.POST.get('type')
+        # This is the raw base64 string from Alpine.js
         photo_data = request.POST.get('photo')
 
         # 2. Get GPS
@@ -816,7 +888,6 @@ def process_biometric_clock(request, site_id):
         except ValueError:
             return JsonResponse({'success': False, 'error': 'Corrupt GPS data.'})
 
-        # 🛑 FIX 1: Prevent crash if Site GPS is empty!
         if not site.latitude or not site.longitude:
             return JsonResponse({'success': False, 'error': 'Site GPS not set by Admin. Cannot verify.'})
 
@@ -824,36 +895,50 @@ def process_biometric_clock(request, site_id):
         if not check_proximity(site.latitude, site.longitude, lat, lng):
             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
 
-        # 4. Process Photo
-        try:
-            format, imgstr = photo_data.split(';base64,')
-            ext = format.split('/')[-1]
-            photo_file = ContentFile(base64.b64decode(
-                imgstr), name=f"gate_{worker.id}_{timezone.now().strftime('%Y%m%d%H%M')}.{ext}")
-        except Exception:
-            return JsonResponse({'success': False, 'error': 'Biometric capture failed.'})
-
-        # 5. Save Record
+        # 4. Process Photo & Save Record
         if clock_type == 'IN':
             already_in = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).exists()
             if already_in:
                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
 
-            # 🛑 FIX 2: Removed lat/lng to prevent FieldError, added daily_rate
+            # ☁️ CLOUDINARY UPLOAD FIX ☁️
+            # Cloudinary accepts raw base64 strings directly, bypassing Render's local disk restrictions.
+            secure_image_id = None
             try:
-                StaffAttendance.objects.create(
+                upload_result = cloudinary.uploader.upload(
+                    photo_data,
+                    folder="codasite_attendance_logs"
+                )
+                secure_image_id = upload_result['public_id']
+            except Exception as e:
+                print(f"CLOUDINARY UPLOAD FAILED: {str(e)}")
+                return JsonResponse({'success': False, 'error': 'Failed to upload biometric feed to cloud.'})
+
+            # 5. Database Save (Using the Cloudinary ID)
+            try:
+                attendance = StaffAttendance(
                     worker=worker,
                     site=site,
-                    user=worker.user,
                     time_in=timezone.now(),
-                    clock_in_photo=photo_file,
-                    daily_rate_at_time=worker.daily_rate
+                    clock_in_photo=secure_image_id  # Save the Cloudinary string, NOT a ContentFile
                 )
+
+                # Safely assign optional fields
+                if worker.user:
+                    attendance.user = worker.user
+
+                # Uncomment if your model specifically tracks daily_rate_at_time
+                # attendance.daily_rate_at_time = worker.daily_rate
+
+                attendance.save()
+
             except Exception as e:
-                print(f"DATABASE CRASH: {e}")  # This will show in Render logs!
-                return JsonResponse({'success': False, 'error': 'Database save failed.'})
+                print(f"DATABASE CRASH: {str(e)}")
+                return JsonResponse({'success': False, 'error': f'DB Error: {str(e)}'})
+
         else:
+            # CLOCK OUT LOGIC
             attendance = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).last()
             if attendance:
@@ -864,294 +949,6 @@ def process_biometric_clock(request, site_id):
 
         return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'error': 'Invalid request.'})
-
-
-# @login_required
-# def site_warehouse(request, site_id):
-#     # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
-#     site = get_object_or_404(SiteLocation, id=site_id)
-
-#     # 🛡️ 2. THE PERMISSION GATE
-#     # Check if the user is the Boss
-#     is_owner = (site.company.owner == request.user)
-
-#     # Check if the user is an invited staff member for THIS site
-#     invitation = Invitation.objects.filter(
-#         email=request.user.email,
-#         site=site,
-#         is_used=True
-#     ).last()
-
-#     # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
-#     if not is_owner and not invitation:
-#         messages.error(
-#             request, "Access Denied: You are not assigned to this warehouse.")
-#         return redirect('profile')
-
-#     # 3. Determine the User's Role for the UI
-#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-#     is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
-
-#     # --- THE LOGIC ENGINE ---
-
-#     if request.method == "POST":
-#         if 'add_stock' in request.POST:
-#             try:
-#                 qty = Decimal(request.POST.get('quantity') or '0.00')
-
-#                 if qty <= 0:
-#                     messages.error(
-#                         request, "Quantity must be greater than zero.")
-#                     return redirect('site_warehouse', site_id=site.id)
-#                 raw_name = request.POST.get('item_name', '')
-
-#                 item_name = re.sub(
-#                     r'\s+',
-#                     ' ',
-#                     raw_name.strip().upper()
-#                 )
-#                 unit = request.POST.get('unit', '').strip()
-#                 img_file = request.FILES.get('evidence_image')
-#                 vid_file = request.FILES.get('evidence_video')
-#                 item_category = request.POST.get('item_category')
-
-#                 is_tool = (item_category == 'asset')
-
-#                 # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
-#                 processed_vid = None
-#                 if vid_file:
-#                     import cloudinary.uploader
-#                     upload_result = cloudinary.uploader.upload(
-#                         vid_file,
-#                         resource_type="video",
-#                         folder="codasite_audits",
-#                         transformation=[
-#                             {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
-#                                 "x": 20, "y": 20, "width": 80, "opacity": 90}
-#                         ]
-#                     )
-#                     processed_vid = upload_result['public_id']
-
-#                 # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
-
-#                 with transaction.atomic():
-#                     stock, created = MaterialStock.objects.select_for_update().get_or_create(
-#                         site=site,
-#                         item_name=item_name,
-#                         defaults={
-#                             'unit': unit,
-#                             'is_returnable': is_tool
-#                         }
-#                     )
-
-#                     # 🚀 THE FIX: Force the database to update the category and unit!
-#                     # If it was previously saved wrong, this forces the correction.
-#                     stock.is_returnable = is_tool
-#                     stock.unit = unit
-
-#                     # Do the math
-#                     stock.current_balance += qty
-
-#                     if img_file:
-#                         stock.evidence_image = img_file
-#                     if processed_vid:
-#                         stock.evidence_video = processed_vid
-
-#                     stock.save()
-
-#                     MaterialRestockLog.objects.create(
-#                         stock_item=stock,
-#                         site=site,
-#                         quantity_added=qty,
-#                         evidence_image=img_file,
-#                         evidence_video=processed_vid if processed_vid else None
-#                     )
-
-#                 messages.success(
-#                     request, f"Received {qty} {unit} of {item_name}.")
-#             except Exception as e:
-#                 messages.error(request, f"Intake Error: {e}")
-
-#         # --- B. ISSUE MATERIAL (DEDUCTION) ---
-#         elif 'issue_material' in request.POST:
-#             stock_id = request.POST.get('stock_item')
-#             worker_id = request.POST.get('worker_id')
-#             qty_input = request.POST.get('quantity')
-
-#             try:
-#                 qty = Decimal(qty_input or 0)
-#                 if qty <= 0:
-#                     messages.error(request, "Invalid quantity.")
-#                     return redirect('site_warehouse', site_id=site.id)
-
-#                 worker = get_object_or_404(
-#                     SkilledWorker, id=worker_id, is_trashed=False)
-#                 stock = get_object_or_404(
-#                     MaterialStock, id=stock_id, site=site)
-
-#                 # 🛑 THE FIX: We ONLY create the record here.
-#                 # We do NOT subtract stock.current_balance manually.
-#                 # The model's save() method will handle the math atomically.
-#                 MaterialDeduction.objects.create(
-#                     stock_item=stock,
-#                     worker=worker,
-#                     quantity_taken=qty,
-#                     purpose=request.POST.get('purpose', 'General Site Use'),
-#                     authorized_by=request.user,
-#                 )
-
-#                 messages.success(
-#                     request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
-
-#             except ValidationError as e:
-#                 # This catches the error if they actually try to take more than available
-#                 messages.error(request, e.messages[0])
-#             except MaterialStock.DoesNotExist:
-#                 messages.error(request, "Material not found.")
-#             except Exception as e:
-#                 messages.error(request, f"A system error occurred: {e}")
-#         # --- C. RECEIVE RETURNED TOOL ---
-
-#         # elif 'return_tool' in request.POST:
-#         #     deduction_id = request.POST.get('deduction_id')
-#         #     return_qty = Decimal(request.POST.get('return_qty') or 0)
-
-#         #     try:
-#         #         with transaction.atomic():
-#         #             # 1. Fetch the active checkout record
-#         #             deduction = MaterialDeduction.objects.select_for_update().get(
-#         #                 id=deduction_id,
-#         #                 is_returned=False,
-#         #                 stock_item__site=site
-#         #             )
-
-#         #             owed_qty = deduction.amount_owed
-
-#         #             # 2. Strict Mathematical Validation
-#         #             if return_qty <= 0 or return_qty > owed_qty:
-#         #                 messages.error(
-#         #                     request, f"Error: You can only return between 1 and {owed_qty} items.")
-#         #             else:
-#         #                 # 3. Add to the returned tally
-#         #                 deduction.quantity_returned += return_qty
-
-#         #                 # 4. Check if the debt is fully cleared
-#         #                 if deduction.quantity_returned >= deduction.quantity_taken:
-#         #                     deduction.is_returned = True
-#         #                     deduction.returned_at = timezone.now()
-#         #                     status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
-#         #                 else:
-#         #                     status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
-
-#         #                 # Save the deduction record (Bypassing custom save checks since it's an update)
-#         #                 deduction.save(
-#         #                     update_fields=['quantity_returned', 'is_returned', 'returned_at'])
-
-#         #                 # 5. Return the tools to the main warehouse balance
-#         #                 stock = deduction.stock_item
-#         #                 stock.current_balance = models.F(
-#         #                     'current_balance') + return_qty
-#         #                 stock.save(update_fields=['current_balance'])
-
-#         #                 messages.success(request, status_msg)
-
-#         #     except MaterialDeduction.DoesNotExist:
-#         #         messages.error(
-#         #             request, "Error: Tool record not found or already fully returned.")
-#         #     except Exception as e:
-#         #         messages.error(request, f"System error receiving tool: {e}")
-
-#         # --- C. RECEIVE RETURNED TOOL (PRO ARCHITECTURE) ---
-#         elif 'return_tool' in request.POST:
-#             deduction_id = request.POST.get('deduction_id')
-#             return_qty = Decimal(request.POST.get('return_qty') or 0)
-
-#             try:
-#                 with transaction.atomic():
-#                     # 1. Fetch the active record (Lock it so no other view can touch it)
-#                     deduction = MaterialDeduction.objects.select_for_update().get(
-#                         id=deduction_id,
-#                         is_returned=False,
-#                         stock_item__site=site
-#                     )
-
-#                     owed_qty = deduction.amount_owed
-
-#                     # 2. Validation
-#                     if return_qty <= 0 or return_qty > owed_qty:
-#                         messages.error(
-#                             request, f"Error: You can only return between 1 and {owed_qty} items.")
-#                     else:
-#                         # 3. Update the tally
-#                         deduction.quantity_returned += return_qty
-#                         deduction.returned_at = timezone.now()  # Move this HERE
-
-#                         if deduction.quantity_returned >= deduction.quantity_taken:
-#                             deduction.is_returned = True
-
-#                             status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
-#                         else:
-#                             status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
-
-#                         # Save deduction (using update_fields to bypass the inventory-subtraction save() logic)
-
-#                         deduction.save(
-#                             update_fields=['quantity_returned', 'is_returned', 'returned_at'])
-
-#                         # 4. 🚀 THE ATOMIC FIX: Return the tools to the main balance
-#                         stock = deduction.stock_item
-#                         stock.current_balance = F(
-#                             'current_balance') + return_qty  # Direct F() use
-#                         stock.save(update_fields=['current_balance'])
-
-#                         messages.success(request, status_msg)
-
-#             except MaterialDeduction.DoesNotExist:
-#                 messages.error(
-#                     request, "Error: Tool record not found or already fully returned.")
-#             except Exception as e:
-#                 messages.error(request, f"System error receiving tool: {e}")
-
-#         # 🛑 HTMX FIX: Force the browser to do a clean refresh if it's an HTMX request!
-#         if request.META.get('HTTP_HX_REQUEST'):
-#             response = HttpResponse(status=204)
-#             response['HX-Refresh'] = 'true'
-#             return response
-
-#         return redirect('site_warehouse', site_id=site.id)
-
-#     # 📋 Normal Page Load
-#     stocks = MaterialStock.objects.filter(site=site)
-
-#     # 🛑 FIX: Only load active workers into the context for the dropdown
-#     workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
-
-#     active_tools = MaterialDeduction.objects.filter(
-#         stock_item__site=site,
-#         is_returned=False,
-#         stock_item__is_returnable=True
-#     ).select_related('worker', 'stock_item').order_by('-timestamp')
-#     tool_history = MaterialDeduction.objects.filter(
-#         stock_item__site=site,
-#         stock_item__is_returnable=True  # 🛠️ ONLY show returnable assets/tools
-#     ).select_related('worker', 'stock_item').order_by('-timestamp')
-
-#     # 3. 🛑 CREATE BLOCKED LIST
-#     blocked_worker_ids = list(active_tools.values_list('worker_id', flat=True))
-
-#     # 4. 📦 ADD EVERYTHING TO CONTEXT
-#     context = {
-#         'site': site,
-#         'stocks': stocks,
-#         'workers': workers,
-#         'is_boss': is_boss,
-#         'user_role': user_role,
-#         'active_tools': active_tools,
-#         'tool_history': tool_history,  # 🚀 ADD THIS TO CONTEXT
-#         'blocked_worker_ids': blocked_worker_ids,
-#     }
-
-#     return render(request, 'site_management/site_warehouse.html', context)
 
 
 @login_required
