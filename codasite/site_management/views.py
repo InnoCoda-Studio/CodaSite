@@ -672,8 +672,26 @@ def attendance_scan_portal(request, site_id):
 # 2. THE VERIFICATION ENDPOINT (For the Alpine.js frontend to check the PIN instantly)
 
 
+# def verify_worker_identity(request, site_id):
+#     """API endpoint to check Phone + PIN before opening the camera"""
+#     if request.method == "POST":
+#         phone = request.POST.get('phone', '').strip()
+#         pin = request.POST.get('pin', '').strip()
+
+#         # Look for the worker on this specific site
+#         worker = SkilledWorker.objects.filter(
+#             site_id=site_id,
+#             phone=phone,
+#             gate_pass=pin
+#         ).first()
+
+#         if worker:
+#             return JsonResponse({'valid': True, 'name': worker.name})
+
+#         return JsonResponse({'valid': False, 'error': 'Invalid Phone or PIN'})
+#     return JsonResponse({'valid': False, 'error': 'Invalid request'})
 def verify_worker_identity(request, site_id):
-    """API endpoint to check Phone + PIN before opening the camera"""
+    """API endpoint to check Phone + PIN before opening the camera, AND check clock status"""
     if request.method == "POST":
         phone = request.POST.get('phone', '').strip()
         pin = request.POST.get('pin', '').strip()
@@ -686,11 +704,21 @@ def verify_worker_identity(request, site_id):
         ).first()
 
         if worker:
-            return JsonResponse({'valid': True, 'name': worker.name})
+            # 🚀 THE FIX: Check if they are currently on the clock
+            is_clocked_in = StaffAttendance.objects.filter(
+                worker=worker,
+                site_id=site_id,
+                time_out__isnull=True
+            ).exists()
+
+            return JsonResponse({
+                'valid': True,
+                'name': worker.name,
+                'is_clocked_in': is_clocked_in  # 👈 Pass the status to the frontend
+            })
 
         return JsonResponse({'valid': False, 'error': 'Invalid Phone or PIN'})
     return JsonResponse({'valid': False, 'error': 'Invalid request'})
-
 
 # def process_biometric_clock(request, site_id):
 #     if request.method == 'POST':
@@ -764,6 +792,7 @@ def verify_worker_identity(request, site_id):
 #         return JsonResponse({'success': True})
 
 #     return JsonResponse({'success': False, 'error': 'Invalid request method.'})
+
 
 def process_biometric_clock(request, site_id):
     if request.method == 'POST':
@@ -1497,58 +1526,6 @@ def deploy_worker(request, site_id):
 
     return redirect('site_dashboard', site_id=site.id)
 
-
-# @login_required
-# @transaction.atomic
-# def all_workers(request):
-#     # --- 1. HANDLE SAVING NEW WORKER ---
-#     if request.method == "POST" and 'register_worker' in request.POST:
-#         try:
-#             # Get the data from the form
-#             id_num = request.POST.get('id_number', '').strip()
-#             phone_num = request.POST.get('phone', '').strip()
-
-#             # 🛡️ THE SECURITY CHECK: Check if ID or Phone already exists
-#             if SkilledWorker.objects.filter(id_number=id_num).exists():
-#                 messages.error(
-#                     request, f"Access Denied: ID {id_num} already exists.")
-#                 return redirect('all_workers')
-
-#             # Clean the money data properly
-#             raw_rate = request.POST.get('daily_rate')
-#             daily_rate = Decimal(
-#                 raw_rate) if raw_rate and raw_rate.strip() else Decimal('0.00')
-
-#             # Create the record
-#             SkilledWorker.objects.create(
-#                 contractor=request.user,
-#                 name=request.POST.get('name'),
-#                 category=request.POST.get('category'),
-#                 id_number=id_num,
-#                 phone=phone_num,
-#                 emergency_contact=request.POST.get('emergency_contact'),
-#                 bank_name=request.POST.get('bank_name'),
-#                 account_number=request.POST.get('account_number'),
-#                 account_name=request.POST.get('account_name'),
-#                 daily_rate=daily_rate,
-#                 pay_frequency=request.POST.get('pay_frequency', 'Daily'),
-#                 profile_picture=request.FILES.get('profile_picture')
-#             )
-#             messages.success(
-#                 request, "Personnel successfully added to Global Registry.")
-#             return redirect('all_workers')
-
-#         except Exception as e:
-#             # 👈 Watch your terminal for this!
-#             print(f"DATABASE REJECTION ERROR: {e}")
-#             messages.error(request, f"Registry Error: {e}")
-
-#     # --- 2. DISPLAY LOGIC ---
-#     workers = SkilledWorker.objects.filter(
-#         contractor=request.user).order_by('-id')
-#     return render(request, 'site_management/all_workers.html', {'workers': workers})
-
-#     workers = SkilledWorker.objects.filter(company__owner=request.user, is_trashed=False)
 
 @login_required
 def all_workers(request):

@@ -58,16 +58,23 @@
                 </div>
             </div>
 
-            <div class="space-y-4">
-                <button @click="processAttendance('IN')" :disabled="loading || !lat" 
-                        class="w-full py-5 bg-innocoda-teal text-black rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">
-                    <span x-show="!loading">Clock In</span>
-                    <span x-show="loading" class="animate-pulse">Authenticating...</span>
+           <div class="space-y-4">
+                <button x-show="!isClockedIn" @click="processAttendance('IN')" :disabled="loading || !lat" 
+                        class="w-full py-5 bg-innocoda-teal text-black rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(45,212,191,0.2)]">
+                    <span x-show="!loading">Clock In For Shift</span>
+                    <span x-show="loading" class="animate-pulse flex items-center justify-center gap-2">
+                        <svg class="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Authenticating...
+                    </span>
                 </button>
 
-                <button @click="processAttendance('OUT')" :disabled="loading || !lat" 
-                        class="w-full py-5 glass border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50">
-                    Clock Out
+                <button x-show="isClockedIn" @click="processAttendance('OUT')" :disabled="loading || !lat" 
+                        class="w-full py-5 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                    <span x-show="!loading">End Shift & Clock Out</span>
+                    <span x-show="loading" class="animate-pulse flex items-center justify-center gap-2">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Authenticating...
+                    </span>
                 </button>
             </div>
         </div>
@@ -77,7 +84,7 @@
 
 <script>
    
-function attendanceHandler() {
+{% comment %} function attendanceHandler() {
     return {
         loading: false,
         message: 'Awaiting GPS Lock...',
@@ -218,9 +225,9 @@ function attendanceHandler() {
             }
         }
     }
-}
+} {% endcomment %}
 
-{% comment %} function attendanceHandler() {
+function attendanceHandler() {
     return {
         loading: false,
         message: 'Awaiting GPS Lock...',
@@ -232,6 +239,7 @@ function attendanceHandler() {
         stream: null,
         lat: null,
         lng: null,
+        isClockedIn: false, // 👈 New state to track if they are currently on site
 
         initGPS() {
             navigator.geolocation.getCurrentPosition(pos => {
@@ -250,13 +258,15 @@ function attendanceHandler() {
             this.isError = false;
 
             try {
+                const cleanToken = document.querySelector('#safe-csrf-form input').value;
                 const formData = new FormData();
                 formData.append('phone', this.phone);
                 formData.append('pin', this.pin);
-                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                formData.append('csrfmiddlewaretoken', cleanToken);
 
                 const response = await fetch('{% url "verify_worker_identity" site.id %}', {
                     method: 'POST',
+                    headers: { 'X-CSRFToken': cleanToken },
                     body: formData
                 });
                 
@@ -264,9 +274,16 @@ function attendanceHandler() {
 
                 if (data.valid) {
                     this.workerName = data.name;
+                    this.isClockedIn = data.is_clocked_in; // 👈 Save their status from the backend
                     this.identityVerified = true;
-                    this.message = "Identity Verified. Center face for scan.";
-                    this.startCamera(); // Only turn on the camera AFTER they put in the right PIN!
+                    
+                    if (this.isClockedIn) {
+                        this.message = "Active Shift Found. Center face to Clock Out.";
+                    } else {
+                        this.message = "Identity Verified. Center face to Clock In.";
+                    }
+                    
+                    this.startCamera(); 
                 } else {
                     this.isError = true;
                     this.message = data.error || "Invalid Phone or PIN.";
@@ -309,21 +326,20 @@ function attendanceHandler() {
                 canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
                 const photoData = canvas.toDataURL('image/jpeg', 0.6);
 
+                const cleanToken = document.querySelector('#safe-csrf-form input').value;
+
                 const formData = new FormData();
                 formData.append('type', type);
                 formData.append('photo', photoData);
-                formData.append('phone', this.phone); // Pass phone back for the final backend check
-                formData.append('pin', this.pin);     // Pass pin back for the final backend check
+                formData.append('phone', this.phone); 
+                formData.append('pin', this.pin);    
                 formData.append('lat', this.lat);
                 formData.append('lng', this.lng);
-                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                formData.append('csrfmiddlewaretoken', cleanToken); 
 
-                //const response = await fetch('{% url "process_biometric_clock" site.id %}', {
                 const response = await fetch('{% url "process_clock" site.id %}', {
                         method: 'POST',
-                        headers: {
-                            'X-CSRFToken': '{{ csrf_token }}'  // 👈 THIS IS THE MAGIC KEY
-                        },
+                        headers: { 'X-CSRFToken': cleanToken },
                         body: formData
                     });
 
@@ -333,12 +349,10 @@ function attendanceHandler() {
                     this.isError = false;
                     this.message = "✅ SUCCESS! " + this.workerName + " Clocked " + type;
                     
-                    // Kill the camera to save battery
                     if(this.stream) {
                         this.stream.getTracks().forEach(track => track.stop());
                     }
 
-                    // ⚡ Auto-Reload the page after 2.5 seconds ready for the next worker in line!
                     setTimeout(() => {
                         window.location.reload();
                     }, 2500);
@@ -355,6 +369,6 @@ function attendanceHandler() {
             }
         }
     }
-} {% endcomment %}
+}
 </script>
 {% endblock %}
