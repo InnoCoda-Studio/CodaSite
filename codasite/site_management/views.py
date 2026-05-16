@@ -1668,14 +1668,6 @@ def all_workers(request):
         'trashed_workers': trashed_workers,    # Powers the graveyard/trash view
         'user_sites': user_sites,              # Powers the site assignment dropdown
     })
-    # return render(request, 'site_management/all_workers.html', {
-    #     'workers': workers,
-    #     'user_sites': user_sites,
-    #     'global_workers_pool': global_workers_pool,
-
-    #     'active_workers': active_workers,
-    #     'trashed_workers': trashed_workers,
-    # })
 
 
 @login_required
@@ -1698,7 +1690,7 @@ def worker_search(request):
 
     return render(request, 'site_management/htmx_components/worker_list_results.html', {'workers': workers})
 
-# Make sure to import your User, SkilledWorker, SiteLocation, Invitation, cloudinary etc.
+#
 
 
 @login_required
@@ -1867,14 +1859,6 @@ def restore_worker(request, worker_id):
     return redirect('workforce_trash')
 
 
-# @login_required
-# def workforce_trash(request):
-#     # Only show people who are trashed
-#     trashed_workers = SkilledWorker.objects.filter(
-#         company__owner=request.user, is_trashed=True)
-#     return render(request, 'site_management/workforce_trash.html', {'workers': trashed_workers})
-
-
 @login_required
 def workforce_trash(request):
     # Fetch everyone in the graveyard
@@ -1890,38 +1874,75 @@ def workforce_trash(request):
 
 @login_required
 def worker_profile(request, slug):
-    # 1. Fetch the specific worker (The "Dossier")
+    # 1. Fetch the specific worker
     worker = get_object_or_404(
         SkilledWorker, slug=slug, contractor=request.user
     )
 
-    # 2. Fetch all activity (Every time they clocked in)
+    # 🚀 THE FIX: Directly query the database for this worker's crew members
+    crew_members = SkilledWorker.objects.filter(
+        lead_worker=worker, is_trashed=False)
+
+    # 2. Fetch all activity
     history = StaffAttendance.objects.filter(
         worker=worker
     ).order_by('-time_in')
 
-    # 3. Filter for Settlements (Only the logs you've clicked "Paid" on)
-    # We use -payment_date so the most recent money sent is at the top
+    # 3. Filter for Settlements
     payment_history = history.filter(is_paid=True).order_by('-payment_date')
 
-    # 4. Calculate the Balance (The math for the orange card)
+    # 4. Calculate the Balance
     unpaid_logs = history.filter(is_paid=False)
     unpaid_count = unpaid_logs.count()
-
-    # Calculation: Days Unpaid x Their Snapshotted Rate (or current rate)
     total_debt = unpaid_count * worker.daily_rate
 
-    # 5. Send the "Package" to your Premium HTML
+    # 5. Pass crew_members explicitly into the context
     return render(request, 'site_management/worker_profile.html', {
         'worker': worker,
         'site': worker.site,
+        'crew_members': crew_members,  # 👈 Added here
         'history': history,
         'payment_history': payment_history,
         'total_days': history.count(),
         'unpaid_days': unpaid_count,
         'total_debt': total_debt,
     })
-#  mark as paid
+
+
+# @login_required
+# def worker_profile(request, slug):
+#     # 1. Fetch the specific worker (The "Dossier")
+#     worker = get_object_or_404(
+#         SkilledWorker, slug=slug, contractor=request.user
+#     )
+
+#     # 2. Fetch all activity (Every time they clocked in)
+#     history = StaffAttendance.objects.filter(
+#         worker=worker
+#     ).order_by('-time_in')
+
+#     # 3. Filter for Settlements (Only the logs you've clicked "Paid" on)
+#     # We use -payment_date so the most recent money sent is at the top
+#     payment_history = history.filter(is_paid=True).order_by('-payment_date')
+
+#     # 4. Calculate the Balance (The math for the orange card)
+#     unpaid_logs = history.filter(is_paid=False)
+#     unpaid_count = unpaid_logs.count()
+
+#     # Calculation: Days Unpaid x Their Snapshotted Rate (or current rate)
+#     total_debt = unpaid_count * worker.daily_rate
+
+#     # 5. Send the "Package" to your Premium HTML
+#     return render(request, 'site_management/worker_profile.html', {
+#         'worker': worker,
+#         'site': worker.site,
+#         'history': history,
+#         'payment_history': payment_history,
+#         'total_days': history.count(),
+#         'unpaid_days': unpaid_count,
+#         'total_debt': total_debt,
+#     })
+# #  mark as paid
 
 
 @login_required

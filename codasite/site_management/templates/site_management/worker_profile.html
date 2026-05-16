@@ -2,6 +2,315 @@
 
 {% block content %}
 <div class="container mx-auto p-4 max-w-xl pb-32">
+    
+    <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden mb-6 group">
+        <div class="absolute -right-16 -top-16 w-48 h-48 bg-innocoda-teal/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-innocoda-teal/10 transition-all duration-700"></div>
+        
+        <div class="flex flex-col items-center">
+            <div id="img-container" 
+                 class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 overflow-hidden mb-4 bg-innocoda-navy flex items-center justify-center shadow-2xl transition-all duration-500 cursor-pointer hover:border-innocoda-teal">
+                {% if worker.profile_picture %}
+                    <img src="{{ worker.profile_picture.url }}" class="w-full h-full object-cover transition-transform duration-500" id="imga-whider">
+                {% else %}
+                    <span class="text-5xl font-black text-innocoda-teal opacity-40 select-none">{{ worker.name|slice:":1" }}</span>
+                {% endif %}
+            </div>
+
+            <h1 class="text-3xl font-black text-white uppercase tracking-tighter text-center">{{ worker.name }}</h1>
+            
+            <div class="flex items-center gap-2 mb-4 mt-1">
+                <p class="text-innocoda-teal font-black uppercase text-[10px] tracking-[0.4em] bg-innocoda-teal/5 border border-innocoda-teal/10 px-3 py-1 rounded-full shadow-sm">{{ worker.category }}</p>
+                {% if worker.is_sub_contractor %}
+                    <span class="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">👑 Oga</span>
+                {% elif worker.lead_worker %}
+                    <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">建造 Crew</span>
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center space-x-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 shadow-inner">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]"></span>
+                <span class="text-[9px] font-black uppercase text-gray-300 tracking-wider">Verified Personnel</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-8">
+        <div class="glass p-6 rounded-[2.5rem] border border-white/5 text-center shadow-md">
+            <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Total Attendance</p>
+            <h4 class="text-3xl font-black text-white tracking-tighter leading-none my-2">{{ total_days }}</h4>
+            <p class="text-[8px] text-innocoda-teal font-bold uppercase tracking-wider">Days Recorded</p>
+        </div>
+
+        <div class="glass p-6 rounded-[2.5rem] border border-orange-500/20 bg-gradient-to-b from-orange-500/5 to-transparent text-center flex flex-col justify-center items-center shadow-md">
+            <p class="text-[9px] text-orange-400 font-black uppercase tracking-widest mb-1">Pending Settlement</p>
+            {% if worker.lead_worker %}
+                <h4 class="text-lg font-black text-white tracking-tighter mt-1 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-xl">VIA OGA</h4>
+                <p class="text-[8px] text-gray-500 font-bold uppercase mt-1.5 tracking-tight">Paid via: {{ worker.lead_worker.name|truncatechars:12|upper }}</p>
+            {% else %}
+                <h4 class="text-3xl font-black text-white tracking-tighter leading-none my-2">₦{{ total_debt|floatformat:0 }}</h4>
+                <p class="text-[8px] text-gray-400 font-bold uppercase tracking-wider">{{ unpaid_days }} Unpaid Days</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% comment %} {% if worker.is_sub_contractor %}
+    <div class="mb-8">
+        <h2 class="text-orange-400 font-black uppercase text-xs mb-3 px-2 tracking-widest flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+            Managed Crew (The Boys)
+        </h2>
+        <div class="glass p-5 rounded-[2rem] border border-white/5 shadow-inner">
+            <div class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar scroll-smooth">
+                {% with crew=worker.crew_members.all|default:worker.skilledworker_set.all %}
+                    {% for boy in crew %}
+                    <a hx-get="{% url 'worker_profile' boy.slug %}" hx-target="#main-content" hx-push-url="true" class="flex-shrink-0 w-20 text-center group/boy cursor-pointer">
+                        <div class="w-14 h-14 rounded-2xl bg-black/40 border border-white/10 mx-auto overflow-hidden mb-2 transition-all duration-300 group-hover/boy:border-innocoda-teal group-hover/boy:scale-105 shadow-md">
+                            {% if boy.profile_picture %}
+                                <img src="{{ boy.profile_picture.url }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <div class="w-full h-full flex items-center justify-center text-lg font-black text-white/20 bg-white/5">{{ boy.name|slice:":1" }}</div>
+                            {% endif %}
+                        </div>
+                        <p class="text-[9px] text-gray-400 font-bold truncate px-1 uppercase group-hover/boy:text-white transition-colors">{{ boy.name }}</p>
+                    </a>
+                    {% empty %}
+                    <div class="w-full py-4 text-center">
+                        <p class="text-[10px] text-gray-600 italic uppercase tracking-wider">No team personnel assigned under this contract layer.</p>
+                    </div>
+                    {% endfor %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+    {% endif %} {% endcomment %}
+    {% if worker.is_sub_contractor %}
+    <div class="mb-8">
+        <h2 class="text-orange-400 font-black uppercase text-xs mb-3 px-2 tracking-widest flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+            Managed Crew (The Boys)
+        </h2>
+        <div class="glass p-5 rounded-[2rem] border border-white/5 shadow-inner">
+            <div class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar scroll-smooth">
+                {% for boy in crew_members %}
+                <a hx-get="{% url 'worker_profile' boy.slug %}" hx-target="#main-content" hx-push-url="true" class="flex-shrink-0 w-20 text-center group/boy cursor-pointer">
+                    <div class="w-14 h-14 rounded-2xl bg-black/40 border border-white/10 mx-auto overflow-hidden mb-2 transition-all duration-300 group-hover/boy:border-innocoda-teal group-hover/boy:scale-105 shadow-md">
+                        {% if boy.profile_picture %}
+                            <img src="{{ boy.profile_picture.url }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <div class="w-full h-full flex items-center justify-center text-lg font-black text-white/20 bg-white/5">{{ boy.name|slice:":1" }}</div>
+                        {% endif %}
+                    </div>
+                    <p class="text-[9px] text-gray-400 font-bold truncate px-1 uppercase group-hover/boy:text-white transition-colors">{{ boy.name }}</p>
+                </a>
+                {% empty %}
+                <div class="w-full py-4 text-center">
+                    <p class="text-[10px] text-gray-600 italic uppercase tracking-wider">No team personnel assigned under this contract layer.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="space-y-8">
+        <div>
+            <h2 class="text-white font-black uppercase text-xs mb-3 px-2 tracking-widest flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-innocoda-teal"></span>
+                Personnel Identity
+            </h2>
+            <div class="glass p-6 rounded-3xl border border-white/5 space-y-6 shadow-md">
+                
+                <div class="grid grid-cols-1 gap-2 pb-4 border-b border-white/5">
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-wider">Employment Status</p>
+                        {% if worker.is_sub_contractor %}
+                            <p class="text-orange-400 font-black text-sm uppercase mt-0.5">Sub-Contractor Fleet Lead</p>
+                        {% elif worker.lead_worker %}
+                            <p class="text-blue-400 font-black text-sm uppercase mt-0.5">Crew Operative</p>
+                            <a hx-get="{% url 'worker_profile' worker.lead_worker.slug %}" hx-target="#main-content" hx-push-url="true" class="text-[9px] text-white/70 uppercase mt-2 border border-blue-500/20 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/5 hover:bg-blue-500/20 transition-all cursor-pointer">
+                                🔗 Managed By: <span class="text-white font-black tracking-tight">{{ worker.lead_worker.name|upper }}</span>
+                            </a>
+                        {% else %}
+                            <p class="text-innocoda-teal font-black text-sm uppercase mt-0.5">Standard Direct Corporate Hire</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-wider">Staff ID Number</p>
+                        <p class="text-white font-bold text-xs mt-0.5 bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg inline-block font-mono">{{ worker.id_number }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-wider">Designation Class</p>
+                        <p class="text-innocoda-teal font-black text-xs uppercase mt-1 tracking-wide">{{ worker.category }}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-wider">Primary Secure Line</p>
+                        <a href="tel:{{ worker.phone }}" class="text-white font-bold text-xs hover:text-innocoda-teal transition-colors flex items-center gap-1.5 mt-1">
+                            <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h32a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm0 0a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"></path></svg>
+                            {{ worker.phone }}
+                        </a>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-wider">Emergency Standby</p>
+                        <p class="text-red-400 font-bold text-xs mt-1">{{ worker.emergency_contact|default:"UNSPECIFIED" }}</p>
+                    </div>
+                </div>
+
+                <div class="bg-black/40 p-5 rounded-2xl border border-white/5 shadow-inner">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] text-orange-400 uppercase font-black tracking-widest mb-1">Gate Authentication Passcode</p>
+                            <p class="text-white font-black text-2xl tracking-[0.4em] font-mono leading-none">{{ worker.gate_pass|default:"2026" }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">System Handle</p>
+                            <p class="text-white/60 font-mono text-xs">{{ worker.user.username }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if not worker.lead_worker %}
+       <div>
+    <h2 class="text-gray-400 font-black uppercase text-xs mb-4 px-2 tracking-[0.3em] flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.5)]"></span>
+        Bank Routing Settlement
+    </h2>
+    
+    <div class="glass p-8 rounded-[2.5rem] border border-orange-500/30 bg-black/60 shadow-2xl relative overflow-hidden group hover:border-orange-500/50 transition-all duration-500 transform hover:-translate-y-1 hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6)]">
+        
+        <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-orange-500/15 transition-all duration-700"></div>
+
+        <div class="flex justify-between items-start mb-8 relative z-10">
+            <div class="w-12 h-9 bg-gradient-to-r from-orange-500/30 to-orange-400/10 rounded-lg border border-orange-500/30 shadow-inner flex flex-col justify-between p-1.5 relative overflow-hidden group-hover:scale-105 transition-transform">
+                <div class="absolute inset-0 bg-white/5 -translate-x-full skew-x-12 group-hover:animate-shimmer"></div>
+                <div class="flex justify-between gap-1">
+                    <div class="h-1.5 flex-1 bg-black/30 rounded"></div>
+                    <div class="h-1.5 flex-1 bg-black/30 rounded"></div>
+                </div>
+                <div class="h-1.5 w-1/2 bg-black/30 rounded"></div>
+                <div class="flex justify-between gap-1">
+                    <div class="h-1.5 flex-1 bg-black/30 rounded"></div>
+                    <div class="h-1.5 flex-1 bg-black/30 rounded"></div>
+                </div>
+            </div>
+            
+            <p class="text-white font-black italic text-xs tracking-tighter bg-orange-400/10 px-4 py-2 rounded-xl border border-orange-400/20 shadow-md backdrop-blur-sm">
+                {{ worker.bank_name|default:"OPAY BANKING" }}
+            </p>
+        </div>
+        
+        <div class="relative z-10 my-6 cursor-pointer group/number" @click="navigator.clipboard.writeText('{{ worker.account_number|default:'0000000000' }}'); showToast('Copied to Clipboard!', 'success')">
+            <p class="text-white font-mono text-3xl md:text-4xl tracking-[0.2em] drop-shadow-xl leading-none group-hover/number:text-innocoda-teal transition-colors">{{ worker.account_number|default:"0000000000" }}</p>
+            <span class="absolute -top-4 right-0 text-[8px] text-gray-700 font-bold uppercase tracking-widest opacity-0 group-hover/number:opacity-100 transition-opacity">Click to Copy</span>
+        </div>
+
+        <div class="flex justify-between items-end border-t border-white/5 pt-5 relative z-10">
+            <div>
+                <p class="text-[9px] text-gray-500 uppercase font-black tracking-[0.2em] mb-1">Settlement Name</p>
+                <p class="text-white font-bold text-xs uppercase tracking-tight">{{ worker.account_name|default:worker.name }}</p>
+            </div>
+            
+            <div class="text-right">
+                <p class="text-[9px] text-orange-400 uppercase font-black tracking-[0.2em] mb-1">Fixed Daily Rate</p>
+                <div class="flex items-baseline justify-end gap-1.5">
+                    <p class="text-3xl font-black text-white leading-none tracking-tighter">
+                        ₦{{ worker.daily_rate|floatformat:0 }}
+                    </p>
+                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">NGN/Day</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        {% endif %}
+
+        <div>
+            <div class="flex justify-between items-center mb-4 px-2">
+                <h2 class="text-white font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white/40"></span>
+                    Operational Shift Ledger
+                </h2>
+                <span class="text-[9px] text-gray-500 bg-white/5 border border-white/5 px-3 py-1 rounded-full font-black uppercase tracking-wider shadow-inner">{{ history.count }} Base Logs</span>
+            </div>
+            
+            <div class="space-y-4">
+                {% for log in history %}
+                <div class="glass p-5 rounded-2xl border {% if log.is_paid %}border-emerald-500/20 bg-emerald-500/5{% else %}border-white/5 hover:border-white/10{% endif %} flex justify-between items-center transition-all duration-300 shadow-sm group/log">
+                    <div>
+                        <p class="text-white font-black text-base uppercase tracking-tight group-hover/log:text-innocoda-teal transition-colors">{{ log.site.name }}</p>
+                        <p class="text-[9px] text-gray-500 uppercase font-black tracking-tighter mt-1 flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            {{ log.time_in|date:"D, d M Y" }} • {{ log.time_in|time:"H:i" }}
+                        </p>
+                    </div>
+                    <div class="text-right flex flex-col items-end gap-1.5">
+                        {% if worker.lead_worker %}
+                            <p class="text-blue-400 font-black text-xs tracking-wider bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">CREW UNIT</p>
+                        {% else %}
+                            <p class="text-white font-black text-sm tracking-tighter leading-none">₦{{ worker.daily_rate|floatformat:0 }}</p>
+                        {% endif %}
+                        
+                        <div class="flex items-center gap-2">
+                            {% if log.is_paid %}
+                                <span class="text-[8px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 shadow-sm">Paid & Settled</span>
+                            {% else %}
+                                <span class="text-[8px] font-black uppercase tracking-widest text-orange-400 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 shadow-sm mr-1">Unpaid Shift</span>
+                                
+                                {% if not worker.lead_worker %}
+                                <a href="{% url 'mark_as_paid' log.id %}" 
+                                   onclick="return confirm('Confirm cash/bank settlement structure for this shift? This action will generate a digital audit reference receipt.')"
+                                   class="text-[9px] font-black uppercase tracking-widest bg-innocoda-teal text-innocoda-navy px-3 py-1.5 rounded-lg hover:scale-105 transition-all shadow-md inline-block font-sans hover:shadow-[0_0_15px_rgba(0,210,210,0.3)]">
+                                    Pay Now
+                                </a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="glass p-12 text-center rounded-2xl border border-dashed border-white/5 bg-black/10">
+                    <p class="text-xs uppercase font-black tracking-widest text-gray-600 italic">No operational activity logs found for this dossier file.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-16 pt-8 border-t border-red-500/10">
+        <form method="POST" action="{% url 'trash_worker' worker.id %}" onsubmit="return confirm('Move this worker profile to the Graveyard Trash file? They will instantly lose operational access authorization strings across all sites.')">
+            {% csrf_token %}
+            <button type="submit" class="w-full py-4.5 rounded-2xl border border-red-500/20 text-red-500/40 hover:text-red-500 hover:bg-red-500/5 font-black uppercase text-[10px] tracking-[0.25em] transition-all shadow-inner outline-none">
+                ⚠️ Move Personnel Profile to Trash Graveyard
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Smooth Avatar Frame Expand Toggle 
+const container = document.getElementById("img-container");
+container.addEventListener('click', () => {
+    container.classList.toggle('w-32');
+    container.classList.toggle('h-32');
+    container.classList.toggle('w-56'); 
+    container.classList.toggle('h-56'); 
+    container.classList.toggle('rounded-full');
+    container.classList.toggle('rounded-[2rem]');
+});
+</script>
+{% endblock %}
+
+{% comment %} {% extends request.htmx|yesno:"site_management/partials/htmx_base.html,base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-4 max-w-xl pb-32">
     <div class="glass p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden mb-6">
         <div class="flex flex-col items-center">
             <div id="img-container" class="w-32 h-32 rounded-full border-4 border-innocoda-teal/30 overflow-hidden mb-4 bg-innocoda-navy flex items-center justify-center shadow-2xl transition-all duration-500 cursor-pointer">
@@ -204,4 +513,4 @@ container.addEventListener('click', () => {
     container.classList.toggle('rounded-3xl');
 });
 </script>
-{% endblock %}
+{% endblock %} {% endcomment %}
