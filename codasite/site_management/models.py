@@ -487,6 +487,24 @@ class MaterialRestockLog(models.Model):
     def __str__(self):
         return f"{self.stock_item.item_name} +{self.quantity_added} - {self.timestamp.strftime('%d %b')}"
 
+    @property
+    def secure_evidence_image_url(self):
+        if self.evidence_image:
+            url = self.evidence_image.url
+            if url.startswith("http://"):
+                return url.replace("http://", "https://")
+            return url
+        return None
+
+    @property
+    def secure_evidence_video_url(self):
+        if self.evidence_video:
+            url = self.evidence_video.url
+            if url.startswith("http://"):
+                return url.replace("http://", "https://")
+            return url
+        return None
+
 
 class MaterialDeduction(models.Model):
     stock_item = models.ForeignKey(
