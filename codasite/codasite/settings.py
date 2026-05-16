@@ -272,10 +272,10 @@ ANYMAIL = {
 # 4. Default sender for password resets and system emails
 DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
-# Tell Django it's sitting behind a secure proxy (Render)
-# SECURITY SETTINGS FOR RENDER
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-# Force Cloudinary to always use HTTPS
-SECURE_SSL_REDIRECT = True
+# # Tell Django it's sitting behind a secure proxy (Render)
+# # SECURITY SETTINGS FOR RENDER
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# # Force Cloudinary to always use HTTPS
+# SECURE_SSL_REDIRECT = True

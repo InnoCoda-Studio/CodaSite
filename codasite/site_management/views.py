@@ -837,23 +837,308 @@ def process_biometric_clock(request, site_id):
     return JsonResponse({'success': False, 'error': 'Invalid request.'})
 
 
+# @login_required
+# def site_warehouse(request, site_id):
+#     # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
+#     site = get_object_or_404(SiteLocation, id=site_id)
+
+#     # 🛡️ 2. THE PERMISSION GATE
+#     # Check if the user is the Boss
+#     is_owner = (site.company.owner == request.user)
+
+#     # Check if the user is an invited staff member for THIS site
+#     invitation = Invitation.objects.filter(
+#         email=request.user.email,
+#         site=site,
+#         is_used=True
+#     ).last()
+
+#     # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
+#     if not is_owner and not invitation:
+#         messages.error(
+#             request, "Access Denied: You are not assigned to this warehouse.")
+#         return redirect('profile')
+
+#     # 3. Determine the User's Role for the UI
+#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
+#     is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
+
+#     # --- THE LOGIC ENGINE ---
+
+#     if request.method == "POST":
+#         if 'add_stock' in request.POST:
+#             try:
+#                 qty = Decimal(request.POST.get('quantity') or '0.00')
+
+#                 if qty <= 0:
+#                     messages.error(
+#                         request, "Quantity must be greater than zero.")
+#                     return redirect('site_warehouse', site_id=site.id)
+#                 raw_name = request.POST.get('item_name', '')
+
+#                 item_name = re.sub(
+#                     r'\s+',
+#                     ' ',
+#                     raw_name.strip().upper()
+#                 )
+#                 unit = request.POST.get('unit', '').strip()
+#                 img_file = request.FILES.get('evidence_image')
+#                 vid_file = request.FILES.get('evidence_video')
+#                 item_category = request.POST.get('item_category')
+
+#                 is_tool = (item_category == 'asset')
+
+#                 # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
+#                 processed_vid = None
+#                 if vid_file:
+#                     import cloudinary.uploader
+#                     upload_result = cloudinary.uploader.upload(
+#                         vid_file,
+#                         resource_type="video",
+#                         folder="codasite_audits",
+#                         transformation=[
+#                             {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
+#                                 "x": 20, "y": 20, "width": 80, "opacity": 90}
+#                         ]
+#                     )
+#                     processed_vid = upload_result['public_id']
+
+#                 # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
+
+#                 with transaction.atomic():
+#                     stock, created = MaterialStock.objects.select_for_update().get_or_create(
+#                         site=site,
+#                         item_name=item_name,
+#                         defaults={
+#                             'unit': unit,
+#                             'is_returnable': is_tool
+#                         }
+#                     )
+
+#                     # 🚀 THE FIX: Force the database to update the category and unit!
+#                     # If it was previously saved wrong, this forces the correction.
+#                     stock.is_returnable = is_tool
+#                     stock.unit = unit
+
+#                     # Do the math
+#                     stock.current_balance += qty
+
+#                     if img_file:
+#                         stock.evidence_image = img_file
+#                     if processed_vid:
+#                         stock.evidence_video = processed_vid
+
+#                     stock.save()
+
+#                     MaterialRestockLog.objects.create(
+#                         stock_item=stock,
+#                         site=site,
+#                         quantity_added=qty,
+#                         evidence_image=img_file,
+#                         evidence_video=processed_vid if processed_vid else None
+#                     )
+
+#                 messages.success(
+#                     request, f"Received {qty} {unit} of {item_name}.")
+#             except Exception as e:
+#                 messages.error(request, f"Intake Error: {e}")
+
+#         # --- B. ISSUE MATERIAL (DEDUCTION) ---
+#         elif 'issue_material' in request.POST:
+#             stock_id = request.POST.get('stock_item')
+#             worker_id = request.POST.get('worker_id')
+#             qty_input = request.POST.get('quantity')
+
+#             try:
+#                 qty = Decimal(qty_input or 0)
+#                 if qty <= 0:
+#                     messages.error(request, "Invalid quantity.")
+#                     return redirect('site_warehouse', site_id=site.id)
+
+#                 worker = get_object_or_404(
+#                     SkilledWorker, id=worker_id, is_trashed=False)
+#                 stock = get_object_or_404(
+#                     MaterialStock, id=stock_id, site=site)
+
+#                 # 🛑 THE FIX: We ONLY create the record here.
+#                 # We do NOT subtract stock.current_balance manually.
+#                 # The model's save() method will handle the math atomically.
+#                 MaterialDeduction.objects.create(
+#                     stock_item=stock,
+#                     worker=worker,
+#                     quantity_taken=qty,
+#                     purpose=request.POST.get('purpose', 'General Site Use'),
+#                     authorized_by=request.user,
+#                 )
+
+#                 messages.success(
+#                     request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
+
+#             except ValidationError as e:
+#                 # This catches the error if they actually try to take more than available
+#                 messages.error(request, e.messages[0])
+#             except MaterialStock.DoesNotExist:
+#                 messages.error(request, "Material not found.")
+#             except Exception as e:
+#                 messages.error(request, f"A system error occurred: {e}")
+#         # --- C. RECEIVE RETURNED TOOL ---
+
+#         # elif 'return_tool' in request.POST:
+#         #     deduction_id = request.POST.get('deduction_id')
+#         #     return_qty = Decimal(request.POST.get('return_qty') or 0)
+
+#         #     try:
+#         #         with transaction.atomic():
+#         #             # 1. Fetch the active checkout record
+#         #             deduction = MaterialDeduction.objects.select_for_update().get(
+#         #                 id=deduction_id,
+#         #                 is_returned=False,
+#         #                 stock_item__site=site
+#         #             )
+
+#         #             owed_qty = deduction.amount_owed
+
+#         #             # 2. Strict Mathematical Validation
+#         #             if return_qty <= 0 or return_qty > owed_qty:
+#         #                 messages.error(
+#         #                     request, f"Error: You can only return between 1 and {owed_qty} items.")
+#         #             else:
+#         #                 # 3. Add to the returned tally
+#         #                 deduction.quantity_returned += return_qty
+
+#         #                 # 4. Check if the debt is fully cleared
+#         #                 if deduction.quantity_returned >= deduction.quantity_taken:
+#         #                     deduction.is_returned = True
+#         #                     deduction.returned_at = timezone.now()
+#         #                     status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
+#         #                 else:
+#         #                     status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
+
+#         #                 # Save the deduction record (Bypassing custom save checks since it's an update)
+#         #                 deduction.save(
+#         #                     update_fields=['quantity_returned', 'is_returned', 'returned_at'])
+
+#         #                 # 5. Return the tools to the main warehouse balance
+#         #                 stock = deduction.stock_item
+#         #                 stock.current_balance = models.F(
+#         #                     'current_balance') + return_qty
+#         #                 stock.save(update_fields=['current_balance'])
+
+#         #                 messages.success(request, status_msg)
+
+#         #     except MaterialDeduction.DoesNotExist:
+#         #         messages.error(
+#         #             request, "Error: Tool record not found or already fully returned.")
+#         #     except Exception as e:
+#         #         messages.error(request, f"System error receiving tool: {e}")
+
+#         # --- C. RECEIVE RETURNED TOOL (PRO ARCHITECTURE) ---
+#         elif 'return_tool' in request.POST:
+#             deduction_id = request.POST.get('deduction_id')
+#             return_qty = Decimal(request.POST.get('return_qty') or 0)
+
+#             try:
+#                 with transaction.atomic():
+#                     # 1. Fetch the active record (Lock it so no other view can touch it)
+#                     deduction = MaterialDeduction.objects.select_for_update().get(
+#                         id=deduction_id,
+#                         is_returned=False,
+#                         stock_item__site=site
+#                     )
+
+#                     owed_qty = deduction.amount_owed
+
+#                     # 2. Validation
+#                     if return_qty <= 0 or return_qty > owed_qty:
+#                         messages.error(
+#                             request, f"Error: You can only return between 1 and {owed_qty} items.")
+#                     else:
+#                         # 3. Update the tally
+#                         deduction.quantity_returned += return_qty
+#                         deduction.returned_at = timezone.now()  # Move this HERE
+
+#                         if deduction.quantity_returned >= deduction.quantity_taken:
+#                             deduction.is_returned = True
+
+#                             status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
+#                         else:
+#                             status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
+
+#                         # Save deduction (using update_fields to bypass the inventory-subtraction save() logic)
+
+#                         deduction.save(
+#                             update_fields=['quantity_returned', 'is_returned', 'returned_at'])
+
+#                         # 4. 🚀 THE ATOMIC FIX: Return the tools to the main balance
+#                         stock = deduction.stock_item
+#                         stock.current_balance = F(
+#                             'current_balance') + return_qty  # Direct F() use
+#                         stock.save(update_fields=['current_balance'])
+
+#                         messages.success(request, status_msg)
+
+#             except MaterialDeduction.DoesNotExist:
+#                 messages.error(
+#                     request, "Error: Tool record not found or already fully returned.")
+#             except Exception as e:
+#                 messages.error(request, f"System error receiving tool: {e}")
+
+#         # 🛑 HTMX FIX: Force the browser to do a clean refresh if it's an HTMX request!
+#         if request.META.get('HTTP_HX_REQUEST'):
+#             response = HttpResponse(status=204)
+#             response['HX-Refresh'] = 'true'
+#             return response
+
+#         return redirect('site_warehouse', site_id=site.id)
+
+#     # 📋 Normal Page Load
+#     stocks = MaterialStock.objects.filter(site=site)
+
+#     # 🛑 FIX: Only load active workers into the context for the dropdown
+#     workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
+
+#     active_tools = MaterialDeduction.objects.filter(
+#         stock_item__site=site,
+#         is_returned=False,
+#         stock_item__is_returnable=True
+#     ).select_related('worker', 'stock_item').order_by('-timestamp')
+#     tool_history = MaterialDeduction.objects.filter(
+#         stock_item__site=site,
+#         stock_item__is_returnable=True  # 🛠️ ONLY show returnable assets/tools
+#     ).select_related('worker', 'stock_item').order_by('-timestamp')
+
+#     # 3. 🛑 CREATE BLOCKED LIST
+#     blocked_worker_ids = list(active_tools.values_list('worker_id', flat=True))
+
+#     # 4. 📦 ADD EVERYTHING TO CONTEXT
+#     context = {
+#         'site': site,
+#         'stocks': stocks,
+#         'workers': workers,
+#         'is_boss': is_boss,
+#         'user_role': user_role,
+#         'active_tools': active_tools,
+#         'tool_history': tool_history,  # 🚀 ADD THIS TO CONTEXT
+#         'blocked_worker_ids': blocked_worker_ids,
+#     }
+
+#     return render(request, 'site_management/site_warehouse.html', context)
+
+
 @login_required
 def site_warehouse(request, site_id):
-    # 🏢 1. Fetch the site FIRST (Don't check company=user_company here)
+    # 🏢 1. Fetch the site FIRST
     site = get_object_or_404(SiteLocation, id=site_id)
 
     # 🛡️ 2. THE PERMISSION GATE
-    # Check if the user is the Boss
     is_owner = (site.company.owner == request.user)
 
-    # Check if the user is an invited staff member for THIS site
     invitation = Invitation.objects.filter(
         email=request.user.email,
         site=site,
         is_used=True
     ).last()
 
-    # 🔥 BLOCK ACCESS: If they aren't the Boss AND they aren't invited here
     if not is_owner and not invitation:
         messages.error(
             request, "Access Denied: You are not assigned to this warehouse.")
@@ -863,9 +1148,10 @@ def site_warehouse(request, site_id):
     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
     is_boss = is_owner or (user_role == 'PROJECT_MANAGER')
 
-    # --- THE LOGIC ENGINE ---
+    # --- THE LOGIC ENGINE (POST METHODS) ---
 
     if request.method == "POST":
+        # --- A. INTAKE MATERIAL (ADD STOCK) ---
         if 'add_stock' in request.POST:
             try:
                 qty = Decimal(request.POST.get('quantity') or '0.00')
@@ -874,13 +1160,9 @@ def site_warehouse(request, site_id):
                     messages.error(
                         request, "Quantity must be greater than zero.")
                     return redirect('site_warehouse', site_id=site.id)
-                raw_name = request.POST.get('item_name', '')
 
-                item_name = re.sub(
-                    r'\s+',
-                    ' ',
-                    raw_name.strip().upper()
-                )
+                raw_name = request.POST.get('item_name', '')
+                item_name = re.sub(r'\s+', ' ', raw_name.strip().upper())
                 unit = request.POST.get('unit', '').strip()
                 img_file = request.FILES.get('evidence_image')
                 vid_file = request.FILES.get('evidence_video')
@@ -888,7 +1170,7 @@ def site_warehouse(request, site_id):
 
                 is_tool = (item_category == 'asset')
 
-                # ⚡ FAST FIX: Do the heavy internet upload OUTSIDE the database lock!
+                # Heavy third-party upload executed safely outside the atomic transaction block
                 processed_vid = None
                 if vid_file:
                     import cloudinary.uploader
@@ -898,12 +1180,10 @@ def site_warehouse(request, site_id):
                         folder="codasite_audits",
                         transformation=[
                             {"overlay": "CodaSite_logo_mldgwi", "gravity": "south_east",
-                                "x": 20, "y": 20, "width": 80, "opacity": 90}
+                             "x": 20, "y": 20, "width": 80, "opacity": 90}
                         ]
                     )
                     processed_vid = upload_result['public_id']
-
-                # 🔒 NOW we lock the database for exactly 0.01 seconds to do the math
 
                 with transaction.atomic():
                     stock, created = MaterialStock.objects.select_for_update().get_or_create(
@@ -915,12 +1195,8 @@ def site_warehouse(request, site_id):
                         }
                     )
 
-                    # 🚀 THE FIX: Force the database to update the category and unit!
-                    # If it was previously saved wrong, this forces the correction.
                     stock.is_returnable = is_tool
                     stock.unit = unit
-
-                    # Do the math
                     stock.current_balance += qty
 
                     if img_file:
@@ -960,9 +1236,6 @@ def site_warehouse(request, site_id):
                 stock = get_object_or_404(
                     MaterialStock, id=stock_id, site=site)
 
-                # 🛑 THE FIX: We ONLY create the record here.
-                # We do NOT subtract stock.current_balance manually.
-                # The model's save() method will handle the math atomically.
                 MaterialDeduction.objects.create(
                     stock_item=stock,
                     worker=worker,
@@ -972,65 +1245,15 @@ def site_warehouse(request, site_id):
                 )
 
                 messages.success(
-                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}.")
+                    request, f"✅ DISPATCHED: {qty} {stock.unit} of {stock.item_name} to {worker.name}."
+                )
 
             except ValidationError as e:
-                # This catches the error if they actually try to take more than available
                 messages.error(request, e.messages[0])
             except MaterialStock.DoesNotExist:
                 messages.error(request, "Material not found.")
             except Exception as e:
                 messages.error(request, f"A system error occurred: {e}")
-        # --- C. RECEIVE RETURNED TOOL ---
-
-        # elif 'return_tool' in request.POST:
-        #     deduction_id = request.POST.get('deduction_id')
-        #     return_qty = Decimal(request.POST.get('return_qty') or 0)
-
-        #     try:
-        #         with transaction.atomic():
-        #             # 1. Fetch the active checkout record
-        #             deduction = MaterialDeduction.objects.select_for_update().get(
-        #                 id=deduction_id,
-        #                 is_returned=False,
-        #                 stock_item__site=site
-        #             )
-
-        #             owed_qty = deduction.amount_owed
-
-        #             # 2. Strict Mathematical Validation
-        #             if return_qty <= 0 or return_qty > owed_qty:
-        #                 messages.error(
-        #                     request, f"Error: You can only return between 1 and {owed_qty} items.")
-        #             else:
-        #                 # 3. Add to the returned tally
-        #                 deduction.quantity_returned += return_qty
-
-        #                 # 4. Check if the debt is fully cleared
-        #                 if deduction.quantity_returned >= deduction.quantity_taken:
-        #                     deduction.is_returned = True
-        #                     deduction.returned_at = timezone.now()
-        #                     status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
-        #                 else:
-        #                     status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
-
-        #                 # Save the deduction record (Bypassing custom save checks since it's an update)
-        #                 deduction.save(
-        #                     update_fields=['quantity_returned', 'is_returned', 'returned_at'])
-
-        #                 # 5. Return the tools to the main warehouse balance
-        #                 stock = deduction.stock_item
-        #                 stock.current_balance = models.F(
-        #                     'current_balance') + return_qty
-        #                 stock.save(update_fields=['current_balance'])
-
-        #                 messages.success(request, status_msg)
-
-        #     except MaterialDeduction.DoesNotExist:
-        #         messages.error(
-        #             request, "Error: Tool record not found or already fully returned.")
-        #     except Exception as e:
-        #         messages.error(request, f"System error receiving tool: {e}")
 
         # --- C. RECEIVE RETURNED TOOL (PRO ARCHITECTURE) ---
         elif 'return_tool' in request.POST:
@@ -1039,7 +1262,6 @@ def site_warehouse(request, site_id):
 
             try:
                 with transaction.atomic():
-                    # 1. Fetch the active record (Lock it so no other view can touch it)
                     deduction = MaterialDeduction.objects.select_for_update().get(
                         id=deduction_id,
                         is_returned=False,
@@ -1048,31 +1270,26 @@ def site_warehouse(request, site_id):
 
                     owed_qty = deduction.amount_owed
 
-                    # 2. Validation
                     if return_qty <= 0 or return_qty > owed_qty:
                         messages.error(
-                            request, f"Error: You can only return between 1 and {owed_qty} items.")
+                            request, f"Error: You can only return between 1 and {owed_qty} items."
+                        )
                     else:
-                        # 3. Update the tally
                         deduction.quantity_returned += return_qty
-                        deduction.returned_at = timezone.now()  # Move this HERE
+                        deduction.returned_at = timezone.now()
 
                         if deduction.quantity_returned >= deduction.quantity_taken:
                             deduction.is_returned = True
-
                             status_msg = f"✅ FULLY SECURED: All {deduction.quantity_taken} items returned by {deduction.worker.name}."
                         else:
                             status_msg = f"⚠️ PARTIAL RETURN: Received {return_qty}. {deduction.worker.name} still owes {deduction.amount_owed}."
 
-                        # Save deduction (using update_fields to bypass the inventory-subtraction save() logic)
-
                         deduction.save(
                             update_fields=['quantity_returned', 'is_returned', 'returned_at'])
 
-                        # 4. 🚀 THE ATOMIC FIX: Return the tools to the main balance
                         stock = deduction.stock_item
                         stock.current_balance = F(
-                            'current_balance') + return_qty  # Direct F() use
+                            'current_balance') + return_qty
                         stock.save(update_fields=['current_balance'])
 
                         messages.success(request, status_msg)
@@ -1083,7 +1300,7 @@ def site_warehouse(request, site_id):
             except Exception as e:
                 messages.error(request, f"System error receiving tool: {e}")
 
-        # 🛑 HTMX FIX: Force the browser to do a clean refresh if it's an HTMX request!
+        # HTMX intercept for form submissions to handle smooth inline DOM refreshes
         if request.META.get('HTTP_HX_REQUEST'):
             response = HttpResponse(status=204)
             response['HX-Refresh'] = 'true'
@@ -1091,10 +1308,21 @@ def site_warehouse(request, site_id):
 
         return redirect('site_warehouse', site_id=site.id)
 
-    # 📋 Normal Page Load
-    stocks = MaterialStock.objects.filter(site=site)
+    # --- 📋 NORMAL PAGE LOAD / GET OPERATIONS ---
 
-    # 🛑 FIX: Only load active workers into the context for the dropdown
+    # 🔍 Fetch search parameter
+    query = request.GET.get('q', '').strip()
+
+    # Base stocks queryset
+    stocks = MaterialStock.objects.filter(site=site).order_by('item_name')
+
+    # 🟢 If the contractor search bar fires, filter the stock dashboard view instantly
+    if query:
+        stocks = stocks.filter(
+            Q(item_name__icontains=query) |
+            Q(unit__icontains=query)
+        )
+
     workers = SkilledWorker.objects.filter(site=site, is_trashed=False)
 
     active_tools = MaterialDeduction.objects.filter(
@@ -1102,15 +1330,14 @@ def site_warehouse(request, site_id):
         is_returned=False,
         stock_item__is_returnable=True
     ).select_related('worker', 'stock_item').order_by('-timestamp')
+
     tool_history = MaterialDeduction.objects.filter(
         stock_item__site=site,
-        stock_item__is_returnable=True  # 🛠️ ONLY show returnable assets/tools
+        stock_item__is_returnable=True
     ).select_related('worker', 'stock_item').order_by('-timestamp')
 
-    # 3. 🛑 CREATE BLOCKED LIST
     blocked_worker_ids = list(active_tools.values_list('worker_id', flat=True))
 
-    # 4. 📦 ADD EVERYTHING TO CONTEXT
     context = {
         'site': site,
         'stocks': stocks,
@@ -1118,7 +1345,7 @@ def site_warehouse(request, site_id):
         'is_boss': is_boss,
         'user_role': user_role,
         'active_tools': active_tools,
-        'tool_history': tool_history,  # 🚀 ADD THIS TO CONTEXT
+        'tool_history': tool_history,
         'blocked_worker_ids': blocked_worker_ids,
     }
 
