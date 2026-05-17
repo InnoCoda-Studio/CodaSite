@@ -591,3 +591,57 @@ class CategoryPay(models.Model):
 
     def __str__(self):
         return f"{self.site.name} - {self.category}: ₦{self.default_daily_rate}"
+
+
+# ==========================================
+# 💳 BILLING & SUBSCRIPTION ENGINE
+# ==========================================
+TIER_CHOICES = [
+    ('STARTER', 'Starter Single-Site (₦35,000/mo)'),
+    ('PRO', 'Pro Fleet Layer (₦85,000/mo)'),
+    ('ENTERPRISE', 'Enterprise Unlimited (₦250,000/mo)'),
+]
+
+STATUS_CHOICES = [
+    ('TRIAL', 'Free Trial Active'),
+    ('ACTIVE', 'Subscription Paid & Active'),
+    ('PAST_DUE', 'Payment Failed / Grace Period'),
+    ('UNPAID', 'Account Suspended / Locked'),
+]
+
+
+class CompanySubscription(models.Model):
+    # Link to your existing Company model imported from account.models
+    company = models.OneToOneField(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='subscription'
+    )
+
+    tier = models.CharField(
+        max_length=20, choices=TIER_CHOICES, default='STARTER')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='TRIAL')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    trial_end_date = models.DateTimeField(blank=True, null=True)
+    next_billing_date = models.DateTimeField(blank=True, null=True)
+
+    # Secure Paystack Reference Hooks
+    paystack_customer_code = models.CharField(
+        max_length=100, blank=True, null=True)
+    paystack_subscription_code = models.CharField(
+        max_length=100, blank=True, null=True)
+    paystack_token_auth = models.CharField(
+        max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.company.company_name} - {self.tier} [{self.status}]"
+
+    @property
+    def is_access_valid(self):
+        """Returns True if the company is in trial or has a paid active status before expiration"""
+        if self.status in ['TRIAL', 'ACTIVE']:
+            if self.next_billing_date and timezone.now() < self.next_billing_date:
+                return True
+        return False

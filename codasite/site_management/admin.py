@@ -1,3 +1,4 @@
+from .models import CompanySubscription
 from django.contrib import admin
 from .models import (
     SiteLocation, Invitation, SkilledWorker,
@@ -50,3 +51,40 @@ class StaffAttendanceAdmin(admin.ModelAdmin):
 
 admin.site.register(Invitation)
 admin.site.register(DailyWorkLog)
+
+
+@admin.register(CompanySubscription)
+class CompanySubscriptionAdmin(admin.ModelAdmin):
+    # This dictates the columns you see in the admin table
+    list_display = ('company', 'tier', 'status',
+                    'next_billing_date', 'has_valid_access')
+
+    # Adds a filter sidebar on the right
+    list_filter = ('tier', 'status')
+
+    # Adds a search bar to easily find a company
+    search_fields = ('company__company_name',
+                     'paystack_customer_code', 'paystack_subscription_code')
+
+    # Protects fields that shouldn't be edited manually
+    readonly_fields = ('created_at',)
+
+    # Organizes the detail view into clean sections
+    fieldsets = (
+        ('Company Details', {
+            'fields': ('company', 'tier', 'status')
+        }),
+        ('Billing Timeline', {
+            'fields': ('created_at', 'trial_end_date', 'next_billing_date')
+        }),
+        ('Paystack API Hooks', {
+            'fields': ('paystack_customer_code', 'paystack_subscription_code', 'paystack_token_auth'),
+            # Hides this section by default to keep the UI clean
+            'classes': ('collapse',)
+        }),
+    )
+
+    # Turns your custom property into a visual Green Check / Red X in the admin
+    @admin.display(boolean=True, description='Access Valid')
+    def has_valid_access(self, obj):
+        return obj.is_access_valid

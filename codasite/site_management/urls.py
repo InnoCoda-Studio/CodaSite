@@ -76,4 +76,8 @@ urlpatterns = [
          views.htmx_clock_out, name='htmx_clock_out'),
     path('htmx/finance-summary/<int:site_id>/',
          views.htmx_finance_summary, name='htmx_finance_summary'),
+
+    path('billing/upgrade/', views.billing_upgrade, name='billing_upgrade'),
+    path('billing/paystack-webhook/',
+         views.paystack_webhook, name='paystack_webhook'),
 ]

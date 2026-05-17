@@ -75,6 +75,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
+
+    # 🛑 YOUR NEW CODASITE BOUNCER 🛑
+    'site_management.middleware.SubscriptionEnforcementMiddleware',
 ]
 
 ROOT_URLCONF = 'codasite.urls'
@@ -94,6 +97,8 @@ TEMPLATES = [
 
                 # 🎯 YOUR NEW CONTEXT PROCESSOR (The Live Ops Anchor)
                 'site_management.context_processors.active_site_processor',
+
+
             ],
         },
     },
@@ -185,29 +190,6 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
-# Add the path to your tailwind theme static folder
-
-
-# --- 📧 INNOCODA EMAIL CONFIGURATION (RESEND) ---
-
-# // password reset email
-# // settings.py - INNOCODA EMAIL CONFIGURATION
-
-# // --- InnoCoda Email Settings ---
-
-# settings.py
-
-# //////////////////////
-
-# 📧 FORCED RESEND SETTINGS (No .env for now)
-
-# /////////////////////////////////////////////////
-
-# settings.py
-
-# 🚀 1. The Master Key (Pulls from your Render Env or .env file)
-# settings.py
-
 # //////////////////////////
 # // Tailwind 👇🏻
 TAILWIND_APP_NAME = 'theme'
@@ -274,8 +256,10 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # Tell Django it's sitting behind a secure proxy (Render)
 # SECURITY SETTINGS FOR RENDER
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# # Force Cloudinary to always use HTTPS
-# SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+# Force Cloudinary to always use HTTPS
+SECURE_SSL_REDIRECT = True
+
+PAYSTACK_SECRET_KEY = 'pk_test_423e71bc04d1d914d1e8e78f23f96171912f92a5'

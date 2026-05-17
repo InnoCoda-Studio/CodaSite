@@ -1,3 +1,4 @@
+from django.shortcuts import render
 from django.db import transaction, models  # <--- Add 'models' here
 from django.db.models import F              # <--- Or just add this
 import re
@@ -2349,3 +2350,81 @@ def financial_dashboard(request):
         })
 
     return render(request, 'site_management/financial_dashboard.html', {'site_data': site_data})
+
+
+#  Billings
+
+@login_required
+def billing_upgrade(request):
+    # 🛑 CHANGED: request.user.company_owner is now request.user.company
+    try:
+        company = request.user.company
+        subscription = getattr(company, 'subscription', None)
+    except Exception:
+        company = None
+        subscription = None
+
+    context = {
+        'company': company,
+        'subscription': subscription
+    }
+    return render(request, 'site_management/billing_upgrade.html', context)
+
+
+@csrf_exempt
+def paystack_webhook(request):
+    """
+    The secure receiver that catches successful payments from Paystack
+    and unlocks the user's dashboard.
+    """
+    if request.method == 'POST':
+        payload = request.body
+        # Paystack sends a cryptographic signature in the header
+        paystack_signature = request.headers.get('x-paystack-signature')
+
+        # 1. VERIFY THE SIGNATURE (Security Check)
+        secret_key = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
+        computed_hash = hmac.new(
+            secret_key, payload, hashlib.sha512).hexdigest()
+
+        if computed_hash == paystack_signature:
+            # The message is authentic. It's actually from Paystack.
+            event_data = json.loads(payload)
+
+            # 2. Check if the event is a successful payment
+            if event_data.get('event') == 'charge.success':
+                data = event_data['data']
+
+                # 3. Extract the metadata we sent from the frontend
+                metadata = data.get('metadata', {})
+                custom_fields = metadata.get('custom_fields', [])
+
+                company_id = None
+                tier_purchased = None
+
+                for field in custom_fields:
+                    if field['variable_name'] == 'company_id':
+                        company_id = field['value']
+                    if field['variable_name'] == 'tier':
+                        tier_purchased = field['value']
+
+                # 4. UNLOCK THE ACCOUNT
+                if company_id:
+                    try:
+                        company = Company.objects.get(id=company_id)
+                        subscription = company.subscription
+
+                        # Tell the Bouncer this company is clear!
+                        subscription.is_access_valid = True
+                        # If you have a tier field, you can update it too: subscription.plan_tier = tier_purchased
+                        subscription.save()
+
+                        print(
+                            f"SUCCESS: Unlocked dashboard for Company {company.name}")
+                    except Exception as e:
+                        print(f"Error updating subscription: {e}")
+
+        # Always return a 200 OK so Paystack knows we received it
+        return HttpResponse(status=200)
+
+    return HttpResponse(status=400)
