@@ -77,7 +77,9 @@ urlpatterns = [
     path('htmx/finance-summary/<int:site_id>/',
          views.htmx_finance_summary, name='htmx_finance_summary'),
 
-    # path('billing/upgrade/', views.billing_upgrade, name='billing_upgrade'),
-    # path('billing/paystack-webhook/',
-    #      views.paystack_webhook, name='paystack_webhook'),
+    path('billing/upgrade/', views.billing_upgrade, name='billing_upgrade'),
+    path('billing/paystack-webhook/',
+         views.paystack_webhook, name='paystack_webhook'),
+    path('billing/verify-payment/<str:reference>/',
+         views.verify_payment, name='verify_payment'),
 ]

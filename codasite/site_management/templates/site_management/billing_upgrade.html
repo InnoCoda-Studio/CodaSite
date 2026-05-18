@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block navbar %}{% endblock navbar %}
+
 
 {% block content %}
 <div class="relative min-h-screen bg-[#FAFAFA] py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -100,23 +100,21 @@
 
 <script src="https://js.paystack.co/v1/inline.js"></script>
 
+
+
 <script>
     function payWithPaystack(tierName, amountInNaira) {
         let amountInKobo = amountInNaira * 100;
         
         let handler = PaystackPop.setup({
-            // 🚨 PASTE YOUR TEST PUBLIC KEY RIGHT HERE BELOW 🚨
+            // 🚨 MAKE SURE YOUR TEST PUBLIC KEY IS HERE 🚨
             key: 'pk_test_423e71bc04d1d914d1e8e78f23f96171912f92a5', 
-            email: '{{ request.user.email }}', 
+            //email: '{{ request.user.email }}', 
+            email: 'test@codasite.com', // Hardcoded just for testing
             amount: amountInKobo,
             currency: 'NGN',
             metadata: {
                 custom_fields: [
-                    {
-                        display_name: "Company ID",
-                        variable_name: "company_id",
-                        value: "{{ company.id }}"
-                    },
                     {
                         display_name: "Subscription Tier",
                         variable_name: "tier",
@@ -125,12 +123,31 @@
                 ]
             },
             callback: function(response) {
-                alert('Payment Successful! Processing your ' + tierName + ' workspace...');
-                // We will handle backend verification next!
-                window.location.href = "/"; 
+                // 1. Payment worked on Paystack's end
+                alert('Payment authorized by Paystack! Verifying with CodaSite servers...');
+
+                // 2. CRITICAL: Send the token to our Django backend to update the database!
+                // Notice the trailing slash at the end of the URL!
+                fetch('/billing/verify-payment/' + response.reference + '/')
+                    .then(res => res.json())
+                    .then(data => {
+                        // 3. ONLY redirect IF Django confirms the database was successfully updated
+                        if (data.status === 'verified') {
+                            alert('Workspace Secured! Welcome to CodaSite Pro.');
+                            window.location.href = "/"; 
+                        } else {
+                            // If Django failed to update the DB, show the error so we can fix it!
+                            alert("Backend Verification Failed: " + data.message);
+                            console.error("Django Error:", data);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Network Error:", err);
+                        alert("Network error connecting to CodaSite servers. Please check your connection.");
+                    });
             },
             onClose: function() {
-                console.log('Payment window closed.');
+                console.log('Payment window closed by user.');
             }
         });
         

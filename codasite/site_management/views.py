@@ -1,3 +1,6 @@
+# Add Subscription if it's a separate model
+from .models import CompanySubscription, Company
+import requests
 import hmac
 from django.views.decorators.csrf import csrf_exempt
 import hashlib
@@ -2264,77 +2267,130 @@ def financial_dashboard(request):
 
 #  Billings
 
-# @login_required
-# def billing_upgrade(request):
-#     # 🛑 CHANGED: request.user.company_owner is now request.user.company
-#     try:
-#         company = request.user.company
-#         subscription = getattr(company, 'subscription', None)
-#     except Exception:
-#         company = None
-#         subscription = None
+@login_required
+def billing_upgrade(request):
+    # 🛑 CHANGED: request.user.company_owner is now request.user.company
+    try:
+        company = request.user.company
+        subscription = getattr(company, 'subscription', None)
+    except Exception:
+        company = None
+        subscription = None
 
-#     context = {
-#         'company': company,
-#         'subscription': subscription
-#     }
-#     return render(request, 'site_management/billing_upgrade.html', context)
+    context = {
+        'company': company,
+        'subscription': subscription
+    }
+    return render(request, 'site_management/billing_upgrade.html', context)
 
 
-# @csrf_exempt
-# def paystack_webhook(request):
-#     """
-#     The secure receiver that catches successful payments from Paystack
-#     and unlocks the user's dashboard.
-#     """
-#     if request.method == 'POST':
-#         payload = request.body
-#         # Paystack sends a cryptographic signature in the header
-#         paystack_signature = request.headers.get('x-paystack-signature')
+@csrf_exempt
+def paystack_webhook(request):
+    """
+    The secure receiver that catches successful payments from Paystack
+    and unlocks the user's dashboard.
+    """
+    if request.method == 'POST':
+        payload = request.body
+        # Paystack sends a cryptographic signature in the header
+        paystack_signature = request.headers.get('x-paystack-signature')
 
-#         # 1. VERIFY THE SIGNATURE (Security Check)
-#         secret_key = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
-#         computed_hash = hmac.new(
-#             secret_key, payload, hashlib.sha512).hexdigest()
+        # 1. VERIFY THE SIGNATURE (Security Check)
+        secret_key = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
+        computed_hash = hmac.new(
+            secret_key, payload, hashlib.sha512).hexdigest()
 
-#         if computed_hash == paystack_signature:
-#             # The message is authentic. It's actually from Paystack.
-#             event_data = json.loads(payload)
+        if computed_hash == paystack_signature:
+            # The message is authentic. It's actually from Paystack.
+            event_data = json.loads(payload)
 
-#             # 2. Check if the event is a successful payment
-#             if event_data.get('event') == 'charge.success':
-#                 data = event_data['data']
+            # 2. Check if the event is a successful payment
+            if event_data.get('event') == 'charge.success':
+                data = event_data['data']
 
-#                 # 3. Extract the metadata we sent from the frontend
-#                 metadata = data.get('metadata', {})
-#                 custom_fields = metadata.get('custom_fields', [])
+                # 3. Extract the metadata we sent from the frontend
+                metadata = data.get('metadata', {})
+                custom_fields = metadata.get('custom_fields', [])
 
-#                 company_id = None
-#                 tier_purchased = None
+                company_id = None
+                tier_purchased = None
 
-#                 for field in custom_fields:
-#                     if field['variable_name'] == 'company_id':
-#                         company_id = field['value']
-#                     if field['variable_name'] == 'tier':
-#                         tier_purchased = field['value']
+                for field in custom_fields:
+                    if field['variable_name'] == 'company_id':
+                        company_id = field['value']
+                    if field['variable_name'] == 'tier':
+                        tier_purchased = field['value']
 
-#                 # 4. UNLOCK THE ACCOUNT
-#                 if company_id:
-#                     try:
-#                         company = Company.objects.get(id=company_id)
-#                         subscription = company.subscription
+                # 4. UNLOCK THE ACCOUNT
+                if company_id:
+                    try:
+                        company = Company.objects.get(id=company_id)
+                        subscription = company.subscription
 
-#                         # Tell the Bouncer this company is clear!
-#                         subscription.is_access_valid = True
-#                         # If you have a tier field, you can update it too: subscription.plan_tier = tier_purchased
-#                         subscription.save()
+                        # Tell the Bouncer this company is clear!
+                        subscription.is_access_valid = True
+                        # If you have a tier field, you can update it too: subscription.plan_tier = tier_purchased
+                        subscription.save()
 
-#                         print(
-#                             f"SUCCESS: Unlocked dashboard for Company {company.name}")
-#                     except Exception as e:
-#                         print(f"Error updating subscription: {e}")
+                        print(
+                            f"SUCCESS: Unlocked dashboard for Company {company.name}")
+                    except Exception as e:
+                        print(f"Error updating subscription: {e}")
 
-#         # Always return a 200 OK so Paystack knows we received it
-#         return HttpResponse(status=200)
+        # Always return a 200 OK so Paystack knows we received it
+        return HttpResponse(status=200)
 
-#     return HttpResponse(status=400)
+    return HttpResponse(status=400)
+
+
+# Import your Company or Profile model here (adjust based on your actual model name)
+
+
+@login_required
+def verify_payment(request, reference):
+    """
+    Secure backend verification. Calls Paystack API to confirm transaction status.
+    """
+    paystack_url = f"https://api.paystack.co/transaction/verify/{reference}"
+    headers = {
+        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.get(paystack_url, headers=headers)
+        response_data = response.json()
+
+        if response_data.get('status') and response_data['data']['status'] == 'success':
+            # 🚀 PAYMENT CONFIRMED BY PAYSTACK!
+            metadata = response_data['data']['metadata']['custom_fields']
+            tier_name = next(
+                item['value'] for item in metadata if item['variable_name'] == 'tier'
+            )
+
+           # ... (Inside your success block) ...
+            company = request.user.company
+
+            # Safely get the existing subscription, or create a brand new one
+            if hasattr(company, 'subscription'):
+                subscription = company.subscription
+            else:
+                subscription = CompanySubscription(company=company)
+
+            # 🟢 UPDATE THE REAL DATABASE FIELDS
+            subscription.status = 'ACTIVE'
+            # Ensures it matches your TIER_CHOICES ('PRO', 'STARTER')
+            subscription.tier = tier_name.upper()
+            subscription.next_billing_date = timezone.now(
+            ) + timedelta(days=30)  # Unlocks it for 1 month
+
+            subscription.save()
+            print(
+                f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
+
+            return JsonResponse({'status': 'verified', 'message': 'Subscription activated successfully.'})
+
+    except Exception as e:
+        # This will print the EXACT error to your terminal if anything goes wrong
+        print(f"🚨 SYSTEM ERROR during verification: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
