@@ -759,53 +759,29 @@ def process_biometric_clock(request, site_id):
             return JsonResponse({'success': False, 'error': 'GPS Mismatch: You must be at the site gate.'})
 
         # 4. Process Photo & Save Record
-        # if clock_type == 'IN':
-        #     already_in = StaffAttendance.objects.filter(
-        #         worker=worker, site=site, time_out__isnull=True).exists()
-        #     if already_in:
-        #         return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
-
-        #     # ☁️ CLOUDINARY UPLOAD ☁️
-        #     secure_image_id = None
-        #     try:
-        #         upload_result = cloudinary.uploader.upload(
-        #             photo_data,
-        #             folder="codasite_attendance_logs"
-        #         )
-        #         secure_image_id = upload_result['public_id']
-        #     except Exception as e:
-        #         print(f"CLOUDINARY UPLOAD FAILED: {str(e)}")
-        #         return JsonResponse({'success': False, 'error': 'Failed to upload biometric feed to cloud.'})
-
-        #     # 5. Database Save (With the crash fix!)
-        #     try:
-        #         # 🛑 THE USER ID FIX: Provide a strict fallback if the worker lacks a shadow user
-        #         user_to_assign = worker.user
-        #         if not user_to_assign:
-        #             user_to_assign = worker.contractor  # Fallback to the boss who registered them
-
-        #         attendance = StaffAttendance(
-        #             worker=worker,
-        #             site=site,
-        #             user=user_to_assign,  # 👈 This guarantees it will NEVER be null
-        #             time_in=timezone.now(),
-        #             clock_in_photo=secure_image_id
-        #         )
-
-        #         attendance.save()
-
-        #     except Exception as e:
-        #         print(f"DATABASE CRASH: {str(e)}")
-        #         return JsonResponse({'success': False, 'error': f'DB Error: {str(e)}'})
-        # 4. Process Photo & Save Record
         if clock_type == 'IN':
-            # First Guard: Quick block for normal requests
+            # Guard 1: Check if they are CURRENTLY on an active shift
             already_in = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).exists()
             if already_in:
                 return JsonResponse({'success': False, 'error': 'You are already clocked in.'})
 
-            # ☁️ CLOUDINARY UPLOAD ☁️ (Takes 2-4 seconds over the network)
+            # 🚨 NEW GUARD 2: Check if they ALREADY completed a shift today
+            # Django's __date lookup automatically handles timezone conversion safely
+            already_completed_today = StaffAttendance.objects.filter(
+                worker=worker,
+                site=site,
+                time_in__date=timezone.localdate(),  # 🇳🇬 Guarantees Lagos date matching
+                time_out__isnull=False
+            ).exists()
+
+            if already_completed_today:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Access Denied: You have already completed your shift for today.'
+                })
+
+            # ☁️ CLOUDINARY UPLOAD ☁️
             secure_image_id = None
             try:
                 upload_result = cloudinary.uploader.upload(
@@ -817,9 +793,7 @@ def process_biometric_clock(request, site_id):
                 print(f"CLOUDINARY UPLOAD FAILED: {str(e)}")
                 return JsonResponse({'success': False, 'error': 'Failed to upload biometric feed to cloud.'})
 
-            # 🛑 IRONCLAD DOUBLE-CHECK GATES (Anti-Spam / Race Condition Fix)
-            # While Cloudinary was uploading, a second network request might have slipped through.
-            # We check the database one more time right before writing to it.
+            # Anti-Spam Double Check (From our previous fix)
             double_check_in = StaffAttendance.objects.filter(
                 worker=worker, site=site, time_out__isnull=True).exists()
             if double_check_in:
@@ -843,6 +817,7 @@ def process_biometric_clock(request, site_id):
             except Exception as e:
                 print(f"DATABASE CRASH: {str(e)}")
                 return JsonResponse({'success': False, 'error': f'DB Error: {str(e)}'})
+
         else:
             # CLOCK OUT LOGIC
             attendance = StaffAttendance.objects.filter(
