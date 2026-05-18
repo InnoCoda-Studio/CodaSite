@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-print(f"👉 DEEBUG STATUS IS CURRENTLY: {DEBUG}")  # 👈 Add this line temporarily
+# print(f"👉 DEEBUG STATUS IS CURRENTLY: {DEBUG}")  # 👈 Add this line temporarily
 
 # settings.py
 
@@ -256,10 +256,10 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # Tell Django it's sitting behind a secure proxy (Render)
 # SECURITY SETTINGS FOR RENDER
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# # Force Cloudinary to always use HTTPS
-# SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+# Force Cloudinary to always use HTTPS
+SECURE_SSL_REDIRECT = True
 
 PAYSTACK_SECRET_KEY = 'pk_test_423e71bc04d1d914d1e8e78f23f96171912f92a5'
