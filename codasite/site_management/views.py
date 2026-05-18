@@ -1836,31 +1836,6 @@ def invite_staff(request):
 # Restock
 
 
-# @login_required
-# def restock_history(request, site_id):
-#     """View the full visual proof log for all materials on a specific site."""
-#     site = get_object_or_404(SiteLocation, id=site_id)
-
-#     # 🛡️ ONE SECURITY CHECK: Is this user allowed to be here?
-#     is_pm = Invitation.objects.filter(
-#         email=request.user.email, site=site).exists()
-#     # ✅ NEW (Through the Company)
-#     if site.company.owner != request.user and not request.user.is_superuser:
-#         raise PermissionDenied()
-
-#     # 🟢 THE HISTORY LOGS (Every delivery event)
-#     # We use select_related to get the name and unit from the Stock model
-#     history = MaterialRestockLog.objects.filter(
-#         site=site).select_related('stock_item').order_by('-timestamp')
-
-#     # 🟢 THE CURRENT TOTALS (For the top of the page if needed)
-#     stocks = MaterialStock.objects.filter(site=site).order_by('-last_updated')
-
-#     return render(request, 'site_management/restock_history.html', {
-#         'site': site,
-#         'history': history,
-#         'stocks': stocks
-#     })
 @login_required
 def restock_history(request, site_id):
     """View the full visual proof log for all materials on a specific site."""
@@ -1922,32 +1897,6 @@ def material_usage_report(request, site_id):
 # Profiles
 
 
-# @login_required
-# def profile_view(request):
-#     user = request.user
-
-#     # 1. Determine Role & Site Assignment
-#     invitation = Invitation.objects.filter(
-#         email=user.email, is_used=True).last()
-#     user_role = invitation.role_assigned if invitation else 'CONTRACTOR'
-
-#     # 2. Get branding (Using the Invitation logic we synced)
-#     if invitation:
-#         company_profile = Company.objects.filter(
-#             owner=invitation.invited_by).first()
-#     else:
-#         company_profile = Company.objects.filter(owner=user).first()
-
-#     context = {
-#         'user_role': user_role,
-#         'invitation': invitation,
-#         'company_profile': company_profile,
-#         'company': company_profile,  # 🎯 Keep both for template safety
-#         'sites_count': SiteLocation.objects.filter(company=company_profile).count() if company_profile else 0,
-#         'assigned_site': invitation.site if invitation else None,
-#     }
-
-#     return render(request, 'site_management/profile.html', context)
 @login_required
 def profile_view(request):
     user = request.user
@@ -2144,48 +2093,6 @@ def close_site_day(request, site_id):
                 request, "Resend Dispatch Failed. Check Render Environment Variables.")
 
         return redirect('site_dashboard', site_id=site_id)
-
-
-# @login_required
-# def close_site_day(request, site_id):
-#     if request.method == "POST":
-#         # 1. Get the data
-#         summary = get_daily_summary(site_id)
-
-#         # 2. FIXED: Pass the specific template path for daily reports
-#         pdf_content = generate_pdf_report(summary, 'reports/pdf_template.html')
-
-#         # 3. Build the HTML body for the email
-#         html_message = render_to_string(
-#             'site_management/daily_report_email.html', summary)
-
-#         # 4. Prepare the EmailMessage
-#         email = EmailMessage(
-#             subject=f"OFFICIAL REPORT: {summary['site'].name} - {summary['today']}",
-#             body="Please view the attached PDF and HTML report for today's site activities.",
-#             from_email=settings.DEFAULT_FROM_EMAIL,
-#             to=summary['recipients'],
-#         )
-
-#         email.content_subtype = "html"
-#         email.body = html_message
-
-#         # 5. Attach the PDF
-#         if pdf_content:
-#             email.attach(
-#                 f"Report_{summary['site'].name}_{summary['today']}.pdf",
-#                 pdf_content,
-#                 'application/pdf'
-#             )
-
-#         try:
-#             email.send()
-#             messages.success(
-#                 request, f"Daily reports for {summary['site'].name} dispatched!")
-#         except Exception as e:
-#             messages.error(request, f"Report failed to send: {e}")
-
-#         return redirect('site_dashboard', site_id=site_id)
 
 
 # Weekly report

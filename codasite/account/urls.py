@@ -3,6 +3,7 @@ from . import views
 
 # passwod reset
 from django.contrib.auth import views as auth_views
+# 👈 1. Import your account views here
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),

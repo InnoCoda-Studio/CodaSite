@@ -20,9 +20,16 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve  # Add this import
 import re
+from account import views as account_views
+
 
 urlpatterns = [
     path('ojibo-ogala!/', admin.site.urls),
+
+
+    # 👈 2. Map the absolute root domain directly to the account landing page view
+    path('', account_views.landing_page, name='landing_page'),
+
     path('account/', include('account.urls')),
     path('', include('site_management.urls')),
 ]

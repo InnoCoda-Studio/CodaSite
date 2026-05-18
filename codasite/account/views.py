@@ -1,3 +1,4 @@
+from django.shortcuts import render
 from django.conf import settings
 from site_management.models import Invitation  # Import your new models
 from django.shortcuts import render, redirect, get_object_or_404
@@ -8,6 +9,10 @@ from django.contrib.auth import get_user_model
 from .models import Company
 
 User = get_user_model()  # This now points to your custom User with 'is_verified'
+
+
+def landing_page(request):
+    return render(request, 'account/landing_page.html')
 
 
 def register_view(request):

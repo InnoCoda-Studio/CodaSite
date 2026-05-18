@@ -173,7 +173,7 @@
     </main>
     
     <div id="modal-anchor"></div>
-
+{% block navbar %}
     {% if user.is_authenticated %}
     <nav id="bottom-nav"
         x-data="{ 
@@ -237,6 +237,7 @@
         </a>
     </nav>
     {% endif %}
+     {% endblock navbar %}
         
     <footer class="pt-12 border-t border-white/10 text-center px-4 bg-black/20">
         <div class="max-w-md mx-auto py-1">
