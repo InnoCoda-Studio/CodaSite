@@ -114,8 +114,9 @@ def check_proximity(site_lat, site_lng, user_lat, user_lng, tolerance_meters=200
     return distance <= tolerance_meters
 
 
-@login_required
 def index(request):
+    if not request.user.is_authenticated:
+        return render(request, 'account/landing_page.html')
     # 🧼 Session Cleanup: Wipe the active site ID when returning home
     if 'active_site_id' in request.session:
         del request.session['active_site_id']
