@@ -28,10 +28,10 @@ urlpatterns = [
 
 
     # 👈 2. Map the absolute root domain directly to the account landing page view
-    path('', account_views.landing_page, name='landing_page'),
+    path('landing/', account_views.landing_page, name='landing_page'),
 
     path('account/', include('account.urls')),
-    path('projects/', include('site_management.urls')),
+    path('', include('site_management.urls')),
 ]
 # 📸 This allows you to see the photos/videos while you are developing
 if not settings.DEBUG:
