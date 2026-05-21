@@ -101,17 +101,30 @@
 
 <script src="https://js.paystack.co/v1/inline.js"></script>
 
+
 <script>
     function payWithPaystack(tierName, amountInNaira) {
         let amountInKobo = amountInNaira * 100;
         
+        // 1. Capture the email safely
+        let userEmail = '{{ request.user.email|escapejs }}';
+        
+        // 2. The Fallback: If the user has no email in the database, use a default one so Paystack doesn't crash
+        if (!userEmail || userEmail.trim() === '') {
+            userEmail = 'billing@codasite.com.ng'; 
+        }
+
+        // 3. DEBUGGER: This will print the exact data in your console so we know nothing is blank
+        console.log("🚀 Initializing Paystack with:", {
+            key: '{{ paystack_public_key }}',
+            email: userEmail,
+            amount: amountInKobo,
+            tier: tierName
+        });
+        
         let handler = PaystackPop.setup({
-            // 🚨 CRITICAL: Paste your actual LIVE Public Key here!
             key: '{{ paystack_public_key }}', 
-            
-            // 🟢 DYNAMIC EMAIL: Pulls the exact email of whoever is logged into CodaSite
-            email: '{{ request.user.email }}', 
-            
+            email: userEmail, 
             amount: amountInKobo,
             currency: 'NGN',
             metadata: {
@@ -124,14 +137,11 @@
                 ]
             },
             callback: function(response) {
-                // Payment worked on Paystack's end
                 alert('Payment authorized! Securing your CodaSite workspace...');
 
-                // Send the token to the Django backend we just fixed
                 fetch('/billing/verify-payment/' + response.reference + '/')
                     .then(res => res.json())
                     .then(data => {
-                        // ONLY redirect IF Django confirms the DB was successfully updated
                         if (data.status === 'verified') {
                             window.location.href = "/"; 
                         } else {

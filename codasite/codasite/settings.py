@@ -257,11 +257,11 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # Tell Django it's sitting behind a secure proxy (Render)
 # SECURITY SETTINGS FOR RENDER
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-# Force Cloudinary to always use HTTPS
-SECURE_SSL_REDIRECT = True
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# # Force Cloudinary to always use HTTPS
+# SECURE_SSL_REDIRECT = True
 
 # Paystack Configuration
 PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
