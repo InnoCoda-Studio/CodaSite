@@ -15,6 +15,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -256,11 +257,11 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 
 # Tell Django it's sitting behind a secure proxy (Render)
 # SECURITY SETTINGS FOR RENDER
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# # Force Cloudinary to always use HTTPS
-# SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+# Force Cloudinary to always use HTTPS
+SECURE_SSL_REDIRECT = True
 
 # Paystack Configuration
 PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
