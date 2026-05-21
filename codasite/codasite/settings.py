@@ -266,3 +266,9 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 # Paystack Configuration
 PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
 PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY')
+
+
+try:
+    from .settings_local import *
+except ImportError:
+    pass
