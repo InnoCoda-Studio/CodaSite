@@ -2146,7 +2146,6 @@ def financial_dashboard(request):
 
 @login_required
 def billing_upgrade(request):
-    # 🛑 CHANGED: request.user.company_owner is now request.user.company
     try:
         company = request.user.company
         subscription = getattr(company, 'subscription', None)
@@ -2156,7 +2155,8 @@ def billing_upgrade(request):
 
     context = {
         'company': company,
-        'subscription': subscription
+        'subscription': subscription,
+        'paystack_public_key': settings.PAYSTACK_PUBLIC_KEY  # 👈 Add this line!
     }
     return render(request, 'site_management/billing_upgrade.html', context)
 
@@ -2164,12 +2164,10 @@ def billing_upgrade(request):
 @csrf_exempt
 def paystack_webhook(request):
     """
-    The secure receiver that catches successful payments from Paystack
-    and unlocks the user's dashboard.
+    The secure background receiver that catches successful payments.
     """
     if request.method == 'POST':
         payload = request.body
-        # Paystack sends a cryptographic signature in the header
         paystack_signature = request.headers.get('x-paystack-signature')
 
         # 1. VERIFY THE SIGNATURE (Security Check)
@@ -2178,14 +2176,11 @@ def paystack_webhook(request):
             secret_key, payload, hashlib.sha512).hexdigest()
 
         if computed_hash == paystack_signature:
-            # The message is authentic. It's actually from Paystack.
             event_data = json.loads(payload)
 
             # 2. Check if the event is a successful payment
             if event_data.get('event') == 'charge.success':
                 data = event_data['data']
-
-                # 3. Extract the metadata we sent from the frontend
                 metadata = data.get('metadata', {})
                 custom_fields = metadata.get('custom_fields', [])
 
@@ -2193,40 +2188,42 @@ def paystack_webhook(request):
                 tier_purchased = None
 
                 for field in custom_fields:
-                    if field['variable_name'] == 'company_id':
-                        company_id = field['value']
-                    if field['variable_name'] == 'tier':
-                        tier_purchased = field['value']
+                    if field.get('variable_name') == 'company_id':
+                        company_id = field.get('value')
+                    if field.get('variable_name') == 'tier':
+                        tier_purchased = field.get('value')
 
-                # 4. UNLOCK THE ACCOUNT
+                # 4. UNLOCK THE ACCOUNT SECURELY
                 if company_id:
                     try:
                         company = Company.objects.get(id=company_id)
-                        subscription = company.subscription
 
-                        # Tell the Bouncer this company is clear!
-                        subscription.is_access_valid = True
-                        # If you have a tier field, you can update it too: subscription.plan_tier = tier_purchased
+                        # Safely get or create the subscription
+                        subscription, created = CompanySubscription.objects.get_or_create(
+                            company=company)
+
+                        # 🔥 FIX: Update ACTUAL database fields, not the @property!
+                        subscription.status = 'ACTIVE'
+                        if tier_purchased:
+                            subscription.tier = tier_purchased.upper()
+                        subscription.next_billing_date = timezone.now() + timedelta(days=30)
                         subscription.save()
 
                         print(
-                            f"SUCCESS: Unlocked dashboard for Company {company.name}")
+                            f"SUCCESS: Webhook unlocked dashboard for Company {company.company_name}")
                     except Exception as e:
-                        print(f"Error updating subscription: {e}")
+                        print(f"Webhook Database Error: {e}")
 
-        # Always return a 200 OK so Paystack knows we received it
+        # Always return 200 OK to Paystack
         return HttpResponse(status=200)
 
     return HttpResponse(status=400)
 
 
-# Import your Company or Profile model here (adjust based on your actual model name)
-
-
 @login_required
 def verify_payment(request, reference):
     """
-    Secure backend verification. Calls Paystack API to confirm transaction status.
+    Frontend verification. Calls Paystack API directly to confirm status.
     """
     paystack_url = f"https://api.paystack.co/transaction/verify/{reference}"
     headers = {
@@ -2240,34 +2237,35 @@ def verify_payment(request, reference):
 
         if response_data.get('status') and response_data['data']['status'] == 'success':
             # 🚀 PAYMENT CONFIRMED BY PAYSTACK!
-            metadata = response_data['data']['metadata']['custom_fields']
-            tier_name = next(
-                item['value'] for item in metadata if item['variable_name'] == 'tier'
-            )
+            metadata = response_data['data'].get('metadata', {})
+            custom_fields = metadata.get('custom_fields', [])
 
-           # ... (Inside your success block) ...
+            # Safely extract the tier name
+            tier_name = 'PRO'  # Default fallback
+            for item in custom_fields:
+                if item.get('variable_name') == 'tier':
+                    tier_name = item.get('value')
+                    break
+
             company = request.user.company
 
-            # Safely get the existing subscription, or create a brand new one
-            if hasattr(company, 'subscription'):
-                subscription = company.subscription
-            else:
-                subscription = CompanySubscription(company=company)
+            # Safely get or create the subscription
+            subscription, created = CompanySubscription.objects.get_or_create(
+                company=company)
 
             # 🟢 UPDATE THE REAL DATABASE FIELDS
             subscription.status = 'ACTIVE'
-            # Ensures it matches your TIER_CHOICES ('PRO', 'STARTER')
             subscription.tier = tier_name.upper()
-            subscription.next_billing_date = timezone.now(
-            ) + timedelta(days=30)  # Unlocks it for 1 month
-
+            subscription.next_billing_date = timezone.now() + timedelta(days=30)
             subscription.save()
+
             print(
                 f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
-
             return JsonResponse({'status': 'verified', 'message': 'Subscription activated successfully.'})
 
+        else:
+            return JsonResponse({'status': 'failed', 'message': 'Transaction was not successful on Paystack.'}, status=400)
+
     except Exception as e:
-        # This will print the EXACT error to your terminal if anything goes wrong
         print(f"🚨 SYSTEM ERROR during verification: {str(e)}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

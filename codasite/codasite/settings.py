@@ -262,4 +262,6 @@ DEFAULT_FROM_EMAIL = 'CodaSite Audit <reports@codasite.com.ng>'
 # # Force Cloudinary to always use HTTPS
 # SECURE_SSL_REDIRECT = True
 
-PAYSTACK_SECRET_KEY = 'pk_test_423e71bc04d1d914d1e8e78f23f96171912f92a5'
+# Paystack Configuration
+PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
+PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY')
