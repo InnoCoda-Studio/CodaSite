@@ -107,7 +107,7 @@
         
         let handler = PaystackPop.setup({
             // 🚨 CRITICAL: Paste your actual LIVE Public Key here!
-            key: ''{{ paystack_public_key }}', 
+            key: '{{ paystack_public_key }}', 
             
             // 🟢 DYNAMIC EMAIL: Pulls the exact email of whoever is logged into CodaSite
             email: '{{ request.user.email }}', 
