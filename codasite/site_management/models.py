@@ -596,6 +596,7 @@ class CategoryPay(models.Model):
 # ==========================================
 # 💳 BILLING & SUBSCRIPTION ENGINE
 # ==========================================
+
 TIER_CHOICES = [
     ('STARTER', 'Starter Single-Site (₦35,000/mo)'),
     ('PRO', 'Pro Fleet Layer (₦85,000/mo)'),
@@ -611,13 +612,11 @@ STATUS_CHOICES = [
 
 
 class CompanySubscription(models.Model):
-    # Link to your existing Company model imported from account.models
     company = models.OneToOneField(
         Company,
         on_delete=models.CASCADE,
         related_name='subscription'
     )
-
     tier = models.CharField(
         max_length=20, choices=TIER_CHOICES, default='STARTER')
     status = models.CharField(
@@ -627,7 +626,6 @@ class CompanySubscription(models.Model):
     trial_end_date = models.DateTimeField(blank=True, null=True)
     next_billing_date = models.DateTimeField(blank=True, null=True)
 
-    # Secure Paystack Reference Hooks
     paystack_customer_code = models.CharField(
         max_length=100, blank=True, null=True)
     paystack_subscription_code = models.CharField(
@@ -635,13 +633,30 @@ class CompanySubscription(models.Model):
     paystack_token_auth = models.CharField(
         max_length=255, blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        # 🟢 AUTOMATICALLY SET THE 7-DAY TRIAL WINDOW ON CREATION
+        if not self.trial_end_date:
+            # If created_at doesn't exist yet (new instance), use current time
+            start_time = self.created_at if self.created_at else timezone.now()
+            self.trial_end_date = start_time + timedelta(days=7)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.company.company_name} - {self.tier} [{self.status}]"
 
     @property
     def is_access_valid(self):
-        """Returns True if the company is in trial or has a paid active status before expiration"""
-        if self.status in ['TRIAL', 'ACTIVE']:
-            if self.next_billing_date and timezone.now() < self.next_billing_date:
+        """Returns True if the company is within their 7-day trial OR has paid actively"""
+        now = timezone.now()
+
+        # Check Paid Subscriptions
+        if self.status == 'ACTIVE':
+            if self.next_billing_date and now < self.next_billing_date:
                 return True
+
+        # Check Free Trial Windows
+        if self.status == 'TRIAL':
+            if self.trial_end_date and now < self.trial_end_date:
+                return True
+
         return False

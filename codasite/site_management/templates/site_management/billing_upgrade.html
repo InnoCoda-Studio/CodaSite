@@ -99,27 +99,39 @@
     </div>
 </div>
 
-<script src="https://js.paystack.co/v1/inline.js"></script>
+{% comment %} 35000: https://paystack.shop/pay/7llu3igkej {% endcomment %}
+{% comment %} 85000: https://paystack.shop/pay/3y8ysf3j9v {% endcomment %}
+{% comment %} 25000: https://paystack.shop/pay/jp870a-zqa {% endcomment %}
 
+<script src="https://js.paystack.co/v1/inline.js"></script>
 
 <script>
     function payWithPaystack(tierName, amountInNaira) {
         let amountInKobo = amountInNaira * 100;
         
-        // 1. Capture the email safely
+        // 1. Map your Tiers to the exact Paystack Plan Codes you just created
+        const planCodes = {
+            'STARTER': 'PLN_u8lbp6wc7cr7cyf',
+            'PRO': 'PLN_7w5fegkfqhxta7m',
+            'ENTERPRISE': 'PLN_79j2dwsxa7opvm4'
+        };
+        
+        // Get the correct plan code based on the button clicked
+        let selectedPlan = planCodes[tierName];
+        
+        // 2. Capture the email safely
         let userEmail = '{{ request.user.email|escapejs }}';
         
-        // 2. The Fallback: If the user has no email in the database, use a default one so Paystack doesn't crash
+        // The Fallback
         if (!userEmail || userEmail.trim() === '') {
             userEmail = 'billing@codasite.com.ng'; 
         }
 
-        // 3. DEBUGGER: This will print the exact data in your console so we know nothing is blank
-        console.log("🚀 Initializing Paystack with:", {
-            key: '{{ paystack_public_key }}',
+        console.log("🚀 Initializing Paystack Recurring Billing with:", {
             email: userEmail,
             amount: amountInKobo,
-            tier: tierName
+            tier: tierName,
+            plan: selectedPlan  // <-- Debugging the plan code
         });
         
         let handler = PaystackPop.setup({
@@ -127,6 +139,7 @@
             email: userEmail, 
             amount: amountInKobo,
             currency: 'NGN',
+            plan: selectedPlan,  // 🌟 THIS IS THE MAGIC LINE FOR AUTO-BILLING 🌟
             metadata: {
                 custom_fields: [
                     {
@@ -137,7 +150,7 @@
                 ]
             },
             callback: function(response) {
-                alert('Payment authorized! Securing your CodaSite workspace...');
+                alert('Payment authorized! Securing your recurring CodaSite workspace...');
 
                 fetch('/billing/verify-payment/' + response.reference + '/')
                     .then(res => res.json())
