@@ -2178,48 +2178,90 @@ def paystack_webhook(request):
         if computed_hash == paystack_signature:
             event_data = json.loads(payload)
 
+            # 👇 THIS IS WHERE YOUR NEW CODE GOES 👇
             # 2. Check if the event is a successful payment
             if event_data.get('event') == 'charge.success':
                 data = event_data['data']
-                metadata = data.get('metadata', {})
-                custom_fields = metadata.get('custom_fields', [])
+                
+                # Extract the customer code Paystack sends with every recurring charge
+                customer_code = data.get('customer', {}).get('customer_code')
 
-                company_id = None
-                tier_purchased = None
-
-                for field in custom_fields:
-                    if field.get('variable_name') == 'company_id':
-                        company_id = field.get('value')
-                    if field.get('variable_name') == 'tier':
-                        tier_purchased = field.get('value')
-
-                # 4. UNLOCK THE ACCOUNT SECURELY
-                if company_id:
+                if customer_code:
                     try:
-                        company = Company.objects.get(id=company_id)
+                        # Find the exact subscription using the code we saved in verify_payment
+                        subscription = CompanySubscription.objects.get(paystack_customer_code=customer_code)
 
-                        # Safely get or create the subscription
-                        subscription, created = CompanySubscription.objects.get_or_create(
-                            company=company)
-
-                        # 🔥 FIX: Update ACTUAL database fields, not the @property!
+                        # 🔥 Renew access for another 30 days!
                         subscription.status = 'ACTIVE'
-                        if tier_purchased:
-                            subscription.tier = tier_purchased.upper()
                         subscription.next_billing_date = timezone.now() + timedelta(days=30)
+                        
+                        # (Optional) Update tier if custom_fields happens to be present
+                        metadata = data.get('metadata', {})
+                        for field in metadata.get('custom_fields', []):
+                            if field.get('variable_name') == 'tier':
+                                subscription.tier = field.get('value').upper()
+
                         subscription.save()
 
-                        print(
-                            f"SUCCESS: Webhook unlocked dashboard for Company {company.company_name}")
-                    except Exception as e:
-                        print(f"Webhook Database Error: {e}")
+                        print(f"SUCCESS: Webhook renewed 30-day access for {subscription.company.company_name}")
+                    except CompanySubscription.DoesNotExist:
+                        print(f"Webhook Database Error: No subscription found for customer_code {customer_code}")
+            # 👆 END OF NEW CODE 👆
 
         # Always return 200 OK to Paystack
         return HttpResponse(status=200)
 
     return HttpResponse(status=400)
 
+# @login_required
+# def verify_payment(request, reference):
+#     """
+#     Frontend verification. Calls Paystack API directly to confirm status.
+#     """
+#     paystack_url = f"https://api.paystack.co/transaction/verify/{reference}"
+#     headers = {
+#         "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+#         "Content-Type": "application/json",
+#     }
 
+#     try:
+#         response = requests.get(paystack_url, headers=headers)
+#         response_data = response.json()
+
+#         if response_data.get('status') and response_data['data']['status'] == 'success':
+#             # 🚀 PAYMENT CONFIRMED BY PAYSTACK!
+#             metadata = response_data['data'].get('metadata', {})
+#             custom_fields = metadata.get('custom_fields', [])
+
+#             # Safely extract the tier name
+#             tier_name = 'PRO'  # Default fallback
+#             for item in custom_fields:
+#                 if item.get('variable_name') == 'tier':
+#                     tier_name = item.get('value')
+#                     break
+
+#             company = request.user.company
+
+#             # Safely get or create the subscription
+#             subscription, created = CompanySubscription.objects.get_or_create(
+#                 company=company)
+
+#             # 🟢 UPDATE THE REAL DATABASE FIELDS
+#             subscription.status = 'ACTIVE'
+#             subscription.tier = tier_name.upper()
+#             subscription.next_billing_date = timezone.now() + timedelta(days=30)
+#             subscription.save()
+
+#             print(
+#                 f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
+#             return JsonResponse({'status': 'verified', 'message': 'Subscription activated successfully.'})
+
+#         else:
+#             return JsonResponse({'status': 'failed', 'message': 'Transaction was not successful on Paystack.'}, status=400)
+
+#     except Exception as e:
+#         print(f"🚨 SYSTEM ERROR during verification: {str(e)}")
+#         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 @login_required
 def verify_payment(request, reference):
     """
@@ -2235,10 +2277,14 @@ def verify_payment(request, reference):
         response = requests.get(paystack_url, headers=headers)
         response_data = response.json()
 
+        # 👇 THIS IS WHERE YOUR NEW CODE GOES 👇
         if response_data.get('status') and response_data['data']['status'] == 'success':
             # 🚀 PAYMENT CONFIRMED BY PAYSTACK!
             metadata = response_data['data'].get('metadata', {})
             custom_fields = metadata.get('custom_fields', [])
+            
+            # 👈 Extract the Paystack Customer Code
+            customer_code = response_data['data']['customer']['customer_code']
 
             # Safely extract the tier name
             tier_name = 'PRO'  # Default fallback
@@ -2250,18 +2296,20 @@ def verify_payment(request, reference):
             company = request.user.company
 
             # Safely get or create the subscription
-            subscription, created = CompanySubscription.objects.get_or_create(
-                company=company)
+            subscription, created = CompanySubscription.objects.get_or_create(company=company)
 
             # 🟢 UPDATE THE REAL DATABASE FIELDS
             subscription.status = 'ACTIVE'
             subscription.tier = tier_name.upper()
             subscription.next_billing_date = timezone.now() + timedelta(days=30)
+            
+            # 👈 Save the customer code so the Webhook can find them next month!
+            subscription.paystack_customer_code = customer_code 
             subscription.save()
 
-            print(
-                f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
+            print(f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
             return JsonResponse({'status': 'verified', 'message': 'Subscription activated successfully.'})
+        # 👆 END OF NEW CODE 👆
 
         else:
             return JsonResponse({'status': 'failed', 'message': 'Transaction was not successful on Paystack.'}, status=400)

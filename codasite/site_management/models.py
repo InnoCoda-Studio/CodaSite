@@ -634,15 +634,14 @@ class CompanySubscription(models.Model):
         max_length=255, blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # 🟢 AUTOMATICALLY SET THE 7-DAY TRIAL WINDOW ON CREATION
-        if not self.trial_end_date:
-            # If created_at doesn't exist yet (new instance), use current time
-            start_time = self.created_at if self.created_at else timezone.now()
-            self.trial_end_date = start_time + timedelta(days=7)
+        # 🟢 AUTOMATICALLY SET THE 7-DAY TRIAL WINDOW ON CREATION ONLY
+        if not self.pk and not self.trial_end_date:
+            self.trial_end_date = timezone.now() + timedelta(days=7)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.company.company_name} - {self.tier} [{self.status}]"
+    
 
     @property
     def is_access_valid(self):

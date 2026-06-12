@@ -30,7 +30,7 @@ def register_view(request):
 
     if request.method == 'POST':
         f_name = request.POST.get('full_name', '').strip()
-        u_name = request.POST.get('email', '').strip()
+        u_name = request.POST.get('email', '').strip().lower()
         p_word = request.POST.get('password', '')
         c_name = request.POST.get('company_name', '').strip()
 
@@ -88,7 +88,7 @@ def register_view(request):
 
 def login_view(request):
     if request.method == 'POST':
-        identifier = request.POST.get('username', '').strip()
+        identifier = request.POST.get('username', '').strip().lower()
         p_word = request.POST.get('password', '')
 
         # 🏗️ The Logic: Look for the user by email first

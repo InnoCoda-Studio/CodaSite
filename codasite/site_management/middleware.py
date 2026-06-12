@@ -1,7 +1,6 @@
 from django.shortcuts import redirect
 from django.urls import reverse
 
-
 class SubscriptionEnforcementMiddleware:
     """
     The Bouncer: Checks every incoming request to ensure the company has paid.
@@ -14,14 +13,14 @@ class SubscriptionEnforcementMiddleware:
         # 1. We only check users who are actually logged in
         if request.user.is_authenticated:
 
-            # 2. THE WHITELIST: Pages the user is ALWAYS allowed to see, even if they owe money
-            # (If we don't whitelist the billing page itself, they get stuck in an infinite redirect loop!)
+            # 2. THE WHITELIST: Pages the user is ALWAYS allowed to see
             allowed_paths = [
                 '/account/login/',
                 '/account/logout/',
                 '/admin/',  # Don't lock yourself out of the admin panel!
-                '/billing/upgrade/',  # We will build this page next
-                '/billing/paystack-webhook/',  # Do NOT block Paystack from sending you money
+                '/billing/upgrade/',  
+                '/billing/paystack-webhook/',  
+                '/billing/verify-payment/',  # 👈 CRITICAL FIX: Allow the JS to verify successful payments!
             ]
 
             # Check if the URL they are trying to visit is safe

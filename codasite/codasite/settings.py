@@ -1,30 +1,26 @@
-from dotenv import load_dotenv  # Make sure this is imported
-import os  # Make sure this is at the top of settings.py
-from pathlib import Path
 import os
+from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
-# Cloudinary
 
+# Cloudinary
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
-
-load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 1. Load the .env file explicitly using the BASE_DIR path
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
-print(f"👉 DEEBUG STATUS IS CURRENTLY: {DEBUG}")  # 👈 Add this line temporarily
+# 2. The Dynamic Debug Toggle
+# This reads from your .env locally (True), but defaults to False on Render
+# DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = True
 
 # settings.py
 
