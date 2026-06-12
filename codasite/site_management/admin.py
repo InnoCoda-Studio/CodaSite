@@ -2,19 +2,8 @@ from .models import CompanySubscription
 from django.contrib import admin
 from .models import (
     SiteLocation, Invitation, SkilledWorker,
-    DailyWorkLog, StaffAttendance, MaterialStock, MaterialDeduction, CompanySubscription
+    DailyWorkLog, StaffAttendance, MaterialStock, MaterialDeduction
 )
-
-@admin.register(CompanySubscription)
-class CompanySubscriptionAdmin(admin.ModelAdmin):
-    # The columns you will see in the dashboard
-    list_display = ('company', 'tier', 'status', 'trial_end_date', 'next_billing_date')
-    
-    # Adds a sidebar to filter by who is on Trial vs Active, or Starter vs Pro
-    list_filter = ('status', 'tier')
-    
-    # Adds a search bar so you can find specific contractors
-    search_fields = ('company__name',)
 
 
 @admin.register(SiteLocation)
