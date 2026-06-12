@@ -640,7 +640,7 @@ class CompanySubscription(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.company.company_name} - {self.tier} [{self.status}]"
+        return f"{self.company.name} - {self.tier} [{self.status}]"
     
 
     @property
