@@ -19,14 +19,13 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # 2. The Dynamic Debug Toggle
 # This reads from your .env locally (True), but defaults to False on Render
-# DEBUG = os.getenv('DEBUG', 'False') == 'True'
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # settings.py
 
 # 🟢 Only allow your official Render URL and your future domain
 ALLOWED_HOSTS = [
-    'codasite.onrender.com',
+    'codasite-6xbb.onrender.com',
     'codasite.com.ng',
     'www.codasite.com.ng',
     'localhost',
