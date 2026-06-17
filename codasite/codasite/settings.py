@@ -165,8 +165,8 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # 🛡️ Switch to this - it's the most stable for Windows/Python 3.14
-        "BACKEND": "whitenoise.storage.StaticFilesStorage",
+        # 🛡️ Uses cache-busting hashing so styles never look broken or cached
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
