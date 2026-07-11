@@ -124,24 +124,6 @@ DATABASES = {
 
 
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': '/home/youruser/logs/django_error.log', # Change to your path
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-    },
-}
 
 
 
@@ -292,3 +274,29 @@ try:
     from .settings_local import *
 except ImportError:
     pass
+
+
+
+# Assuming BASE_DIR is already defined at the top of your settings.py
+# If not, it's usually: BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            # Use os.path.join to put the log inside your project folder
+            'filename': os.path.join(BASE_DIR, 'django_error.log'), 
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}
+
