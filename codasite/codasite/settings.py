@@ -276,3 +276,21 @@ except ImportError:
     pass
 
 
+
+
+# Force Django to log to stdout so Render captures it in the logs
+import sys
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING', # Change to 'DEBUG' if you still can't see it
+    },
+}
