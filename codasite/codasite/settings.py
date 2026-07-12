@@ -167,16 +167,26 @@ USE_TZ = True
 
 # settings.py
 
+# STORAGES = {
+#     "default": {
+#         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+#     },
+#     "staticfiles": {
+#         # 🛡️ Uses cache-busting hashing so styles never look broken or cached
+#         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+#     },
+# }
+
+
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # 🛡️ Uses cache-busting hashing so styles never look broken or cached
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # CHANGED: Use this instead of CompressedManifestStaticFilesStorage
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage", 
     },
 }
-
 # 🏁 Match the legacy setting as well
 
 # 2. Paths Configuration
