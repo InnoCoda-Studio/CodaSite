@@ -238,8 +238,8 @@ LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'login'
 AUTH_USER_MODEL = 'account.User'
 
-STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
-WHITENOISE_KEEP_ONLY_HASHED_FILES = True
+# STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
+# WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 
 # --- EMAIL SETTINGS (Anymail / Resend API) ---
 
