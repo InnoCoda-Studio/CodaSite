@@ -215,9 +215,11 @@ CLOUDINARY_STORAGE = {
 
 # 🚀 THE CONSOLIDATED PRODUCTION SECURITY COMMAND CENTER
 if not DEBUG:
-    # Settings for RENDER (Production)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
+    # Use SECURE_SSL_REDIRECT = True only if you are sure your domain is fully configured.
+    # For now, let's turn it OFF to see if the 500 errors stop.
+    SECURE_SSL_REDIRECT = False 
+    
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
