@@ -183,8 +183,7 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # CHANGED: Use this instead of CompressedManifestStaticFilesStorage
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage", 
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 # 🏁 Match the legacy setting as well
