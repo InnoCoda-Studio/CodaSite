@@ -190,7 +190,7 @@ STORAGES = {
 # 🏁 Match the legacy setting as well
 
 # 2. Paths Configuration
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [
@@ -201,6 +201,7 @@ STATICFILES_DIRS = [
 # 3. Media Files (User Uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
 
 
 # ADD THIS TEMPORARY FIX
