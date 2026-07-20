@@ -52,54 +52,6 @@ class SiteLocation(models.Model):
         return self.name
 
 
-# class SiteLocation(models.Model):
-#     # name = models.CharField(max_length=255,db_index=True)  # e.g., "Lekki Phase 1"
-#     # contractor = models.ForeignKey(
-#     #     User, on_delete=models.CASCADE, related_name='sites')
-
-#     company = models.ForeignKey(
-#         'CompanyProfile', on_delete=models.CASCADE, related_name='sites', null=True)
-#     name = models.CharField(max_length=255,db_index=True)
-#     is_office = models.BooleanField(default=False)
-#     address = models.TextField(blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     # 📏 SETTINGS
-#     minimum_required = models.IntegerField(default=10, null=True, blank=True)
-
-#     # 🛰️ GPS ENGINE (ADD THESE)
-#     # Using DecimalField for high precision in Lekki/Ajah streets
-#     latitude = models.DecimalField(
-#         max_digits=9, decimal_places=6, null=True, blank=True)
-#     longitude = models.DecimalField(
-#         max_digits=9, decimal_places=6, null=True, blank=True)
-
-#     # How close the Storekeeper must be to the center (in Meters)
-#     radius_meters = models.IntegerField(
-#         default=100, help_text="Allowed distance from site center")
-
-#     def __str__(self):
-#         return self.name
-# 2. Access Control
-
-
-# class Invitation(models.Model):
-#     ROLE_CHOICES = [
-#         ('PROJECT_MANAGER', 'Project Manager'),
-#         ('STOREKEEPER', 'Storekeeper'),
-#     ]
-#     email = models.EmailField()
-#     site = models.ForeignKey(SiteLocation, on_delete=models.CASCADE)
-#     token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-#     invited_by = models.ForeignKey(User, on_delete=models.CASCADE)
-#     role_assigned = models.CharField(
-#         max_length=20, db_index=True, choices=ROLE_CHOICES)
-#     is_used = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"Invite for {self.email} to {self.site.name}"
-
 
 class Invitation(models.Model):
     # 🛑 1. You can keep these as 'suggestions' for your UI,
@@ -194,6 +146,7 @@ class SkilledWorker(models.Model):
     is_trashed = models.BooleanField(default=False)
     rating = models.IntegerField(default=5)
     is_elite = models.BooleanField(default=False)
+    created_at = models.DateTimeField(null=True, auto_now=True)
 
     class Meta:
         # '-' means descending order (Newest/Latest ID first)
