@@ -82,4 +82,5 @@ urlpatterns = [
          views.paystack_webhook, name='paystack_webhook'),
     path('billing/verify-payment/<str:reference>/',
          views.verify_payment, name='verify_payment'),
+     path('api/cron/weekly-reports/', views.trigger_weekly_reports_cron, name='cron_weekly_reports'),
 ]

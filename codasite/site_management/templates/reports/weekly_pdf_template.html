@@ -106,7 +106,8 @@
             <tr>
                 <td>
                     <div class="company-name">
-                        {{ company.business_name|default:site.contractor.username|upper }}
+                      
+                          {{ company.business_name|default:site.company.owner.username|upper }}
                     </div>
                     <h1 class="report-title">Weekly Executive Summary</h1>
                     <p class="week-range">Project: {{ site.name }} • Period: {{ start_date|date:"d M" }} - {{ end_date|date:"d M Y" }}</p>
@@ -125,7 +126,7 @@
         </div>
         <div class="stat-box">
             <div class="stat-label">Total Site Logs</div>
-            <div class="stat-value">{{ deductions.count|add:attendance.count }}</div>
+            <div class="stat-value">{{ staff_summary|length }}</div>
         </div>
         <div class="stat-box">
             <div class="stat-label">Week Status</div>

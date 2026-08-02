@@ -1,44 +1,43 @@
-# site_management/management/commands/send_weekly_summaries.py
-
 from django.core.management.base import BaseCommand
 from site_management.models import SiteLocation
-from site_management.reports import get_weekly_summary, generate_pdf_report
-from django.core.mail import EmailMessage
+from site_management.reports import get_weekly_summary, send_resend_audit_email
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class Command(BaseCommand):
     help = 'Automatically sends weekly reports to all site stakeholders'
 
     def handle(self, *args, **options):
+        # You might want to filter this later: SiteLocation.objects.filter(is_active=True)
         active_sites = SiteLocation.objects.all()
+
+        if not active_sites.exists():
+            self.stdout.write(self.style.WARNING("No active sites found."))
+            return
 
         for site in active_sites:
             try:
+                self.stdout.write(f"⚙️ Building weekly report for: {site.name}...")
+                
                 # 1. Get the data for this specific site
                 summary = get_weekly_summary(site.id)
 
-                # 2. Generate the Weekly PDF
-                pdf_content = generate_pdf_report(
-                    summary, 'reports/weekly_pdf_template.html')
+                # 2. 🚀 Dispatch using the fixed Resend engine!
+                # This automatically generates the PDF, applies the HTML template, 
+                # and sends it via the official Resend API.
+                success = send_resend_audit_email(data=summary, report_type="WEEKLY")
 
-                # 3. Build and Send Email
-                email = EmailMessage(
-                    subject=f"AUTOMATED WEEKLY AUDIT: {site.name}",
-                    body=f"Hello,\n\nThis is an automated weekly summary for the {site.name} project.",
-                    from_email='innocoda.support@gmail.com',
-                    to=summary['recipients'],
-                )
-
-                if pdf_content:
-                    email.attach(
-                        f"Weekly_Audit_{site.name}.pdf", pdf_content, 'application/pdf')
-                    email.send()
+                if success:
                     self.stdout.write(self.style.SUCCESS(
-                        f'Successfully sent report for {site.name}'))
+                        f'✅ Successfully dispatched report for {site.name}'))
+                else:
+                    self.stdout.write(self.style.ERROR(
+                        f'❌ Failed to send report for {site.name}. Check Render/Resend logs.'))
 
             except Exception as e:
                 logger.error(
-                    f"Failed to send automated report for site {site.id}: {e}")
+                    f"Crash while processing automated report for site {site.id}: {e}")
+                self.stdout.write(self.style.ERROR(f"Critical error on {site.name}: {e}"))
+                
+        self.stdout.write(self.style.SUCCESS("🎉 All automated weekly reports processed!"))

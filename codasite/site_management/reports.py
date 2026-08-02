@@ -1,8 +1,13 @@
-from django.template.loader import render_to_string
-
 import os
-import base64
 import resend
+from datetime import timedelta
+from io import BytesIO
+
+from django.db.models import Count, Sum
+from django.utils import timezone
+from django.template.loader import render_to_string, get_template
+
+from account.models import Company
 from .models import (
     MaterialDeduction,
     StaffAttendance,
@@ -12,13 +17,6 @@ from .models import (
     SkilledWorker,
     CategoryPay,
 )
-from django.db.models import Count, Sum
-from datetime import timedelta
-from django.utils import timezone
-from django.template.loader import get_template
-from io import BytesIO
-
-from account.models import Company
 
 # 🛡️ SAFE IMPORT
 try:
@@ -43,27 +41,34 @@ def get_daily_summary(site_id):
     site = SiteLocation.objects.get(id=site_id)
     stocks = MaterialStock.objects.filter(site=site)
 
-    # ✅ FIX 1: Access company directly from site
     company = site.company
 
     deductions = MaterialDeduction.objects.filter(
-        stock_item__site=site, timestamp__date=today)
+        stock_item__site=site, timestamp__date=today
+    )
     attendance = StaffAttendance.objects.filter(site=site, time_in__date=today)
 
-    # ✅ FIX 2: Recipients must go through site.company.contractor
     contractor_email = site.company.owner.email if site.company and site.company.owner else None
     recipients = [contractor_email] if contractor_email else []
 
     staff_emails = Invitation.objects.filter(
-        site=site, is_used=True).values_list('email', flat=True)
+        site=site, is_used=True
+    ).values_list('email', flat=True)
     recipients.extend(list(staff_emails))
     clean_recipients = list(set([e for e in recipients if e and e.strip()])) or [
-        'innocoda.support@gmail.com']
+        'innocoda.support@gmail.com'
+    ]
 
     return {
-        'site': site, 'today': today, 'company': company, 'stocks': stocks,
-        'deductions': deductions, 'attendance': attendance,
-        'recipients': clean_recipients, 'total_workers': attendance.count()
+        'site': site,
+        'today': today,
+        'company': company,
+        'stocks': stocks,
+        'deductions': deductions,
+        
+        'attendance': attendance,
+        'recipients': clean_recipients,
+        'total_workers': attendance.count(),
     }
 
 
@@ -71,9 +76,6 @@ def get_aggregated_report(site_id, start_date, end_date):
     site = SiteLocation.objects.get(id=site_id)
     company = site.company
     stocks = MaterialStock.objects.filter(site=site)
-
-    category_name = record.worker.get_category_display() if hasattr(
-        record.worker, 'get_category_display') else record.worker.category
 
     attendance_records = StaffAttendance.objects.filter(
         site=site,
@@ -89,7 +91,9 @@ def get_aggregated_report(site_id, start_date, end_date):
 
         worker_id = record.worker.id
 
-        # 🕒 CALCULATE HOURS
+        category_name = record.worker.get_category_display() if hasattr(
+            record.worker, 'get_category_display') else record.worker.category
+
         duration_hours = 0
         if record.time_in and record.time_out:
             diff = record.time_out - record.time_in
@@ -99,16 +103,14 @@ def get_aggregated_report(site_id, start_date, end_date):
             staff_summary_map[worker_id] = {
                 'name': record.worker.name,
                 'category': category_name,
-                'category': record.worker.category,
                 'days_present': 0,
                 'total_pay': 0,
-                'total_hours': 0,  # 👈 Initialize Hours
+                'total_hours': 0,
                 'daily_rate': record.daily_rate_at_time
             }
 
         staff_summary_map[worker_id]['days_present'] += 1
         staff_summary_map[worker_id]['total_pay'] += record.daily_rate_at_time
-        # 👈 Add Hours
         staff_summary_map[worker_id]['total_hours'] += duration_hours
         total_payroll += record.daily_rate_at_time
 
@@ -153,63 +155,16 @@ def get_live_site_spend(site_id):
     return {'total_spent': total_spent, 'worker_details': worker_details}
 
 
-# 🔑 Add RESEND_API_KEY to your Render Environment Variables
+# 🔑 Add RESEND_API_KEY to your Environment Variables
 resend.api_key = os.environ.get("RESEND_API_KEY")
 
 
-# def send_resend_audit_email(data, report_type="DAILY"):
-#     """
-#     The High-End Dispatcher: 
-#     Now handles both DAILY and WEEKLY audit types.
-#     """
-#     try:
-#         from .reports import generate_pdf_report
-
-#         # 📂 1. Pick the right template for the PDF
-#         pdf_template = 'reports/pdf_template.html' if report_type == "DAILY" else 'reports/weekly_pdf_template.html'
-
-#         pdf_content = generate_pdf_report(data, pdf_template)
-#         if not pdf_content:
-#             return False
-
-#         # 📧 2. Pick the right template for the Email Body
-#         email_template = 'site_management/daily_report_email.html' if report_type == "DAILY" else 'site_management/weekly_report_email.html'
-#         html_body = render_to_string(email_template, data)
-
-#         # 🛡️ 3. Encoding
-#         attachment_content = base64.b64encode(pdf_content).decode()
-
-#         # 🚀 4. The Dispatch
-#         subject_label = "DAILY SITE AUDIT" if report_type == "DAILY" else "WEEKLY EXECUTIVE SUMMARY"
-
-#         params = {
-#             "from": "CodaSite Audit <reports@codasite.com.ng>",
-#             "to": data['recipients'],
-#             "subject": f"🏗️ {subject_label}: {data['site'].name}",
-#             "html": html_body,
-#             "attachments": [
-#                 {
-#                     "filename": f"{report_type}_Report_{data['site'].name}.pdf",
-#                     "content": attachment_content,
-#                 }
-#             ],
-#         }
-
-#         resend.Emails.send(params)
-#         return True
-#     except Exception as e:
-#         print(f"RESEND ERROR: {e}")
-#         return False
 def send_resend_audit_email(data, report_type="DAILY"):
     """
     The High-End Dispatcher: 
-    Now handles both DAILY and WEEKLY audit types.
+    Handles both DAILY and WEEKLY audit types via Resend.
     """
     try:
-        # ❌ REMOVED the circular import here. 
-        # generate_pdf_report is already defined in this file, so you can just call it directly!
-
-        # 📂 1. Pick the right template for the PDF
         pdf_template = 'reports/pdf_template.html' if report_type == "DAILY" else 'reports/weekly_pdf_template.html'
 
         pdf_content = generate_pdf_report(data, pdf_template)
@@ -217,23 +172,19 @@ def send_resend_audit_email(data, report_type="DAILY"):
             print("ERROR: PDF generation returned empty content.")
             return False
 
-        # 📧 2. Pick the right template for the Email Body
         email_template = 'site_management/daily_report_email.html' if report_type == "DAILY" else 'site_management/weekly_report_email.html'
-        from django.template.loader import render_to_string
         html_body = render_to_string(email_template, data)
 
-        # 🚀 3. The Dispatch
         subject_label = "DAILY SITE AUDIT" if report_type == "DAILY" else "WEEKLY EXECUTIVE SUMMARY"
 
         params = {
-            "from": "CodaSite Audit <reports@codasite.com.ng>",
+            "from":"CodaSite Audit <reports@codasite.com.ng>",
             "to": data['recipients'],
             "subject": f"🏗️ {subject_label}: {data['site'].name}",
             "html": html_body,
             "attachments": [
                 {
                     "filename": f"{report_type}_Report_{data['site'].name}.pdf",
-                    # ✅ FIX: Pass the raw bytes as a list, which Resend Python SDK requires
                     "content": list(pdf_content),
                 }
             ],
@@ -241,9 +192,7 @@ def send_resend_audit_email(data, report_type="DAILY"):
 
         resend.Emails.send(params)
         return True
-        
     except Exception as e:
-        # ✅ FIX: Print the full error stack trace so it isn't hidden from your logs
         print(f"RESEND ERROR DETAILED: {str(e)}")
         import traceback
         traceback.print_exc()

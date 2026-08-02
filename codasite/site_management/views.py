@@ -19,7 +19,6 @@ from .models import SiteLocation
 from django.shortcuts import get_object_or_404, redirect
 import cloudinary.uploader  # Make sure this is imported!
 from django.db.models import Q
-from .reports import get_weekly_summary, generate_pdf_report, send_resend_audit_email
 from django.shortcuts import get_object_or_404, render
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
@@ -37,6 +36,9 @@ from django.http import HttpResponse
 import qrcode
 from io import BytesIO
 import base64
+
+from django.core.management import call_command
+from django.http import HttpResponseForbidden, JsonResponse
 
 from decimal import Decimal, InvalidOperation
 from django.template.loader import render_to_string
@@ -66,7 +68,7 @@ from .reports import (
 from django.core.mail import EmailMessage
 from decimal import Decimal
 from .forms import WorkerPayForm
-from .utils import get_weekly_summary, get_monthly_summary
+from .utils import  get_monthly_summary
 
 
 from django.db.models import Q, F
@@ -2316,4 +2318,27 @@ def verify_payment(request, reference):
 
     except Exception as e:
         print(f"🚨 SYSTEM ERROR during verification: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+
+
+"""
+    monday sender automaticaly itself
+"""
+def trigger_weekly_reports_cron(request):
+    """
+    Secret HTTP endpoint to trigger send_weekly_summaries via cron-job.org
+    """
+    secret_key = request.GET.get('key')
+    expected_key = os.environ.get('CRON_SECRET_KEY', 'codasite-secret-cron-key-2026')
+
+    if secret_key != expected_key:
+        return HttpResponseForbidden("Unauthorized access")
+
+    try:
+        # Executes python manage.py send_weekly_summaries
+        call_command('send_weekly_summaries')
+        return JsonResponse({'status': 'success', 'message': 'Weekly summaries successfully dispatched!'})
+    except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
