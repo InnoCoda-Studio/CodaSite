@@ -1,5 +1,6 @@
 from django.shortcuts import redirect
 from django.urls import reverse
+from .models import Invitation
 
 class SubscriptionEnforcementMiddleware:
     """
@@ -30,18 +31,28 @@ class SubscriptionEnforcementMiddleware:
             # 3. If they are trying to access the actual construction app and it's NOT a safe path
             if not is_safe_path:
                 # Assuming the user is linked to a company profile
-                if hasattr(request.user, 'company_owner'):
-                    company = request.user.company_owner
+                company = getattr(request.user, "company", None)
 
+                # Handle invited staff members
+                if not company:
+                    invitation = Invitation.objects.filter(
+                        email=request.user.email,
+                        is_used=True
+                    ).first()
+
+                    if invitation:
+                        company = invitation.site.company
+
+                if company:
                     try:
                         subscription = company.subscription
-                        # 🚨 THE LOCKDOWN TRIGGER
+
                         if not subscription.is_access_valid:
-                            # Bouncer says no. Send them to the Paywall.
-                            return redirect('/billing/upgrade/')
-                    except:
-                        # If for some weird reason they don't have a subscription row at all
-                        return redirect('/billing/upgrade/')
+                            return redirect("billing_upgrade")
+
+                    except Exception:
+                        return redirect("billing_upgrade")
+                    
 
         # 4. If everything is good, let them through to the page they requested
         response = self.get_response(request)
