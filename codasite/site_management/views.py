@@ -138,6 +138,12 @@ def index(request):
     if not user_company:
         return redirect('profile')
 
+    # 🔒 Check subscription access
+    subscription = getattr(user_company, "subscription", None)
+
+    if not subscription or not subscription.is_access_valid:
+        return redirect("billing_upgrade")
+
     # 🏗️ 2. BASE QUERIES (With N+1 Optimization)
     if hasattr(request.user, 'company'):
         # 🚀 KEY FIX: Added .prefetch_related('stocks')
@@ -2265,6 +2271,7 @@ def paystack_webhook(request):
 #     except Exception as e:
 #         print(f"🚨 SYSTEM ERROR during verification: {str(e)}")
 #         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 @login_required
 def verify_payment(request, reference):
     """
@@ -2279,6 +2286,9 @@ def verify_payment(request, reference):
     try:
         response = requests.get(paystack_url, headers=headers)
         response_data = response.json()
+
+        import json
+
 
         # 👇 THIS IS WHERE YOUR NEW CODE GOES 👇
         if response_data.get('status') and response_data['data']['status'] == 'success':
