@@ -1142,24 +1142,46 @@ def add_site(request):
         # 1. Get the company
         user_company = request.user.company
 
+        subscription = user_company.subscription
+        site_count = SiteLocation.objects.filter(company=user_company).count()
+
+        # 🔒 Enforce plan limits
+        if subscription.tier == "STARTER" and site_count >= 1:
+            messages.error(
+                request,
+                "Your Starter plan allows only 1 active site. Upgrade to Pro Fleet to create more sites."
+            )
+            return redirect("billing_upgrade")
+
+        if subscription.tier == "PRO" and site_count >= 3:
+            messages.error(
+                request,
+                "Your Pro Fleet plan allows up to 3 active sites. Upgrade to Enterprise for unlimited sites."
+            )
+            return redirect("billing_upgrade")
+
+        # ENTERPRISE = unlimited
+
         # 2. Get GPS data from the hidden inputs in your form
-        lat = request.POST.get('latitude')
-        lng = request.POST.get('longitude')
+        lat = request.POST.get("latitude")
+        lng = request.POST.get("longitude")
 
         # 3. Create the Site with ALL data
         SiteLocation.objects.create(
-            name=request.POST.get('name'),
-            address=request.POST.get('address'),
+            name=request.POST.get("name"),
+            address=request.POST.get("address"),
             company=user_company,
-            latitude=lat if lat else None,  # Save the Lat
-            longitude=lng if lng else None,  # Save the Lng
-            radius_meters=100               # Set a default radius
+            latitude=lat if lat else None,
+            longitude=lng if lng else None,
+            radius_meters=100
         )
 
         messages.success(
-            request, f"Project '{request.POST.get('name')}' registered with GPS location.")
+            request,
+            f"Project '{request.POST.get('name')}' registered with GPS location."
+        )
 
-    return redirect('index')
+    return redirect("index")
 
 
 @login_required
