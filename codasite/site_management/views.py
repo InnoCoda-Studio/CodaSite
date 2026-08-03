@@ -2320,7 +2320,7 @@ def verify_payment(request, reference):
             subscription.paystack_customer_code = customer_code 
             subscription.save()
 
-            print(f"✅ SUCCESS: Unlocked workspace for {company.company_name} on the {tier_name} tier!")
+            print(f"✅ SUCCESS: Unlocked workspace for {company.name} on the {tier_name} tier!")
             return JsonResponse({'status': 'verified', 'message': 'Subscription activated successfully.'})
         # 👆 END OF NEW CODE 👆
 
