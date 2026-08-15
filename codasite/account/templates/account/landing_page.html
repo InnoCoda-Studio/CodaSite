@@ -48,8 +48,9 @@
                 </p>
                 
                 <div data-aos="zoom-in" data-aos-delay="700" class="pt-4 flex flex-col sm:flex-row justify-center lg:justify-start items-center gap-4">
-                    <a href="{% url 'register' %}" class="w-full sm:w-auto bg-[#00D2D2] text-[#030712] px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 shadow-[0_0_20px_rgba(0,210,210,0.4)] transition-all">
-                        Deploy Your First Site
+                   <a href="#demo"
+                        class="w-full sm:w-auto bg-[#00D2D2] text-[#030712] px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 shadow-[0_0_20px_rgba(0,210,210,0.4)] transition-all">
+                        Book a Free Demo
                     </a>
                     <a href="#protocol" class="w-full sm:w-auto bg-white/5 text-white border border-white/10 backdrop-blur-md px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-colors">
                         See How It Works
@@ -80,6 +81,48 @@
 
         </div>
     </section>
+
+
+    {% comment %}
+    <section id="demo" class="py-24 px-6 bg-[#030712] border-b border-white/5">
+    <div class="max-w-5xl mx-auto text-center space-y-8">
+
+        <div class="space-y-4">
+            <p class="text-xs font-black text-[#00D2D2] uppercase tracking-widest">
+                See CodaSite in Action
+            </p>
+
+            <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
+                See what's happening on your site.
+            </h2>
+
+            <p class="text-slate-400 max-w-2xl mx-auto">
+                Watch how CodaSite helps construction teams verify attendance,
+                track materials, and monitor site activity from one platform.
+            </p>
+        </div>
+
+        <!-- VIDEO -->
+        <div class="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-white/5">
+            <video
+                class="w-full h-full object-cover"
+                controls
+                poster="{% static 'images/codasite-demo-poster.png' %}">
+                <source src="{% static 'videos/codasite-demo.mp4' %}" type="video/mp4">
+            </video>
+        </div>
+
+        <div class="pt-4">
+            <a href="https://www.innocoda.com/#booking" target="_blank"
+               class="inline-flex bg-[#00D2D2] text-[#030712] px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all">
+                Book a Free CodaSite Demo
+            </a>
+        </div>
+
+    </div>
+    </section>
+    {% endcomment %}
+
 
     <section id="problem" class="py-32 px-6 relative bg-[#050b18]">
         <div class="max-w-7xl mx-auto space-y-16">
@@ -113,6 +156,24 @@
             </div>
         </div>
     </section>
+
+    <div data-aos="fade-up" class="text-center pt-8">
+
+        <h3 class="text-2xl sm:text-3xl font-black text-white uppercase">
+            These problems don't need to be managed manually.
+        </h3>
+
+        <p class="mt-4 text-slate-400 max-w-2xl mx-auto">
+            See how CodaSite can give your team real-time visibility
+            across your active construction sites.
+        </p>
+
+        <a href="https://www.innocoda.com/#booking"
+        class="inline-block mt-8 bg-[#00D2D2] text-[#030712] px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all">
+            Book a Free Demo
+        </a>
+
+    </div>
 
     <section id="protocol" class="py-32 px-6 border-t border-white/5 bg-[#030712]">
         <div class="max-w-7xl mx-auto space-y-16">
