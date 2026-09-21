@@ -345,49 +345,36 @@
         }
 </style>
 <script>
-//function captureSiteLocation() {
-    const btn = document.getElementById('gps-btn');
-    btn.innerHTML = "🛰️ Locating...";
-    
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            document.getElementById('site_lat').value = position.coords.latitude;
-            document.getElementById('site_lng').value = position.coords.longitude;
-            btn.innerHTML = "✅ Location Locked";
-            btn.classList.add('bg-innocoda-teal/20');
-        },
-        (error) => {
-            alert("Error: Please enable GPS/Location on your device.");
-            btn.innerHTML = "❌ GPS Failed - Try Again";
-        },
-        { enableHighAccuracy: true }
-    );
-//}
-function captureSiteLocation() {
-    const btn = document.getElementById('gps-btn');
-    
-    if (!navigator.geolocation) {
-        alert("Geolocation is not supported by this browser.");
-        return;
+    {
+    let lastScrollTop = 0;
+    function captureSiteLocation() {
+        const btn = document.getElementById('gps-btn');
+        
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by this browser.");
+            return;
+        }
+
+        btn.innerHTML = "🛰️ Locating...";
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                document.getElementById('site_lat').value = position.coords.latitude;
+                document.getElementById('site_lng').value = position.coords.longitude;
+                btn.innerHTML = "✅ Location Locked";
+                btn.classList.add('bg-innocoda-teal/20');
+            },
+            (error) => {
+                // Check if it's a security/permission issue
+                console.error(error);
+                alert("GPS Error: " + error.message + ". Make sure you are using HTTPS.");
+                btn.innerHTML = "❌ GPS Failed";
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
     }
 
-    btn.innerHTML = "🛰️ Locating...";
-    
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            document.getElementById('site_lat').value = position.coords.latitude;
-            document.getElementById('site_lng').value = position.coords.longitude;
-            btn.innerHTML = "✅ Location Locked";
-        },
-        (error) => {
-            // Check if it's a security/permission issue
-            console.error(error);
-            alert("GPS Error: " + error.message + ". Make sure you are using HTTPS.");
-            btn.innerHTML = "❌ GPS Failed";
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-    );
-}
-</script>
+        }    
+    </script>
     </div>
 {% endblock %}

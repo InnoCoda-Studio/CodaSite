@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 
+
 urlpatterns = [
     # --- CORE NAVIGATION ---
     path('', views.index, name='index'),
@@ -83,4 +84,7 @@ urlpatterns = [
     path('billing/verify-payment/<str:reference>/',
          views.verify_payment, name='verify_payment'),
      path('api/cron/weekly-reports/', views.trigger_weekly_reports_cron, name='cron_weekly_reports'),
+
+
+    
 ]
